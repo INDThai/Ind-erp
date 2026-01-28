@@ -2,29 +2,33 @@ import React, { useState } from 'react'
 import { 
   Home, Package, Factory, Receipt, Truck, Users, 
   Sparkles, MessageCircle, BarChart3, Settings,
-  ChevronRight, Building2, FileText, Shield, Calendar
+  ChevronRight, Building2
 } from 'lucide-react'
 
-import INDERPSystem from './components/ERPSystem'
-import INDAIAgentsHub from './components/AIHub'
-import DepartmentDashboards from './components/DepartmentDashboards'
-import INDLineAndAccessSystem from './components/LINEIntegration'
-import INDInventoryComplete from './components/InventoryModule'
+import INDERPSystem from './components/ERPSystem.jsx'
+import INDAIAgentsHub from './components/AIHub.jsx'
+import DepartmentDashboards from './components/DepartmentDashboards.jsx'
+import INDLineAndAccessSystem from './components/LINEIntegration.jsx'
+import INDInventoryComplete from './components/InventoryModule.jsx'
 
 export default function App() {
   const [currentModule, setCurrentModule] = useState('launcher')
 
+  const modules = [
+    { id: 'erp', name: 'ERP System', desc: '9 Modules', icon: Building2, color: 'from-blue-500 to-indigo-600' },
+    { id: 'departments', name: 'Departments', desc: 'HR, Sales, Production', icon: BarChart3, color: 'from-cyan-500 to-blue-600' },
+    { id: 'ai', name: 'AI Hub', desc: 'Cutting & OCR', icon: Sparkles, color: 'from-purple-500 to-pink-600' },
+    { id: 'line', name: 'LINE Integration', desc: 'Chat & Access', icon: MessageCircle, color: 'from-green-500 to-emerald-600' },
+    { id: 'inventory', name: 'Inventory', desc: '5 Stores', icon: Package, color: 'from-amber-500 to-orange-600' },
+  ]
+
   if (currentModule !== 'launcher') {
     return (
       <div className="min-h-screen">
-        <button
-          onClick={() => setCurrentModule('launcher')}
-          className="fixed top-4 left-4 z-50 px-4 py-2 bg-white shadow-lg rounded-lg border flex items-center gap-2 hover:bg-gray-50 transition-colors"
-        >
+        <button onClick={() => setCurrentModule('launcher')} className="fixed top-4 left-4 z-50 px-4 py-2 bg-white shadow-lg rounded-lg border flex items-center gap-2 hover:bg-gray-50">
           <Home className="w-4 h-4" />
           <span className="font-medium">Back to Launcher</span>
         </button>
-        
         {currentModule === 'erp' && <INDERPSystem />}
         {currentModule === 'ai' && <INDAIAgentsHub />}
         {currentModule === 'departments' && <DepartmentDashboards />}
@@ -34,25 +38,15 @@ export default function App() {
     )
   }
 
-  const modules = [
-    { id: 'erp', name: 'ERP System', desc: '9 Modules: Dashboard, Inventory, Purchase, Production, Sales', icon: Building2, color: 'from-blue-500 to-indigo-600' },
-    { id: 'departments', name: 'Department Dashboards', desc: 'HR, Accounting, Purchase, Production, Sales, Transport', icon: BarChart3, color: 'from-cyan-500 to-blue-600' },
-    { id: 'ai', name: 'AI Hub', desc: 'Cutting Optimizer & Document OCR', icon: Sparkles, color: 'from-purple-500 to-pink-600' },
-    { id: 'line', name: 'LINE Integration', desc: 'Chat Agent & Access Control', icon: MessageCircle, color: 'from-green-500 to-emerald-600' },
-    { id: 'inventory', name: 'Inventory Manager', desc: '5 Stores with Lot Tracking', icon: Package, color: 'from-amber-500 to-orange-600' },
-  ]
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <header className="bg-black/20 backdrop-blur-sm border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <header className="bg-black/20 border-b border-white/10 px-6 py-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-green-400 to-blue-500 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-xl">IND</span>
-            </div>
+            <div className="w-14 h-14 bg-gradient-to-br from-green-400 to-blue-500 rounded-xl flex items-center justify-center text-white font-bold text-xl">IND</div>
             <div>
               <h1 className="text-white font-bold text-2xl">IND THAI PACKWELL</h1>
-              <p className="text-slate-400">Enterprise Resource Planning System</p>
+              <p className="text-slate-400">Enterprise Resource Planning</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -60,32 +54,32 @@ export default function App() {
               <div className="text-sm text-slate-400">Welcome back</div>
               <div className="font-semibold">Vinit Dhariwal</div>
             </div>
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-lg">VD</div>
+            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold">VD</div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-12">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-white mb-4">Good Morning! 👋</h2>
+      <main className="max-w-6xl mx-auto px-6 py-12">
+        <div className="text-center mb-10">
+          <h2 className="text-4xl font-bold text-white mb-3">Good Morning! 👋</h2>
           <p className="text-slate-400 text-lg">Select a module to get started</p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+          <div className="bg-white/10 rounded-xl p-4 border border-white/10">
             <div className="text-2xl font-bold text-white">15</div>
             <div className="text-sm text-slate-400">Active WOs</div>
           </div>
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-            <div className="text-2xl font-bold text-white">฿4.87M</div>
+          <div className="bg-white/10 rounded-xl p-4 border border-white/10">
+            <div className="text-2xl font-bold text-amber-400">฿4.87M</div>
             <div className="text-sm text-slate-400">Stock Value</div>
           </div>
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-            <div className="text-2xl font-bold text-white">฿8.2M</div>
+          <div className="bg-white/10 rounded-xl p-4 border border-white/10">
+            <div className="text-2xl font-bold text-green-400">฿8.2M</div>
             <div className="text-sm text-slate-400">Sales MTD</div>
           </div>
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-            <div className="text-2xl font-bold text-white">67</div>
+          <div className="bg-white/10 rounded-xl p-4 border border-white/10">
+            <div className="text-2xl font-bold text-purple-400">67</div>
             <div className="text-sm text-slate-400">Employees</div>
           </div>
         </div>
@@ -95,26 +89,24 @@ export default function App() {
             <button
               key={m.id}
               onClick={() => setCurrentModule(m.id)}
-              className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all text-left group"
+              className="bg-white/5 rounded-2xl p-6 border border-white/10 hover:bg-white/10 transition-all text-left group"
             >
-              <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${m.color} flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform`}>
+              <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${m.color} flex items-center justify-center mb-4`}>
                 <m.icon className="w-7 h-7 text-white" />
               </div>
               <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
                 {m.name}
-                <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-white transition-all" />
               </h3>
               <p className="text-slate-400 text-sm">{m.desc}</p>
             </button>
           ))}
         </div>
 
-        <div className="mt-16 text-center">
+        <div className="mt-12 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full border border-white/10">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-slate-400 text-sm">System Online</span>
-            <span className="text-slate-600">•</span>
-            <span className="text-slate-400 text-sm">Version 1.0.0</span>
+            <span className="text-slate-400 text-sm">System Online • v1.0.0</span>
           </div>
         </div>
       </main>
