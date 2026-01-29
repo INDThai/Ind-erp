@@ -144,8 +144,8 @@ const t = (key, lang) => TRANSLATIONS[key]?.[lang] || TRANSLATIONS[key]?.['en'] 
 // INITIAL DATA (Configurable by Staff)
 // ============================================
 const INITIAL_STORES = [
-  { id: 'STORE1', code: 'STORE1', nameEn: 'RM Wood', nameTh: 'คลังวัตถุดิบไม้', type: 'raw_material', branch: 'IND', categories: ['MLH', 'PW'], isActive: true, itemCount: 658, value: 2450000 },
-  { id: 'STORE2', code: 'STORE2', nameEn: 'IND 2 Ply', nameTh: 'คลังไม้อัด', type: 'branch_stock', branch: 'IND-2', categories: ['PLY'], isActive: true, itemCount: 234, value: 680000 },
+  { id: 'STORE1', code: 'STORE1', nameEn: 'RM Wood', nameTh: 'คลังวัตถุดิบไม้', type: 'raw_material', branch: 'IND', categories: ['MLH', 'PW', 'PWKD', 'PWGRN', 'PRTB', 'PLYWW', 'PLYRR', 'PLYRW'], isActive: true, itemCount: 658, value: 2450000 },
+  { id: 'STORE2', code: 'STORE2', nameEn: 'IND 2 Ply', nameTh: 'คลังไม้อัด IND-2', type: 'branch_stock', branch: 'IND-2', categories: ['PLYWW', 'PLYRR', 'PLYRW'], isActive: true, itemCount: 234, value: 680000 },
   { id: 'STORE3', code: 'STORE3', nameEn: 'Consumables', nameTh: 'คลังวัสดุสิ้นเปลือง', type: 'consumables', branch: 'IND', categories: ['CONS'], isActive: true, itemCount: 145, value: 145000 },
   { id: 'STORE4', code: 'STORE4', nameEn: 'Office', nameTh: 'คลังเครื่องเขียน', type: 'office', branch: 'IND', categories: ['OFFICE'], isActive: true, itemCount: 85, value: 25000 },
   { id: 'STORE5', code: 'STORE5', nameEn: 'Maintenance', nameTh: 'คลังอะไหล่', type: 'maintenance', branch: 'IND', categories: ['MAINT'], isActive: true, itemCount: 320, value: 320000 },
@@ -153,25 +153,56 @@ const INITIAL_STORES = [
 ]
 
 const INITIAL_CATEGORIES = [
-  { id: 'MLH', code: 'MLH', nameEn: 'Mixed Hardwood', nameTh: 'ไม้เนื้อแข็งผสม', color: '#8B4513', costMethod: 'FIFO', isActive: true },
-  { id: 'PW', code: 'PW', nameEn: 'Pine Wood', nameTh: 'ไม้สน', color: '#DEB887', costMethod: 'FIFO', isActive: true },
-  { id: 'PLY', code: 'PLY', nameEn: 'Plywood', nameTh: 'ไม้อัด', color: '#D2691E', costMethod: 'FIFO', isActive: true },
-  { id: 'PRTB', code: 'PRTB', nameEn: 'Particle Board', nameTh: 'ไม้ปาร์ติเกิล', color: '#A0522D', costMethod: 'FIFO', isActive: true },
-  { id: 'CONS', code: 'CONS', nameEn: 'Consumables', nameTh: 'วัสดุสิ้นเปลือง', color: '#708090', costMethod: 'AVG', isActive: true },
-  { id: 'FG', code: 'FG', nameEn: 'Finished Goods', nameTh: 'สินค้าสำเร็จรูป', color: '#2ECC40', costMethod: 'STD', isActive: true },
+  // Raw Material - Wood Types (8 categories)
+  // MLH = Yellow
+  { id: 'MLH', code: 'MLH', nameEn: 'Mixed Hardwood', nameTh: 'ไม้เนื้อแข็งผสม', color: '#F1C40F', costMethod: 'FIFO', isActive: true, type: 'raw_material' },
+  // PW Family = Shades of Green
+  { id: 'PW', code: 'PW', nameEn: 'Pine Wood', nameTh: 'ไม้สน', color: '#27AE60', costMethod: 'FIFO', isActive: true, type: 'raw_material' },
+  { id: 'PWKD', code: 'PWKD', nameEn: 'Pine Wood Kiln Dried', nameTh: 'ไม้สนอบแห้ง', color: '#1E8449', costMethod: 'FIFO', isActive: true, type: 'raw_material' },
+  { id: 'PWGRN', code: 'PWGRN', nameEn: 'Pine Wood Green', nameTh: 'ไม้สนสด', color: '#58D68D', costMethod: 'FIFO', isActive: true, type: 'raw_material' },
+  // PLY Family = Shades of Blue
+  { id: 'PLYWW', code: 'PLYWW', nameEn: 'Plywood White-White', nameTh: 'ไม้อัดขาว-ขาว', color: '#5DADE2', costMethod: 'FIFO', isActive: true, type: 'raw_material' },
+  { id: 'PLYRR', code: 'PLYRR', nameEn: 'Plywood Red-Red', nameTh: 'ไม้อัดแดง-แดง', color: '#2E86C1', costMethod: 'FIFO', isActive: true, type: 'raw_material' },
+  { id: 'PLYRW', code: 'PLYRW', nameEn: 'Plywood Red-White', nameTh: 'ไม้อัดแดง-ขาว', color: '#1A5276', costMethod: 'FIFO', isActive: true, type: 'raw_material' },
+  // PRTB = Dark Salmon
+  { id: 'PRTB', code: 'PRTB', nameEn: 'Particle Board', nameTh: 'ไม้ปาร์ติเกิล', color: '#E9967A', costMethod: 'FIFO', isActive: true, type: 'raw_material' },
+  // Other Categories
+  { id: 'CONS', code: 'CONS', nameEn: 'Consumables', nameTh: 'วัสดุสิ้นเปลือง', color: '#708090', costMethod: 'AVG', isActive: true, type: 'consumables' },
+  { id: 'FG', code: 'FG', nameEn: 'Finished Goods', nameTh: 'สินค้าสำเร็จรูป', color: '#2ECC40', costMethod: 'STD', isActive: true, type: 'finished_goods' },
+  { id: 'OFFICE', code: 'OFFICE', nameEn: 'Office Supplies', nameTh: 'เครื่องเขียนสำนักงาน', color: '#9B59B6', costMethod: 'AVG', isActive: true, type: 'office' },
+  { id: 'MAINT', code: 'MAINT', nameEn: 'Maintenance Parts', nameTh: 'อะไหล่ซ่อมบำรุง', color: '#E67E22', costMethod: 'AVG', isActive: true, type: 'maintenance' },
 ]
 
 const INITIAL_INVENTORY = [
+  // MLH - Mixed Hardwood (Yellow)
   { id: 1, lotNo: 'LP21499', category: 'MLH', code: 'IND-MLH/0.5/3/1', store: 'STORE1', qty: 700, cbm: 0.859, cost: 4218, costPerCbm: 4912, status: 'available', dateIn: '2024-07-03', vendor: 'Thai Timber' },
   { id: 2, lotNo: 'LP21500', category: 'MLH', code: 'IND-MLH/0.5/3/1', store: 'STORE1', qty: 650, cbm: 0.797, cost: 3914, costPerCbm: 4912, status: 'available', dateIn: '2024-07-03', vendor: 'Thai Timber' },
   { id: 3, lotNo: 'LP21501', category: 'MLH', code: 'IND-MLH/0.5/3/1', store: 'STORE1', qty: 45, cbm: 0.055, cost: 271, costPerCbm: 4912, status: 'low', dateIn: '2024-07-03', vendor: 'Thai Timber' },
   { id: 4, lotNo: 'LP20044', category: 'MLH', code: 'IND-MLH/0.5/3.4/1.3', store: 'STORE1', qty: 241, cbm: 0.344, cost: 1689, costPerCbm: 4912, status: 'available', dateIn: '2024-05-25', vendor: 'Green Wood' },
   { id: 5, lotNo: 'LP19507', category: 'MLH', code: 'IND-MLH/0.5/3.8/1.3', store: 'STORE1', qty: 254, cbm: 0.405, cost: 1990, costPerCbm: 4912, status: 'available', dateIn: '2024-04-30', vendor: 'Premium Lumber' },
+  // PW - Pine Wood (Green)
   { id: 6, lotNo: 'PW-2401', category: 'PW', code: 'IND-PW/39/145/3960', store: 'STORE1', qty: 128, cbm: 2.87, cost: 8500, costPerCbm: 2962, status: 'low', dateIn: '2024-06-15', vendor: 'Pine Supply Co' },
   { id: 7, lotNo: 'PW-2402', category: 'PW', code: 'IND-PW/39/145/3960', store: 'STORE1', qty: 350, cbm: 7.84, cost: 23200, costPerCbm: 2962, status: 'available', dateIn: '2024-06-20', vendor: 'Pine Supply Co' },
-  { id: 8, lotNo: 'PLY-001', category: 'PLY', code: 'IND-PLY/12/1220/2440', store: 'STORE2', qty: 150, cbm: 5.34, cost: 45000, costPerCbm: 8427, status: 'available', dateIn: '2024-07-01', vendor: 'Ply Masters' },
-  { id: 9, lotNo: 'PLY-002', category: 'PLY', code: 'IND-PLY/18/1220/2440', store: 'STORE2', qty: 80, cbm: 4.27, cost: 42000, costPerCbm: 9836, status: 'available', dateIn: '2024-07-05', vendor: 'Ply Masters' },
-  { id: 10, lotNo: 'PRTB-001', category: 'PRTB', code: 'IND-PRTB/9/70/2440', store: 'STORE1', qty: 500, cbm: 0.77, cost: 3500, costPerCbm: 4545, status: 'available', dateIn: '2024-07-10', vendor: 'Board Co' },
+  // PWKD - Pine Wood Kiln Dried (Dark Green)
+  { id: 8, lotNo: 'PWKD-001', category: 'PWKD', code: 'IND-PWKD/40/100/4000', store: 'STORE1', qty: 200, cbm: 3.2, cost: 12800, costPerCbm: 4000, status: 'available', dateIn: '2024-07-10', vendor: 'Kiln Dry Masters' },
+  { id: 9, lotNo: 'PWKD-002', category: 'PWKD', code: 'IND-PWKD/38/95/3800', store: 'STORE1', qty: 180, cbm: 2.6, cost: 10400, costPerCbm: 4000, status: 'available', dateIn: '2024-07-12', vendor: 'Kiln Dry Masters' },
+  // PWGRN - Pine Wood Green (Light Green)
+  { id: 10, lotNo: 'PWGRN-001', category: 'PWGRN', code: 'IND-PWGRN/38/140/3900', store: 'STORE1', qty: 450, cbm: 9.35, cost: 18700, costPerCbm: 2000, status: 'available', dateIn: '2024-07-08', vendor: 'Green Pine Ltd' },
+  { id: 11, lotNo: 'PWGRN-002', category: 'PWGRN', code: 'IND-PWGRN/40/150/4000', store: 'STORE1', qty: 320, cbm: 7.68, cost: 15360, costPerCbm: 2000, status: 'available', dateIn: '2024-07-15', vendor: 'Green Pine Ltd' },
+  // PLYWW - Plywood White-White (Light Blue) - IND-2 Branch uses IND2- prefix
+  { id: 12, lotNo: 'PLYWW-001', category: 'PLYWW', code: 'IND2-PLYWW/12/1220/2440', store: 'STORE2', qty: 150, cbm: 5.34, cost: 45000, costPerCbm: 8427, status: 'available', dateIn: '2024-07-01', vendor: 'IND-2 Production' },
+  { id: 13, lotNo: 'PLYWW-002', category: 'PLYWW', code: 'IND2-PLYWW/18/1220/2440', store: 'STORE2', qty: 80, cbm: 4.27, cost: 42000, costPerCbm: 9836, status: 'available', dateIn: '2024-07-05', vendor: 'IND-2 Production' },
+  // PLYWW bought from external vendor - stored in main RM Wood (IND- prefix)
+  { id: 14, lotNo: 'PLYWW-EXT-001', category: 'PLYWW', code: 'IND-PLYWW/12/1220/2440', store: 'STORE1', qty: 50, cbm: 1.78, cost: 16000, costPerCbm: 8989, status: 'available', dateIn: '2024-07-18', vendor: 'External Ply Co' },
+  // PLYRR - Plywood Red-Red (Medium Blue) - IND-2 Branch
+  { id: 15, lotNo: 'PLYRR-001', category: 'PLYRR', code: 'IND2-PLYRR/15/1220/2440', store: 'STORE2', qty: 100, cbm: 4.46, cost: 52000, costPerCbm: 11659, status: 'available', dateIn: '2024-07-02', vendor: 'IND-2 Production' },
+  { id: 16, lotNo: 'PLYRR-002', category: 'PLYRR', code: 'IND2-PLYRR/12/1220/2440', store: 'STORE2', qty: 65, cbm: 2.31, cost: 27500, costPerCbm: 11905, status: 'low', dateIn: '2024-07-08', vendor: 'IND-2 Production' },
+  // PLYRW - Plywood Red-White (Dark Blue) - IND-2 Branch
+  { id: 17, lotNo: 'PLYRW-001', category: 'PLYRW', code: 'IND2-PLYRW/12/1220/2440', store: 'STORE2', qty: 120, cbm: 4.27, cost: 38000, costPerCbm: 8900, status: 'available', dateIn: '2024-07-03', vendor: 'IND-2 Production' },
+  { id: 18, lotNo: 'PLYRW-002', category: 'PLYRW', code: 'IND2-PLYRW/15/1220/2440', store: 'STORE2', qty: 90, cbm: 4.01, cost: 36000, costPerCbm: 8978, status: 'available', dateIn: '2024-07-10', vendor: 'IND-2 Production' },
+  // PRTB - Particle Board (Dark Salmon)
+  { id: 19, lotNo: 'PRTB-001', category: 'PRTB', code: 'IND-PRTB/9/70/2440', store: 'STORE1', qty: 500, cbm: 0.77, cost: 3500, costPerCbm: 4545, status: 'available', dateIn: '2024-07-10', vendor: 'Board Co' },
+  { id: 20, lotNo: 'PRTB-002', category: 'PRTB', code: 'IND-PRTB/12/100/2440', store: 'STORE1', qty: 300, cbm: 0.88, cost: 4200, costPerCbm: 4773, status: 'available', dateIn: '2024-07-12', vendor: 'Board Co' },
 ]
 
 const INITIAL_CUSTOMERS = [
@@ -546,9 +577,31 @@ const StoreForm = ({ store, categories, onSave, onCancel, lang }) => {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Assigned Categories</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Raw Material Categories (8 Wood Types)</label>
+        <div className="flex flex-wrap gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
+          {categories.filter(c => c.type === 'raw_material').map(cat => (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => toggleCategory(cat.id)}
+              className={`px-3 py-1.5 rounded-lg border-2 transition-all ${
+                formData.categories.includes(cat.id)
+                  ? 'border-[#1A5276] bg-[#1A5276]/10 text-[#1A5276]'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full inline-block mr-2" style={{ backgroundColor: cat.color }} />
+              {cat.code}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-gray-500 mt-1">MLH, PW, PWKD, PWGRN, PLYWW, PLYRR, PLYRW, PRTB</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Other Categories</label>
         <div className="flex flex-wrap gap-2">
-          {categories.map(cat => (
+          {categories.filter(c => c.type !== 'raw_material').map(cat => (
             <button
               key={cat.id}
               type="button"
@@ -591,48 +644,97 @@ const CategoryManager = ({ categories, setCategories, lang }) => {
     setEditingCategory(null)
   }
 
+  const rmCategories = categories.filter(c => c.type === 'raw_material')
+  const otherCategories = categories.filter(c => c.type !== 'raw_material')
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{t('admin.categories', lang)}</h1>
-          <p className="text-gray-500">Manage material categories (MLH, PW, PLY, etc.)</p>
+          <p className="text-gray-500">Manage raw material (8 wood types) and other categories</p>
         </div>
         <Button icon={Plus} onClick={() => { setEditingCategory(null); setIsModalOpen(true) }}>
           {t('action.add', lang)}
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {categories.map(cat => (
-          <Card key={cat.id} className="p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div 
-                  className="w-12 h-12 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: cat.color + '20' }}
+      {/* 8 Wood Type Categories */}
+      <div className="mb-8">
+        <h2 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+          <TreePine className="w-5 h-5 text-amber-600" />
+          Raw Material - Wood Types ({rmCategories.length})
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {rmCategories.map(cat => (
+            <Card key={cat.id} className="p-5">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="w-12 h-12 rounded-xl flex items-center justify-center"
+                    style={{ backgroundColor: cat.color + '20' }}
+                  >
+                    <TreePine className="w-6 h-6" style={{ color: cat.color }} />
+                  </div>
+                  <div>
+                    <div className="font-bold text-gray-800 text-lg">{cat.code}</div>
+                    <div className="text-sm text-gray-500">{cat.nameEn}</div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => { setEditingCategory(cat); setIsModalOpen(true) }}
+                  className="p-1.5 text-gray-400 hover:text-[#1A5276] hover:bg-gray-100 rounded"
                 >
-                  <TreePine className="w-6 h-6" style={{ color: cat.color }} />
-                </div>
-                <div>
-                  <div className="font-bold text-gray-800">{cat.code}</div>
-                  <div className="text-sm text-gray-500">{cat.nameEn}</div>
-                </div>
+                  <Edit3 className="w-4 h-4" />
+                </button>
               </div>
-              <button 
-                onClick={() => { setEditingCategory(cat); setIsModalOpen(true) }}
-                className="p-1.5 text-gray-400 hover:text-[#1A5276] hover:bg-gray-100 rounded"
-              >
-                <Edit3 className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="text-sm text-gray-600">{cat.nameTh}</div>
-            <div className="flex items-center gap-2 mt-3">
-              <Badge variant="default">Cost: {cat.costMethod}</Badge>
-              <div className="w-6 h-6 rounded-full border-2" style={{ backgroundColor: cat.color }} />
-            </div>
-          </Card>
-        ))}
+              <div className="text-sm text-gray-600">{cat.nameTh}</div>
+              <div className="flex items-center gap-2 mt-3">
+                <Badge variant="default">Cost: {cat.costMethod}</Badge>
+                <div className="w-6 h-6 rounded-full border-2" style={{ backgroundColor: cat.color }} />
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Other Categories */}
+      <div>
+        <h2 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+          <Box className="w-5 h-5 text-gray-500" />
+          Other Categories ({otherCategories.length})
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {otherCategories.map(cat => (
+            <Card key={cat.id} className="p-5">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="w-12 h-12 rounded-xl flex items-center justify-center"
+                    style={{ backgroundColor: cat.color + '20' }}
+                  >
+                    <Box className="w-6 h-6" style={{ color: cat.color }} />
+                  </div>
+                  <div>
+                    <div className="font-bold text-gray-800">{cat.code}</div>
+                    <div className="text-sm text-gray-500">{cat.nameEn}</div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => { setEditingCategory(cat); setIsModalOpen(true) }}
+                  className="p-1.5 text-gray-400 hover:text-[#1A5276] hover:bg-gray-100 rounded"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="text-sm text-gray-600">{cat.nameTh}</div>
+              <div className="flex items-center gap-2 mt-3">
+                <Badge variant="default">Cost: {cat.costMethod}</Badge>
+                <div className="w-6 h-6 rounded-full border-2" style={{ backgroundColor: cat.color }} />
+              </div>
+            </Card>
+          ))}
+        </div>
       </div>
 
       <Modal
@@ -645,29 +747,40 @@ const CategoryManager = ({ categories, setCategories, lang }) => {
           e.preventDefault()
           const form = e.target
           handleSave({
-            code: form.code.value,
+            code: form.code.value.toUpperCase(),
             nameEn: form.nameEn.value,
             nameTh: form.nameTh.value,
             color: form.color.value,
             costMethod: form.costMethod.value,
+            type: form.type.value,
           })
         }} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Code *</label>
-            <input name="code" required defaultValue={editingCategory?.code} className="w-full px-3 py-2 border rounded-lg" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Code * (e.g., PWKD, PLYWW)</label>
+            <input name="code" required defaultValue={editingCategory?.code} className="w-full px-3 py-2 border rounded-lg uppercase" placeholder="Material code" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Name (English) *</label>
-            <input name="nameEn" required defaultValue={editingCategory?.nameEn} className="w-full px-3 py-2 border rounded-lg" />
+            <input name="nameEn" required defaultValue={editingCategory?.nameEn} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., Pine Wood Kiln Dried" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Name (Thai)</label>
-            <input name="nameTh" defaultValue={editingCategory?.nameTh} className="w-full px-3 py-2 border rounded-lg" />
+            <input name="nameTh" defaultValue={editingCategory?.nameTh} className="w-full px-3 py-2 border rounded-lg" placeholder="ชื่อภาษาไทย" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category Type *</label>
+            <select name="type" defaultValue={editingCategory?.type || 'raw_material'} className="w-full px-3 py-2 border rounded-lg">
+              <option value="raw_material">Raw Material (Wood)</option>
+              <option value="consumables">Consumables</option>
+              <option value="finished_goods">Finished Goods</option>
+              <option value="office">Office Supplies</option>
+              <option value="maintenance">Maintenance Parts</option>
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-              <input name="color" type="color" defaultValue={editingCategory?.color || '#8B4513'} className="w-full h-10 rounded-lg" />
+              <input name="color" type="color" defaultValue={editingCategory?.color || '#8B4513'} className="w-full h-10 rounded-lg cursor-pointer" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Cost Method</label>
@@ -790,9 +903,9 @@ const InventoryModule = ({ inventory, stores, categories, lang }) => {
         </Card>
       </div>
 
-      {/* Category Quick Cards */}
+      {/* Category Quick Cards - 8 Wood Types */}
       <div className="flex gap-3 mb-6 overflow-x-auto pb-2">
-        {categories.filter(c => ['MLH', 'PW', 'PLY', 'PRTB'].includes(c.id)).map(cat => {
+        {categories.filter(c => c.type === 'raw_material').map(cat => {
           const catItems = inventory.filter(i => i.category === cat.id)
           const catValue = catItems.reduce((sum, i) => sum + i.cost, 0)
           const catLots = catItems.length
@@ -802,13 +915,13 @@ const InventoryModule = ({ inventory, stores, categories, lang }) => {
             <Card 
               key={cat.id}
               onClick={() => setSelectedCategory(selectedCategory === cat.id ? 'all' : cat.id)}
-              className={`p-4 min-w-[180px] flex-shrink-0 cursor-pointer transition-all ${selectedCategory === cat.id ? 'ring-2 ring-[#1A5276]' : ''}`}
+              className={`p-4 min-w-[140px] flex-shrink-0 cursor-pointer transition-all ${selectedCategory === cat.id ? 'ring-2 ring-[#1A5276]' : ''}`}
             >
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: cat.color + '20' }}>
                   <TreePine className="w-4 h-4" style={{ color: cat.color }} />
                 </div>
-                <span className="font-bold" style={{ color: cat.color }}>{cat.code}</span>
+                <span className="font-bold text-sm" style={{ color: cat.color }}>{cat.code}</span>
               </div>
               <div className="text-lg font-bold text-gray-800">{formatCurrency(catValue)}</div>
               <div className="flex items-center justify-between text-sm text-gray-500">
