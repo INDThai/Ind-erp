@@ -10,7 +10,7 @@ import {
   Wallet, MapPin, Activity, CreditCard, PieChart, Printer, Download,
   Save, RefreshCw, LogOut, User, Lock, Mail, Hash, Tag, Box,
   Warehouse, ArrowRight, ArrowLeft, MoreVertical, Copy, Archive,
-  Languages, Check, AlertCircle, Info, HelpCircle, ExternalLink
+  Languages, Check, AlertCircle, Info, HelpCircle, ExternalLink, Play
 } from 'lucide-react'
 
 // ============================================
@@ -919,6 +919,233 @@ const CategoryManager = ({ categories, setCategories, lang }) => {
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('action.cancel', lang)}</Button>
           </div>
         </form>
+      </Modal>
+    </div>
+  )
+}
+
+// ============================================
+// DEPARTMENT MANAGER
+// ============================================
+const DepartmentManager = ({ departments, setDepartments, lang }) => {
+  const [showModal, setShowModal] = useState(false)
+  const [editingDept, setEditingDept] = useState(null)
+  const [formData, setFormData] = useState({
+    code: '',
+    nameEn: '',
+    nameTh: '',
+    type: 'processing',
+    hourlyRate: 180,
+    sequence: 1,
+    isActive: true,
+  })
+
+  const openAdd = () => {
+    setFormData({
+      code: '',
+      nameEn: '',
+      nameTh: '',
+      type: 'processing',
+      hourlyRate: 180,
+      sequence: departments.length + 1,
+      isActive: true,
+    })
+    setEditingDept(null)
+    setShowModal(true)
+  }
+
+  const openEdit = (dept) => {
+    setFormData({ ...dept })
+    setEditingDept(dept)
+    setShowModal(true)
+  }
+
+  const handleSave = () => {
+    if (editingDept) {
+      setDepartments(departments.map(d => d.id === editingDept.id ? { ...d, ...formData } : d))
+    } else {
+      const newId = formData.code.toUpperCase()
+      setDepartments([...departments, { ...formData, id: newId }])
+    }
+    setShowModal(false)
+  }
+
+  const toggleActive = (dept) => {
+    setDepartments(departments.map(d => d.id === dept.id ? { ...d, isActive: !d.isActive } : d))
+  }
+
+  const getTypeColor = (type) => {
+    const colors = {
+      cutting: 'bg-red-100 text-red-700',
+      processing: 'bg-blue-100 text-blue-700',
+      assembly: 'bg-green-100 text-green-700',
+      treatment: 'bg-orange-100 text-orange-700',
+      qa: 'bg-purple-100 text-purple-700',
+      fg: 'bg-teal-100 text-teal-700',
+      machine: 'bg-gray-100 text-gray-700',
+    }
+    return colors[type] || 'bg-gray-100 text-gray-700'
+  }
+
+  const sortedDepts = [...departments].sort((a, b) => a.sequence - b.sequence)
+
+  return (
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Production Departments</h1>
+          <p className="text-gray-500">Configure cutting, processing, assembly, QC stations and machines</p>
+        </div>
+        <Button icon={Plus} onClick={openAdd}>Add Department</Button>
+      </div>
+
+      {/* Info Banner */}
+      <Card className="p-4 mb-6 bg-blue-50 border-blue-200">
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-blue-600 mt-0.5" />
+          <div>
+            <div className="font-medium text-blue-800">Production Departments</div>
+            <div className="text-sm text-blue-600">
+              Add cutting stations (C1, C2...), assembly lines (A1, A2...), processing areas (P1, P2...), 
+              machines, or QC stations. These appear in Work Order operations.
+            </div>
+            <div className="text-sm text-blue-600 mt-1">
+              <strong>Note:</strong> Trucks & Transport are managed separately in the <strong>Transport Module</strong>.
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Department Grid */}
+      <div className="grid grid-cols-3 gap-4">
+        {sortedDepts.map(dept => (
+          <Card key={dept.id} className={`p-4 ${!dept.isActive ? 'opacity-50 bg-gray-50' : ''}`}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1A5276] to-[#2ECC40] flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">{dept.code}</span>
+                </div>
+                <div>
+                  <div className="font-bold text-gray-800">{dept.nameEn}</div>
+                  <div className="text-sm text-gray-500">{dept.nameTh}</div>
+                </div>
+              </div>
+              <div className="flex gap-1">
+                <button onClick={() => openEdit(dept)} className="p-1.5 text-gray-400 hover:text-[#1A5276] hover:bg-gray-100 rounded">
+                  <Edit3 className="w-4 h-4" />
+                </button>
+                <button onClick={() => toggleActive(dept)} className={`p-1.5 rounded ${dept.isActive ? 'text-green-500 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-100'}`}>
+                  {dept.isActive ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <Badge className={getTypeColor(dept.type)}>{dept.type}</Badge>
+              <span className="text-gray-600">฿{dept.hourlyRate}/hr</span>
+            </div>
+            <div className="mt-2 text-xs text-gray-400">Sequence: {dept.sequence}</div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Add/Edit Modal */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={editingDept ? `Edit Department - ${editingDept.code}` : 'Add New Department'}
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Code *</label>
+              <input
+                type="text"
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                className="w-full px-3 py-2 border rounded-lg uppercase"
+                placeholder="C1, A1, P1, M1..."
+                disabled={!!editingDept}
+              />
+              <p className="text-xs text-gray-500 mt-1">Use: C=Cutting, A=Assembly, P=Process, M=Machine</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
+              <select
+                value={formData.type}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                {DEPARTMENT_TYPES.map(t => (
+                  <option key={t.id} value={t.id}>{t.nameEn} / {t.nameTh}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Name (English) *</label>
+              <input
+                type="text"
+                value={formData.nameEn}
+                onChange={(e) => setFormData({ ...formData, nameEn: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+                placeholder="Cutting 1 (Singh)"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Name (Thai) *</label>
+              <input
+                type="text"
+                value={formData.nameTh}
+                onChange={(e) => setFormData({ ...formData, nameTh: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+                placeholder="ตัด 1 (สิงห์)"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate (฿)</label>
+              <input
+                type="number"
+                value={formData.hourlyRate}
+                onChange={(e) => setFormData({ ...formData, hourlyRate: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sequence</label>
+              <input
+                type="number"
+                value={formData.sequence}
+                onChange={(e) => setFormData({ ...formData, sequence: parseInt(e.target.value) || 1 })}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+              <p className="text-xs text-gray-500 mt-1">Order in production flow</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isActive"
+              checked={formData.isActive}
+              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+              className="w-4 h-4 rounded text-[#1A5276]"
+            />
+            <label htmlFor="isActive" className="text-sm text-gray-700">Active (available for work orders)</label>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+            <Button onClick={handleSave} disabled={!formData.code || !formData.nameEn}>
+              {editingDept ? 'Save Changes' : 'Add Department'}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   )
@@ -1839,7 +2066,120 @@ const LabelPrintModal = ({ isOpen, onClose, lots, lang, title, isPrePrint }) => 
 }
 
 // ============================================
-// PURCHASE MODULE
+// PRODUCTION MODULE DATA
+// ============================================
+const INITIAL_DEPARTMENTS = [
+  // Cutting departments
+  { id: 'C1', code: 'C1', nameEn: 'Cutting 1 (Singh)', nameTh: 'ตัด 1 (สิงห์)', hourlyRate: 200, type: 'cutting', sequence: 1, isActive: true },
+  { id: 'C2', code: 'C2', nameEn: 'Cutting 2 (One)', nameTh: 'ตัด 2 (วัน)', hourlyRate: 200, type: 'cutting', sequence: 2, isActive: true },
+  // Processing departments
+  { id: 'P1', code: 'P1', nameEn: 'Processing 1', nameTh: 'แปรรูป 1', hourlyRate: 180, type: 'processing', sequence: 3, isActive: true },
+  { id: 'P2', code: 'P2', nameEn: 'Processing 2', nameTh: 'แปรรูป 2', hourlyRate: 180, type: 'processing', sequence: 4, isActive: true },
+  { id: 'P3', code: 'P3', nameEn: 'Processing 3', nameTh: 'แปรรูป 3', hourlyRate: 180, type: 'processing', sequence: 5, isActive: true },
+  // Assembly departments
+  { id: 'A1', code: 'A1', nameEn: 'Assembly 1 (Khem)', nameTh: 'ประกอบ 1 (เข็ม)', hourlyRate: 180, type: 'assembly', sequence: 6, isActive: true },
+  { id: 'A2', code: 'A2', nameEn: 'Assembly 2 (Khwai)', nameTh: 'ประกอบ 2 (ควาย)', hourlyRate: 180, type: 'assembly', sequence: 7, isActive: true },
+  // Treatment & QC
+  { id: 'OVEN', code: 'OVEN', nameEn: 'Oven / Heat Treatment', nameTh: 'อบความร้อน', hourlyRate: 150, type: 'treatment', sequence: 8, isActive: true },
+  { id: 'QC', code: 'QC', nameEn: 'Quality Control', nameTh: 'ตรวจคุณภาพ', hourlyRate: 200, type: 'qa', sequence: 9, isActive: true },
+  // Finished Goods (end of production)
+  { id: 'FG', code: 'FG', nameEn: 'Finished Goods', nameTh: 'สินค้าสำเร็จรูป', hourlyRate: 150, type: 'fg', sequence: 10, isActive: true },
+]
+
+// Trucks belong to Transport Module (separate from Production)
+const INITIAL_TRUCKS = [
+  { id: 'T1', code: 'T1', nameEn: 'Truck 1 (6-Wheeler)', nameTh: 'รถบรรทุก 1 (6 ล้อ)', capacity: '5 tons', driver: '', status: 'available', isActive: true },
+  { id: 'T2', code: 'T2', nameEn: 'Truck 2 (10-Wheeler)', nameTh: 'รถบรรทุก 2 (10 ล้อ)', capacity: '10 tons', driver: '', status: 'available', isActive: true },
+]
+
+// Department types for dropdown (Production only)
+const DEPARTMENT_TYPES = [
+  { id: 'cutting', nameEn: 'Cutting', nameTh: 'ตัด' },
+  { id: 'processing', nameEn: 'Processing', nameTh: 'แปรรูป' },
+  { id: 'assembly', nameEn: 'Assembly', nameTh: 'ประกอบ' },
+  { id: 'treatment', nameEn: 'Treatment', nameTh: 'การบำบัด' },
+  { id: 'qa', nameEn: 'Quality Control', nameTh: 'ควบคุมคุณภาพ' },
+  { id: 'fg', nameEn: 'Finished Goods', nameTh: 'สินค้าสำเร็จรูป' },
+  { id: 'machine', nameEn: 'Machine', nameTh: 'เครื่องจักร' },
+]
+
+const INITIAL_PRODUCTS = [
+  { id: 'PLT-STD-1200', code: 'PLT-STD-1200', nameEn: 'Standard Pallet 1200×1000', nameTh: 'พาเลทมาตรฐาน 1200×1000', unit: 'pcs', defaultPrice: 250, isActive: true },
+  { id: 'PLT-STD-1100', code: 'PLT-STD-1100', nameEn: 'Standard Pallet 1100×1100', nameTh: 'พาเลทมาตรฐาน 1100×1100', unit: 'pcs', defaultPrice: 230, isActive: true },
+  { id: 'BOX-STD', code: 'BOX-STD', nameEn: 'Standard Wooden Box', nameTh: 'กล่องไม้มาตรฐาน', unit: 'pcs', defaultPrice: 450, isActive: true },
+  { id: 'BOX-CUSTOM', code: 'BOX-CUSTOM', nameEn: 'Custom Wooden Box', nameTh: 'กล่องไม้ตามสั่ง', unit: 'pcs', defaultPrice: 0, isActive: true },
+  { id: 'CUT-CUSTOM', code: 'CUT-CUSTOM', nameEn: 'Custom Cutting', nameTh: 'ตัดไม้ตามสั่ง', unit: 'pcs', defaultPrice: 0, isActive: true },
+]
+
+const INITIAL_WORK_ORDERS = [
+  {
+    id: 'WO-2501-001',
+    customerId: 'C001',
+    customerPO: 'ABC-PO-2501',
+    productId: 'PLT-STD-1200',
+    productName: 'Standard Pallet 1200×1000',
+    quantity: 100,
+    unit: 'pcs',
+    orderDate: '2025-01-10',
+    deliveryDate: '2025-02-15',
+    deliveryDateLocked: true,
+    sellingPrice: 250,
+    totalRevenue: 25000,
+    status: 'in_progress',
+    priority: 'normal',
+    materials: [
+      { id: 1, category: 'MLH', code: 'IND-MLH/0.5/3/2.4', qtyRequired: 50, qtyIssued: 50, unit: 'pcs', estCost: 12500, actualCost: 12500 },
+      { id: 2, category: 'CONS', code: 'Nails 3"', qtyRequired: 25, qtyIssued: 25, unit: 'kg', estCost: 2000, actualCost: 2000 },
+    ],
+    operations: [
+      { id: 1, deptId: 'C1', deptName: 'Cutting 1 (Singh)', estHours: 8, actualHours: 8, status: 'completed', startTime: '2025-01-20T08:00:00', endTime: '2025-01-20T16:00:00', worker: 'สมชาย' },
+      { id: 2, deptId: 'P1', deptName: 'Processing 1', estHours: 12, actualHours: 6, status: 'in_progress', startTime: '2025-01-21T08:00:00', endTime: null, worker: 'สมหญิง' },
+      { id: 3, deptId: 'A1', deptName: 'Assembly 1 (Khem)', estHours: 10, actualHours: 0, status: 'pending', startTime: null, endTime: null, worker: null },
+      { id: 4, deptId: 'QC', deptName: 'Quality Control', estHours: 2, actualHours: 0, status: 'pending', startTime: null, endTime: null, worker: null },
+      { id: 5, deptId: 'FG', deptName: 'Finished Goods', estHours: 1, actualHours: 0, status: 'pending', startTime: null, endTime: null, worker: null },
+    ],
+    costs: { material: 14500, labor: 2680, overhead: 2175, other: 0, total: 19355, perUnit: 193.55 },
+    profit: { amount: 5645, margin: 22.58 },
+    instructions: { en: 'Cut planks to 1200mm, assemble with nails', th: 'ตัดไม้ยาว 1200 มม. ประกอบด้วยตะปู' },
+    notes: '',
+    createdAt: '2025-01-10',
+    createdBy: 'Vinit',
+  },
+  {
+    id: 'WO-2501-002',
+    customerId: 'C002',
+    customerPO: 'XYZ-PO-789',
+    productId: 'BOX-CUSTOM',
+    productName: 'Custom Box 800×600×400',
+    quantity: 50,
+    unit: 'pcs',
+    orderDate: '2025-01-15',
+    deliveryDate: '2025-02-10',
+    deliveryDateLocked: true,
+    sellingPrice: 580,
+    totalRevenue: 29000,
+    status: 'planned',
+    priority: 'high',
+    materials: [
+      { id: 1, category: 'PLYRW', code: 'IND2-PLYRW/12/1220/2440', qtyRequired: 30, qtyIssued: 0, unit: 'sheets', estCost: 15000, actualCost: 0 },
+      { id: 2, category: 'MLH', code: 'IND-MLH/0.5/2/1.2', qtyRequired: 100, qtyIssued: 0, unit: 'pcs', estCost: 8000, actualCost: 0 },
+    ],
+    operations: [
+      { id: 1, deptId: 'C2', deptName: 'Cutting 2 (One)', estHours: 6, actualHours: 0, status: 'pending', startTime: null, endTime: null, worker: null },
+      { id: 2, deptId: 'A2', deptName: 'Assembly 2 (Khwai)', estHours: 16, actualHours: 0, status: 'pending', startTime: null, endTime: null, worker: null },
+      { id: 3, deptId: 'QC', deptName: 'Quality Control', estHours: 3, actualHours: 0, status: 'pending', startTime: null, endTime: null, worker: null },
+    ],
+    costs: { material: 23000, labor: 0, overhead: 3450, other: 0, total: 26450, perUnit: 529 },
+    profit: { amount: 2550, margin: 8.79 },
+    instructions: { en: 'Custom box with reinforced corners', th: 'กล่องพิเศษเสริมมุม' },
+    notes: 'Rush order - customer needs by Feb 10',
+    createdAt: '2025-01-15',
+    createdBy: 'Vinit',
+  },
+]
+
+// ============================================
+// PRODUCTION MODULE COMPONENT
 // ============================================
 const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories, stores, inventory, setInventory, lang }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -3183,6 +3523,1343 @@ const Dashboard = ({ stores, inventory, categories, purchaseOrders = [], lang })
 }
 
 // ============================================
+// PRODUCTION MODULE
+// ============================================
+const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, inventory, setInventory, categories, stores, lang }) => {
+  const [activeTab, setActiveTab] = useState('dashboard')
+  const [showWOModal, setShowWOModal] = useState(false)
+  const [showIssueModal, setShowIssueModal] = useState(false)
+  const [selectedWO, setSelectedWO] = useState(null)
+  const [floorViewDept, setFloorViewDept] = useState('all')
+
+  const tabs = [
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    { id: 'workorders', label: 'Work Orders', icon: FileText },
+    { id: 'floor', label: 'Floor View / หน้างาน', icon: Factory },
+    { id: 'costing', label: 'Costing', icon: Calculator },
+  ]
+
+  // Stats
+  const stats = {
+    total: workOrders.length,
+    planned: workOrders.filter(w => w.status === 'planned').length,
+    inProgress: workOrders.filter(w => w.status === 'in_progress').length,
+    completed: workOrders.filter(w => w.status === 'completed').length,
+    totalRevenue: workOrders.reduce((sum, w) => sum + w.totalRevenue, 0),
+    atRisk: workOrders.filter(w => {
+      const daysLeft = Math.ceil((new Date(w.deliveryDate) - new Date()) / (1000 * 60 * 60 * 24))
+      return daysLeft <= 3 && w.status !== 'completed' && w.status !== 'delivered'
+    }).length,
+  }
+
+  const handleStartOperation = (woId, opId) => {
+    setWorkOrders(workOrders.map(wo => {
+      if (wo.id === woId) {
+        const updatedOps = wo.operations.map(op => {
+          if (op.id === opId) {
+            return { ...op, status: 'in_progress', startTime: new Date().toISOString() }
+          }
+          return op
+        })
+        return { ...wo, operations: updatedOps, status: 'in_progress' }
+      }
+      return wo
+    }))
+  }
+
+  const handleCompleteOperation = (woId, opId, actualHours) => {
+    setWorkOrders(workOrders.map(wo => {
+      if (wo.id === woId) {
+        const dept = departments.find(d => d.id === wo.operations.find(o => o.id === opId)?.deptId)
+        const laborCost = actualHours * (dept?.hourlyRate || 180)
+        
+        const updatedOps = wo.operations.map(op => {
+          if (op.id === opId) {
+            return { ...op, status: 'completed', endTime: new Date().toISOString(), actualHours }
+          }
+          return op
+        })
+        
+        const allCompleted = updatedOps.every(op => op.status === 'completed')
+        const totalLabor = updatedOps.reduce((sum, op) => {
+          const d = departments.find(dept => dept.id === op.deptId)
+          return sum + (op.actualHours * (d?.hourlyRate || 180))
+        }, 0)
+        
+        const newCosts = { 
+          ...wo.costs, 
+          labor: totalLabor,
+          total: wo.costs.material + totalLabor + wo.costs.overhead + wo.costs.other,
+          perUnit: (wo.costs.material + totalLabor + wo.costs.overhead + wo.costs.other) / wo.quantity
+        }
+        const newProfit = {
+          amount: wo.totalRevenue - newCosts.total,
+          margin: ((wo.totalRevenue - newCosts.total) / wo.totalRevenue * 100)
+        }
+        
+        return { 
+          ...wo, 
+          operations: updatedOps, 
+          status: allCompleted ? 'completed' : 'in_progress',
+          costs: newCosts,
+          profit: newProfit
+        }
+      }
+      return wo
+    }))
+  }
+
+  return (
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">{t('nav.production', lang)}</h1>
+          <p className="text-gray-500">Manage work orders, material issues, and production tracking</p>
+        </div>
+        <Button icon={Plus} onClick={() => { setSelectedWO(null); setShowWOModal(true) }}>
+          New Work Order
+        </Button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6 border-b">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
+              activeTab === tab.id
+                ? 'border-[#1A5276] text-[#1A5276] font-medium'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      {activeTab === 'dashboard' && (
+        <ProductionDashboard 
+          stats={stats} 
+          workOrders={workOrders} 
+          customers={customers}
+          departments={departments}
+          onViewWO={(wo) => { setSelectedWO(wo); setActiveTab('workorders') }}
+        />
+      )}
+      {activeTab === 'workorders' && (
+        <WorkOrderList 
+          workOrders={workOrders} 
+          customers={customers}
+          departments={departments}
+          onEdit={(wo) => { setSelectedWO(wo); setShowWOModal(true) }}
+          onIssue={(wo) => { setSelectedWO(wo); setShowIssueModal(true) }}
+          lang={lang}
+        />
+      )}
+      {activeTab === 'floor' && (
+        <FloorView 
+          workOrders={workOrders}
+          departments={departments}
+          selectedDept={floorViewDept}
+          onSelectDept={setFloorViewDept}
+          onStartOp={handleStartOperation}
+          onCompleteOp={handleCompleteOperation}
+          lang={lang}
+        />
+      )}
+      {activeTab === 'costing' && (
+        <ProductionCosting workOrders={workOrders} customers={customers} lang={lang} />
+      )}
+
+      {/* Work Order Modal */}
+      <Modal
+        isOpen={showWOModal}
+        onClose={() => { setShowWOModal(false); setSelectedWO(null) }}
+        title={selectedWO ? `Edit Work Order - ${selectedWO.id}` : 'Create Work Order'}
+        size="xl"
+      >
+        <WorkOrderForm
+          wo={selectedWO}
+          customers={customers}
+          departments={departments}
+          inventory={inventory}
+          categories={categories}
+          onSave={(woData) => {
+            if (selectedWO) {
+              setWorkOrders(workOrders.map(w => w.id === selectedWO.id ? { ...w, ...woData } : w))
+            } else {
+              const newId = `WO-${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(workOrders.length + 1).padStart(3, '0')}`
+              setWorkOrders([...workOrders, { ...woData, id: newId, createdAt: new Date().toISOString().split('T')[0], createdBy: 'Vinit' }])
+            }
+            setShowWOModal(false)
+            setSelectedWO(null)
+          }}
+          onCancel={() => { setShowWOModal(false); setSelectedWO(null) }}
+          lang={lang}
+        />
+      </Modal>
+
+      {/* Material Issue Modal */}
+      <Modal
+        isOpen={showIssueModal}
+        onClose={() => { setShowIssueModal(false); setSelectedWO(null) }}
+        title={`Issue Materials - ${selectedWO?.id}`}
+        size="lg"
+      >
+        {selectedWO && (
+          <MaterialIssueForm
+            wo={selectedWO}
+            inventory={inventory}
+            onIssue={(issueData) => {
+              // Update inventory
+              setInventory(inventory.map(lot => {
+                const issue = issueData.items.find(i => i.lotId === lot.id)
+                if (issue) {
+                  return { ...lot, qty: lot.qty - issue.qtyIssued }
+                }
+                return lot
+              }))
+              // Update WO materials
+              setWorkOrders(workOrders.map(wo => {
+                if (wo.id === selectedWO.id) {
+                  const updatedMaterials = wo.materials.map(mat => {
+                    const issue = issueData.items.find(i => i.materialId === mat.id)
+                    if (issue) {
+                      return { ...mat, qtyIssued: mat.qtyIssued + issue.qtyIssued, actualCost: mat.actualCost + issue.totalCost }
+                    }
+                    return mat
+                  })
+                  const materialCost = updatedMaterials.reduce((sum, m) => sum + m.actualCost, 0)
+                  return { 
+                    ...wo, 
+                    materials: updatedMaterials,
+                    costs: { ...wo.costs, material: materialCost, total: materialCost + wo.costs.labor + wo.costs.overhead }
+                  }
+                }
+                return wo
+              }))
+              setShowIssueModal(false)
+              setSelectedWO(null)
+            }}
+            onCancel={() => { setShowIssueModal(false); setSelectedWO(null) }}
+            lang={lang}
+          />
+        )}
+      </Modal>
+    </div>
+  )
+}
+
+// Production Dashboard
+const ProductionDashboard = ({ stats, workOrders, customers, departments, onViewWO }) => {
+  const urgentOrders = workOrders.filter(wo => {
+    const daysLeft = Math.ceil((new Date(wo.deliveryDate) - new Date()) / (1000 * 60 * 60 * 24))
+    return daysLeft <= 7 && wo.status !== 'completed' && wo.status !== 'delivered'
+  }).sort((a, b) => new Date(a.deliveryDate) - new Date(b.deliveryDate))
+
+  return (
+    <div className="space-y-6">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-6 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+              <FileText className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-800">{stats.total}</div>
+              <div className="text-sm text-gray-500">Total WOs</div>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+              <Clock className="w-6 h-6 text-gray-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-600">{stats.planned}</div>
+              <div className="text-sm text-gray-500">Planned</div>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+              <Play className="w-6 h-6 text-amber-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-amber-600">{stats.inProgress}</div>
+              <div className="text-sm text-gray-500">In Progress</div>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+              <CheckCircle className="w-6 h-6 text-green-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
+              <div className="text-sm text-gray-500">Completed</div>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-red-600">{stats.atRisk}</div>
+              <div className="text-sm text-gray-500">At Risk</div>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-[#2ECC40]/20 flex items-center justify-center">
+              <DollarSign className="w-6 h-6 text-[#2ECC40]" />
+            </div>
+            <div>
+              <div className="text-xl font-bold text-gray-800">{formatCurrency(stats.totalRevenue)}</div>
+              <div className="text-sm text-gray-500">Total Value</div>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Urgent Orders */}
+      <Card className="p-5">
+        <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <AlertTriangle className="w-5 h-5 text-red-500" />
+          Upcoming Deliveries (Next 7 Days)
+        </h3>
+        {urgentOrders.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-500" />
+            <p>No urgent deliveries!</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {urgentOrders.map(wo => {
+              const customer = customers.find(c => c.id === wo.customerId)
+              const daysLeft = Math.ceil((new Date(wo.deliveryDate) - new Date()) / (1000 * 60 * 60 * 24))
+              const completedOps = wo.operations.filter(o => o.status === 'completed').length
+              const progress = (completedOps / wo.operations.length) * 100
+              
+              return (
+                <div key={wo.id} className={`p-4 rounded-xl border-2 ${daysLeft <= 2 ? 'border-red-300 bg-red-50' : daysLeft <= 5 ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-gray-50'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-bold text-white ${daysLeft <= 2 ? 'bg-red-500' : daysLeft <= 5 ? 'bg-amber-500' : 'bg-blue-500'}`}>
+                        {daysLeft}d
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-800">{wo.id}</div>
+                        <div className="text-sm text-gray-500">{customer?.name || 'Unknown'} • {wo.productName}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-gray-800">{wo.quantity} {wo.unit}</div>
+                      <div className="text-sm text-gray-500">Due: {wo.deliveryDate}</div>
+                    </div>
+                    <div className="w-32">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Progress</span>
+                        <span>{Math.round(progress)}%</span>
+                      </div>
+                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-[#2ECC40] rounded-full transition-all" style={{ width: `${progress}%` }} />
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => onViewWO(wo)}>View</Button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </Card>
+
+      {/* Department Status */}
+      <Card className="p-5">
+        <h3 className="font-bold text-gray-800 mb-4">Department Workload</h3>
+        <div className="grid grid-cols-4 gap-4">
+          {departments.slice(0, 8).map(dept => {
+            const activeOps = workOrders.flatMap(wo => wo.operations).filter(op => op.deptId === dept.id && op.status === 'in_progress')
+            const pendingOps = workOrders.flatMap(wo => wo.operations).filter(op => op.deptId === dept.id && op.status === 'pending')
+            
+            return (
+              <div key={dept.id} className="p-4 bg-gray-50 rounded-xl">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-gray-800">{dept.nameTh}</span>
+                  <span className="text-sm text-gray-500">{dept.nameEn}</span>
+                </div>
+                <div className="flex gap-4 text-sm">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-amber-500" />
+                    <span>{activeOps.length} active</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-gray-400" />
+                    <span>{pendingOps.length} pending</span>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+// Work Order List
+const WorkOrderList = ({ workOrders, customers, departments, onEdit, onIssue, lang }) => {
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
+
+  const filtered = workOrders.filter(wo => {
+    const customer = customers.find(c => c.id === wo.customerId)
+    const matchesSearch = wo.id.toLowerCase().includes(search.toLowerCase()) ||
+                          customer?.name.toLowerCase().includes(search.toLowerCase()) ||
+                          wo.productName.toLowerCase().includes(search.toLowerCase())
+    const matchesStatus = filterStatus === 'all' || wo.status === filterStatus
+    return matchesSearch && matchesStatus
+  })
+
+  const getStatusBadge = (status) => {
+    const variants = {
+      planned: { variant: 'info', label: '📋 Planned' },
+      in_progress: { variant: 'warning', label: '🔄 In Progress' },
+      completed: { variant: 'success', label: '✅ Completed' },
+      delivered: { variant: 'default', label: '🚚 Delivered' },
+    }
+    return variants[status] || { variant: 'info', label: status }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Filters */}
+      <Card className="p-4">
+        <div className="flex gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search WO, customer, product..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A5276]"
+            />
+          </div>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-4 py-2 border rounded-lg">
+            <option value="all">All Status</option>
+            <option value="planned">Planned</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="delivered">Delivered</option>
+          </select>
+        </div>
+      </Card>
+
+      {/* Table */}
+      <Card className="overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gradient-to-r from-[#1A5276] to-[#2ECC40] text-white">
+            <tr>
+              <th className="px-4 py-3 text-left text-sm font-medium">WO Number</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Customer</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Product</th>
+              <th className="px-4 py-3 text-right text-sm font-medium">Qty</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Delivery 🔒</th>
+              <th className="px-4 py-3 text-center text-sm font-medium">Progress</th>
+              <th className="px-4 py-3 text-right text-sm font-medium">Cost</th>
+              <th className="px-4 py-3 text-right text-sm font-medium">Margin</th>
+              <th className="px-4 py-3 text-center text-sm font-medium">Status</th>
+              <th className="px-4 py-3 text-center text-sm font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {filtered.map(wo => {
+              const customer = customers.find(c => c.id === wo.customerId)
+              const daysLeft = Math.ceil((new Date(wo.deliveryDate) - new Date()) / (1000 * 60 * 60 * 24))
+              const completedOps = wo.operations.filter(o => o.status === 'completed').length
+              const progress = (completedOps / wo.operations.length) * 100
+              const statusBadge = getStatusBadge(wo.status)
+              
+              return (
+                <tr key={wo.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-medium text-[#1A5276]">{wo.id}</span>
+                      {wo.priority === 'high' && <Badge variant="danger">RUSH</Badge>}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-gray-800">{customer?.name || 'Unknown'}</div>
+                    <div className="text-sm text-gray-500">{wo.customerPO}</div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{wo.productName}</td>
+                  <td className="px-4 py-3 text-right font-medium">{wo.quantity} {wo.unit}</td>
+                  <td className="px-4 py-3">
+                    <div className={`font-medium ${daysLeft <= 3 ? 'text-red-600' : daysLeft <= 7 ? 'text-amber-600' : 'text-gray-800'}`}>
+                      {wo.deliveryDate}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {daysLeft > 0 ? `${daysLeft} days left` : daysLeft === 0 ? 'Today!' : `${Math.abs(daysLeft)} days overdue`}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-[#2ECC40] rounded-full" style={{ width: `${progress}%` }} />
+                      </div>
+                      <span className="text-sm text-gray-600 w-12">{Math.round(progress)}%</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right">{formatCurrency(wo.costs.total)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <span className={`font-medium ${wo.profit.margin >= 20 ? 'text-green-600' : wo.profit.margin >= 10 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {wo.profit.margin.toFixed(1)}%
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => onEdit(wo)} className="p-1.5 text-gray-400 hover:text-[#1A5276] hover:bg-gray-100 rounded" title="Edit">
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => onIssue(wo)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-gray-100 rounded" title="Issue Materials">
+                        <Package className="w-4 h-4" />
+                      </button>
+                      <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded" title="Print">
+                        <Printer className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  )
+}
+
+// Floor View (Thai Primary)
+const FloorView = ({ workOrders, departments, selectedDept, onSelectDept, onStartOp, onCompleteOp, lang }) => {
+  const [completingOp, setCompletingOp] = useState(null)
+  const [actualHours, setActualHours] = useState('')
+
+  const activeWOs = workOrders.filter(wo => wo.status === 'in_progress' || wo.status === 'planned')
+
+  const handleComplete = () => {
+    if (completingOp && actualHours) {
+      onCompleteOp(completingOp.woId, completingOp.opId, parseFloat(actualHours))
+      setCompletingOp(null)
+      setActualHours('')
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Department Filter */}
+      <div className="flex gap-2 flex-wrap">
+        <button
+          onClick={() => onSelectDept('all')}
+          className={`px-4 py-2 rounded-lg transition-all ${selectedDept === 'all' ? 'bg-[#1A5276] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+        >
+          ทั้งหมด / All
+        </button>
+        {departments.map(dept => (
+          <button
+            key={dept.id}
+            onClick={() => onSelectDept(dept.id)}
+            className={`px-4 py-2 rounded-lg transition-all ${selectedDept === dept.id ? 'bg-[#1A5276] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          >
+            {dept.nameTh}
+          </button>
+        ))}
+      </div>
+
+      {/* Work Orders Cards */}
+      <div className="grid grid-cols-2 gap-6">
+        {activeWOs.map(wo => {
+          const filteredOps = selectedDept === 'all' 
+            ? wo.operations 
+            : wo.operations.filter(op => op.deptId === selectedDept)
+          
+          if (filteredOps.length === 0) return null
+
+          return (
+            <Card key={wo.id} className="overflow-hidden">
+              {/* Header */}
+              <div className={`p-4 ${wo.priority === 'high' ? 'bg-red-500' : 'bg-gradient-to-r from-[#1A5276] to-[#2ECC40]'} text-white`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xl font-bold">{wo.id}</div>
+                    <div className="text-white/80">{wo.productName}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold">{wo.quantity}</div>
+                    <div className="text-white/80">{wo.unit}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery Date */}
+              <div className="p-3 bg-amber-50 border-b flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-amber-600" />
+                  <span className="font-medium text-amber-800">วันส่งมอบ / Delivery:</span>
+                </div>
+                <span className="font-bold text-amber-800">{wo.deliveryDate}</span>
+              </div>
+
+              {/* Materials */}
+              <div className="p-4 border-b">
+                <div className="font-medium text-gray-700 mb-2">วัสดุ / Materials:</div>
+                <div className="space-y-1">
+                  {wo.materials.map(mat => (
+                    <div key={mat.id} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">{mat.code}</span>
+                      <span className={`font-medium ${mat.qtyIssued >= mat.qtyRequired ? 'text-green-600' : 'text-amber-600'}`}>
+                        {mat.qtyIssued >= mat.qtyRequired ? '✅' : '⏳'} {mat.qtyIssued}/{mat.qtyRequired} {mat.unit}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Operations */}
+              <div className="p-4">
+                <div className="font-medium text-gray-700 mb-3">แผนก / Departments:</div>
+                <div className="space-y-3">
+                  {filteredOps.map(op => (
+                    <div 
+                      key={op.id} 
+                      className={`p-3 rounded-lg border-2 ${
+                        op.status === 'completed' ? 'border-green-300 bg-green-50' :
+                        op.status === 'in_progress' ? 'border-amber-300 bg-amber-50' :
+                        'border-gray-200 bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {op.status === 'completed' ? (
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          ) : op.status === 'in_progress' ? (
+                            <Play className="w-5 h-5 text-amber-600" />
+                          ) : (
+                            <Clock className="w-5 h-5 text-gray-400" />
+                          )}
+                          <span className="font-bold text-gray-800">{op.deptName}</span>
+                        </div>
+                        <Badge variant={
+                          op.status === 'completed' ? 'success' :
+                          op.status === 'in_progress' ? 'warning' : 'info'
+                        }>
+                          {op.status === 'completed' ? 'เสร็จแล้ว' :
+                           op.status === 'in_progress' ? 'กำลังทำ' : 'รอ'}
+                        </Badge>
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-sm text-gray-600">
+                        <span>เวลา / Hours: {op.actualHours || 0}/{op.estHours}</span>
+                        {op.worker && <span>ผู้ทำ: {op.worker}</span>}
+                      </div>
+
+                      {/* Action Buttons */}
+                      {op.status === 'pending' && (
+                        <Button 
+                          size="sm" 
+                          className="w-full mt-3"
+                          onClick={() => onStartOp(wo.id, op.id)}
+                        >
+                          <Play className="w-4 h-4 mr-2" />
+                          เริ่มงาน / Start
+                        </Button>
+                      )}
+                      {op.status === 'in_progress' && (
+                        <Button 
+                          size="sm" 
+                          variant="success"
+                          className="w-full mt-3"
+                          onClick={() => setCompletingOp({ woId: wo.id, opId: op.id, estHours: op.estHours })}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          เสร็จงาน / Complete
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Instructions */}
+              {wo.instructions.th && (
+                <div className="p-4 border-t bg-blue-50">
+                  <div className="font-medium text-blue-800 mb-1">คำแนะนำ / Instructions:</div>
+                  <p className="text-sm text-blue-700">{wo.instructions.th}</p>
+                  <p className="text-sm text-blue-600 mt-1">{wo.instructions.en}</p>
+                </div>
+              )}
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Complete Operation Modal */}
+      {completingOp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">เสร็จงาน / Complete Operation</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ชั่วโมงจริง / Actual Hours (Est: {completingOp.estHours}h)
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={actualHours}
+                  onChange={(e) => setActualHours(e.target.value)}
+                  className="w-full px-4 py-3 border-2 rounded-xl text-xl text-center focus:ring-2 focus:ring-[#1A5276]"
+                  placeholder="0"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3">
+                <Button variant="secondary" className="flex-1" onClick={() => setCompletingOp(null)}>
+                  ยกเลิก / Cancel
+                </Button>
+                <Button className="flex-1" onClick={handleComplete} disabled={!actualHours}>
+                  ยืนยัน / Confirm
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Work Order Form
+const WorkOrderForm = ({ wo, customers, departments, inventory, categories, onSave, onCancel, lang }) => {
+  const [formData, setFormData] = useState({
+    customerId: wo?.customerId || '',
+    customerPO: wo?.customerPO || '',
+    productId: wo?.productId || '',
+    productName: wo?.productName || '',
+    quantity: wo?.quantity || 0,
+    unit: wo?.unit || 'pcs',
+    orderDate: wo?.orderDate || new Date().toISOString().split('T')[0],
+    deliveryDate: wo?.deliveryDate || '',
+    deliveryDateLocked: wo?.deliveryDateLocked ?? true,
+    sellingPrice: wo?.sellingPrice || 0,
+    priority: wo?.priority || 'normal',
+    instructions: wo?.instructions || { en: '', th: '' },
+    materials: wo?.materials || [],
+    operations: wo?.operations || [],
+  })
+
+  const addMaterial = () => {
+    setFormData({
+      ...formData,
+      materials: [...formData.materials, { id: Date.now(), category: '', code: '', qtyRequired: 0, qtyIssued: 0, unit: 'pcs', estCost: 0, actualCost: 0 }]
+    })
+  }
+
+  const addOperation = () => {
+    const nextSeq = formData.operations.length + 1
+    setFormData({
+      ...formData,
+      operations: [...formData.operations, { id: Date.now(), deptId: '', deptName: '', estHours: 0, actualHours: 0, status: 'pending', startTime: null, endTime: null, worker: null }]
+    })
+  }
+
+  const updateMaterial = (idx, field, value) => {
+    setFormData({
+      ...formData,
+      materials: formData.materials.map((m, i) => i === idx ? { ...m, [field]: value } : m)
+    })
+  }
+
+  const updateOperation = (idx, field, value) => {
+    const ops = [...formData.operations]
+    ops[idx] = { ...ops[idx], [field]: value }
+    if (field === 'deptId') {
+      const dept = departments.find(d => d.id === value)
+      ops[idx].deptName = dept?.nameEn || ''
+    }
+    setFormData({ ...formData, operations: ops })
+  }
+
+  const totalRevenue = formData.quantity * formData.sellingPrice
+  const estMaterialCost = formData.materials.reduce((sum, m) => sum + (m.estCost || 0), 0)
+  const estLaborCost = formData.operations.reduce((sum, o) => {
+    const dept = departments.find(d => d.id === o.deptId)
+    return sum + (o.estHours * (dept?.hourlyRate || 180))
+  }, 0)
+  const estOverhead = estMaterialCost * 0.15
+  const estTotal = estMaterialCost + estLaborCost + estOverhead
+  const estMargin = totalRevenue > 0 ? ((totalRevenue - estTotal) / totalRevenue * 100) : 0
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave({
+      ...formData,
+      totalRevenue,
+      costs: { material: estMaterialCost, labor: estLaborCost, overhead: estOverhead, other: 0, total: estTotal, perUnit: estTotal / formData.quantity },
+      profit: { amount: totalRevenue - estTotal, margin: estMargin },
+      status: wo?.status || 'planned',
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6 max-h-[70vh] overflow-y-auto p-1">
+      {/* Customer & Product */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Customer / ลูกค้า *</label>
+          <select
+            required
+            value={formData.customerId}
+            onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            <option value="">Select customer...</option>
+            {customers.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Customer PO / ใบสั่งซื้อลูกค้า</label>
+          <input
+            type="text"
+            value={formData.customerPO}
+            onChange={(e) => setFormData({ ...formData, customerPO: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+            placeholder="ABC-PO-001"
+          />
+        </div>
+      </div>
+
+      {/* Product */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Product / สินค้า *</label>
+          <input
+            type="text"
+            required
+            value={formData.productName}
+            onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+            placeholder="Standard Pallet 1200×1000"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+          <select
+            value={formData.priority}
+            onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            <option value="low">Low</option>
+            <option value="normal">Normal</option>
+            <option value="high">🔴 High / Rush</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Quantity & Price */}
+      <div className="grid grid-cols-4 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Quantity / จำนวน *</label>
+          <input
+            type="number"
+            required
+            value={formData.quantity}
+            onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+          <select value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
+            <option value="pcs">pcs</option>
+            <option value="sets">sets</option>
+            <option value="lots">lots</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Selling Price / ราคาขาย</label>
+          <input
+            type="number"
+            value={formData.sellingPrice}
+            onChange={(e) => setFormData({ ...formData, sellingPrice: parseFloat(e.target.value) || 0 })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Total Revenue</label>
+          <input
+            type="text"
+            value={formatCurrency(totalRevenue)}
+            disabled
+            className="w-full px-3 py-2 border rounded-lg bg-green-50 font-bold text-green-700"
+          />
+        </div>
+      </div>
+
+      {/* Dates */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Order Date</label>
+          <input
+            type="date"
+            value={formData.orderDate}
+            onChange={(e) => setFormData({ ...formData, orderDate: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Delivery Date 🔒 / วันส่งมอบ *
+          </label>
+          <input
+            type="date"
+            required
+            value={formData.deliveryDate}
+            onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg border-amber-400 bg-amber-50"
+          />
+          <p className="text-xs text-amber-600 mt-1">⚠️ Delivery date is LOCKED once confirmed</p>
+        </div>
+      </div>
+
+      {/* Materials */}
+      <div className="border rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <label className="font-medium text-gray-700">Materials Required / วัสดุที่ต้องการ</label>
+          <button type="button" onClick={addMaterial} className="text-sm text-[#1A5276] hover:underline flex items-center gap-1">
+            <Plus className="w-4 h-4" /> Add Material
+          </button>
+        </div>
+        {formData.materials.length === 0 ? (
+          <p className="text-gray-500 text-sm text-center py-4">No materials added yet</p>
+        ) : (
+          <div className="space-y-2">
+            {formData.materials.map((mat, idx) => (
+              <div key={mat.id} className="grid grid-cols-5 gap-2 items-end">
+                <div>
+                  <label className="text-xs text-gray-500">Category</label>
+                  <select
+                    value={mat.category}
+                    onChange={(e) => updateMaterial(idx, 'category', e.target.value)}
+                    className="w-full px-2 py-1.5 border rounded text-sm"
+                  >
+                    <option value="">Select...</option>
+                    {categories.map(c => (
+                      <option key={c.id} value={c.code}>{c.code}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Code / Size</label>
+                  <input
+                    type="text"
+                    value={mat.code}
+                    onChange={(e) => updateMaterial(idx, 'code', e.target.value)}
+                    className="w-full px-2 py-1.5 border rounded text-sm"
+                    placeholder="IND-MLH/0.5/3/2.4"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Qty Required</label>
+                  <input
+                    type="number"
+                    value={mat.qtyRequired}
+                    onChange={(e) => updateMaterial(idx, 'qtyRequired', parseInt(e.target.value) || 0)}
+                    className="w-full px-2 py-1.5 border rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Est. Cost</label>
+                  <input
+                    type="number"
+                    value={mat.estCost}
+                    onChange={(e) => updateMaterial(idx, 'estCost', parseFloat(e.target.value) || 0)}
+                    className="w-full px-2 py-1.5 border rounded text-sm"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, materials: formData.materials.filter((_, i) => i !== idx) })}
+                  className="p-1.5 text-red-500 hover:bg-red-50 rounded"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Operations */}
+      <div className="border rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <label className="font-medium text-gray-700">Production Operations / แผนการผลิต</label>
+          <button type="button" onClick={addOperation} className="text-sm text-[#1A5276] hover:underline flex items-center gap-1">
+            <Plus className="w-4 h-4" /> Add Operation
+          </button>
+        </div>
+        {formData.operations.length === 0 ? (
+          <p className="text-gray-500 text-sm text-center py-4">No operations added yet</p>
+        ) : (
+          <div className="space-y-2">
+            {formData.operations.map((op, idx) => (
+              <div key={op.id} className="grid grid-cols-4 gap-2 items-end">
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500">Department / แผนก</label>
+                  <select
+                    value={op.deptId}
+                    onChange={(e) => updateOperation(idx, 'deptId', e.target.value)}
+                    className="w-full px-2 py-1.5 border rounded text-sm"
+                  >
+                    <option value="">Select...</option>
+                    {departments.map(d => (
+                      <option key={d.id} value={d.id}>{d.nameTh} - {d.nameEn}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Est. Hours</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={op.estHours}
+                    onChange={(e) => updateOperation(idx, 'estHours', parseFloat(e.target.value) || 0)}
+                    className="w-full px-2 py-1.5 border rounded text-sm"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, operations: formData.operations.filter((_, i) => i !== idx) })}
+                  className="p-1.5 text-red-500 hover:bg-red-50 rounded"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Cost Summary */}
+      <div className="bg-gray-50 rounded-lg p-4">
+        <h4 className="font-medium text-gray-800 mb-3">Cost Summary / สรุปต้นทุน</h4>
+        <div className="grid grid-cols-5 gap-4 text-sm">
+          <div>
+            <div className="text-gray-500">Material</div>
+            <div className="font-bold">{formatCurrency(estMaterialCost)}</div>
+          </div>
+          <div>
+            <div className="text-gray-500">Labor</div>
+            <div className="font-bold">{formatCurrency(estLaborCost)}</div>
+          </div>
+          <div>
+            <div className="text-gray-500">Overhead (15%)</div>
+            <div className="font-bold">{formatCurrency(estOverhead)}</div>
+          </div>
+          <div>
+            <div className="text-gray-500">Total Cost</div>
+            <div className="font-bold text-red-600">{formatCurrency(estTotal)}</div>
+          </div>
+          <div>
+            <div className="text-gray-500">Margin</div>
+            <div className={`font-bold ${estMargin >= 20 ? 'text-green-600' : estMargin >= 10 ? 'text-amber-600' : 'text-red-600'}`}>
+              {estMargin.toFixed(1)}%
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>
+        <Button type="submit" icon={Save}>Save Work Order</Button>
+      </div>
+    </form>
+  )
+}
+
+// Material Issue Form
+const MaterialIssueForm = ({ wo, inventory, onIssue, onCancel, lang }) => {
+  const [issues, setIssues] = useState(
+    wo.materials.map(mat => ({
+      materialId: mat.id,
+      code: mat.code,
+      qtyRequired: mat.qtyRequired,
+      qtyIssued: mat.qtyIssued,
+      qtyToIssue: 0,
+      lotId: null,
+      unitCost: 0,
+      totalCost: 0,
+    }))
+  )
+
+  const availableLots = (category) => inventory.filter(lot => lot.category === category && lot.qty > 0)
+
+  const updateIssue = (idx, field, value) => {
+    setIssues(issues.map((issue, i) => {
+      if (i === idx) {
+        const updated = { ...issue, [field]: value }
+        if (field === 'lotId') {
+          const lot = inventory.find(l => l.id === parseInt(value))
+          updated.unitCost = lot ? lot.cost / lot.qty : 0
+        }
+        if (field === 'qtyToIssue' || field === 'lotId') {
+          const lot = inventory.find(l => l.id === parseInt(updated.lotId))
+          updated.totalCost = (updated.qtyToIssue || 0) * (lot ? lot.cost / lot.qty : 0)
+        }
+        return updated
+      }
+      return issue
+    }))
+  }
+
+  const handleSubmit = () => {
+    const validIssues = issues.filter(i => i.qtyToIssue > 0 && i.lotId)
+    if (validIssues.length > 0) {
+      onIssue({ woId: wo.id, items: validIssues })
+    }
+  }
+
+  const totalCost = issues.reduce((sum, i) => sum + i.totalCost, 0)
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-blue-50 p-4 rounded-lg">
+        <div className="font-medium text-blue-800">Work Order: {wo.id}</div>
+        <div className="text-sm text-blue-600">{wo.productName} - {wo.quantity} {wo.unit}</div>
+      </div>
+
+      <div className="space-y-3">
+        {issues.map((issue, idx) => {
+          const mat = wo.materials.find(m => m.id === issue.materialId)
+          const remaining = mat.qtyRequired - mat.qtyIssued
+          const lots = availableLots(mat.category)
+
+          return (
+            <div key={issue.materialId} className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="font-medium text-gray-800">{issue.code}</div>
+                  <div className="text-sm text-gray-500">
+                    Required: {mat.qtyRequired} | Issued: {mat.qtyIssued} | Remaining: {remaining}
+                  </div>
+                </div>
+                {remaining <= 0 && <Badge variant="success">✅ Complete</Badge>}
+              </div>
+
+              {remaining > 0 && (
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-500">Select Lot</label>
+                    <select
+                      value={issue.lotId || ''}
+                      onChange={(e) => updateIssue(idx, 'lotId', e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    >
+                      <option value="">Select lot...</option>
+                      {lots.map(lot => (
+                        <option key={lot.id} value={lot.id}>
+                          {lot.lotNo} - {lot.qty} avail @ {formatCurrency(lot.cost / lot.qty)}/ea
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Qty to Issue</label>
+                    <input
+                      type="number"
+                      value={issue.qtyToIssue}
+                      onChange={(e) => updateIssue(idx, 'qtyToIssue', parseInt(e.target.value) || 0)}
+                      max={remaining}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Total Cost</label>
+                    <input
+                      type="text"
+                      value={formatCurrency(issue.totalCost)}
+                      disabled
+                      className="w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 font-medium"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
+        <span className="font-medium text-gray-700">Total Issue Cost:</span>
+        <span className="text-xl font-bold text-[#1A5276]">{formatCurrency(totalCost)}</span>
+      </div>
+
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>
+        <Button onClick={handleSubmit} icon={Package}>Confirm Issue</Button>
+      </div>
+    </div>
+  )
+}
+
+// Production Costing View
+const ProductionCosting = ({ workOrders, customers, lang }) => {
+  const completedWOs = workOrders.filter(wo => wo.status === 'completed' || wo.status === 'delivered')
+  
+  const totalRevenue = completedWOs.reduce((sum, wo) => sum + wo.totalRevenue, 0)
+  const totalCost = completedWOs.reduce((sum, wo) => sum + wo.costs.total, 0)
+  const totalProfit = totalRevenue - totalCost
+  const avgMargin = totalRevenue > 0 ? (totalProfit / totalRevenue * 100) : 0
+
+  // Customer profitability
+  const customerStats = customers.map(cust => {
+    const custWOs = completedWOs.filter(wo => wo.customerId === cust.id)
+    const revenue = custWOs.reduce((sum, wo) => sum + wo.totalRevenue, 0)
+    const cost = custWOs.reduce((sum, wo) => sum + wo.costs.total, 0)
+    return {
+      ...cust,
+      orders: custWOs.length,
+      revenue,
+      cost,
+      profit: revenue - cost,
+      margin: revenue > 0 ? ((revenue - cost) / revenue * 100) : 0,
+    }
+  }).filter(c => c.orders > 0).sort((a, b) => b.profit - a.profit)
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card className="p-4">
+          <div className="text-sm text-gray-500">Total Revenue</div>
+          <div className="text-2xl font-bold text-gray-800">{formatCurrency(totalRevenue)}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-sm text-gray-500">Total Cost</div>
+          <div className="text-2xl font-bold text-red-600">{formatCurrency(totalCost)}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-sm text-gray-500">Total Profit</div>
+          <div className="text-2xl font-bold text-green-600">{formatCurrency(totalProfit)}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-sm text-gray-500">Avg Margin</div>
+          <div className={`text-2xl font-bold ${avgMargin >= 20 ? 'text-green-600' : avgMargin >= 10 ? 'text-amber-600' : 'text-red-600'}`}>
+            {avgMargin.toFixed(1)}%
+          </div>
+        </Card>
+      </div>
+
+      {/* Customer Profitability */}
+      <Card className="p-5">
+        <h3 className="font-bold text-gray-800 mb-4">Customer Profitability Ranking</h3>
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Rank</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Customer</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Orders</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Revenue</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Cost</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Profit</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Margin</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {customerStats.map((cust, idx) => (
+              <tr key={cust.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3">
+                  <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${idx === 0 ? 'bg-yellow-100 text-yellow-700' : idx === 1 ? 'bg-gray-200 text-gray-700' : idx === 2 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {idx + 1}
+                  </span>
+                </td>
+                <td className="px-4 py-3 font-medium text-gray-800">{cust.name}</td>
+                <td className="px-4 py-3 text-right">{cust.orders}</td>
+                <td className="px-4 py-3 text-right">{formatCurrency(cust.revenue)}</td>
+                <td className="px-4 py-3 text-right text-red-600">{formatCurrency(cust.cost)}</td>
+                <td className="px-4 py-3 text-right font-bold text-green-600">{formatCurrency(cust.profit)}</td>
+                <td className="px-4 py-3 text-right">
+                  <span className={`font-medium ${cust.margin >= 20 ? 'text-green-600' : cust.margin >= 10 ? 'text-amber-600' : 'text-red-600'}`}>
+                    {cust.margin.toFixed(1)}%
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+
+      {/* WO Cost Details */}
+      <Card className="p-5">
+        <h3 className="font-bold text-gray-800 mb-4">Work Order Cost Details</h3>
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-3 py-2 text-left font-medium text-gray-600">WO #</th>
+              <th className="px-3 py-2 text-left font-medium text-gray-600">Product</th>
+              <th className="px-3 py-2 text-right font-medium text-gray-600">Qty</th>
+              <th className="px-3 py-2 text-right font-medium text-gray-600">Material</th>
+              <th className="px-3 py-2 text-right font-medium text-gray-600">Labor</th>
+              <th className="px-3 py-2 text-right font-medium text-gray-600">Overhead</th>
+              <th className="px-3 py-2 text-right font-medium text-gray-600">Total</th>
+              <th className="px-3 py-2 text-right font-medium text-gray-600">$/Unit</th>
+              <th className="px-3 py-2 text-right font-medium text-gray-600">Margin</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {workOrders.slice(0, 10).map(wo => (
+              <tr key={wo.id} className="hover:bg-gray-50">
+                <td className="px-3 py-2 font-mono text-[#1A5276]">{wo.id}</td>
+                <td className="px-3 py-2">{wo.productName}</td>
+                <td className="px-3 py-2 text-right">{wo.quantity}</td>
+                <td className="px-3 py-2 text-right">{formatCurrency(wo.costs.material)}</td>
+                <td className="px-3 py-2 text-right">{formatCurrency(wo.costs.labor)}</td>
+                <td className="px-3 py-2 text-right">{formatCurrency(wo.costs.overhead)}</td>
+                <td className="px-3 py-2 text-right font-medium">{formatCurrency(wo.costs.total)}</td>
+                <td className="px-3 py-2 text-right">{formatCurrency(wo.costs.perUnit)}</td>
+                <td className="px-3 py-2 text-right">
+                  <span className={`font-medium ${wo.profit.margin >= 20 ? 'text-green-600' : wo.profit.margin >= 10 ? 'text-amber-600' : 'text-red-600'}`}>
+                    {wo.profit.margin.toFixed(1)}%
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  )
+}
+
+// ============================================
 // MAIN APP
 // ============================================
 export default function App() {
@@ -3216,6 +4893,18 @@ export default function App() {
     const saved = localStorage.getItem('ind_purchase_orders_v3')
     return saved ? JSON.parse(saved) : INITIAL_PURCHASE_ORDERS
   })
+  const [workOrders, setWorkOrders] = useState(() => {
+    const saved = localStorage.getItem('ind_work_orders_v3')
+    return saved ? JSON.parse(saved) : INITIAL_WORK_ORDERS
+  })
+  const [departments, setDepartments] = useState(() => {
+    const saved = localStorage.getItem('ind_departments_v3')
+    return saved ? JSON.parse(saved) : INITIAL_DEPARTMENTS
+  })
+  const [trucks, setTrucks] = useState(() => {
+    const saved = localStorage.getItem('ind_trucks_v3')
+    return saved ? JSON.parse(saved) : INITIAL_TRUCKS
+  })
 
   // Save to localStorage
   useEffect(() => {
@@ -3236,12 +4925,22 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('ind_purchase_orders_v3', JSON.stringify(purchaseOrders))
   }, [purchaseOrders])
+  useEffect(() => {
+    localStorage.setItem('ind_work_orders_v3', JSON.stringify(workOrders))
+  }, [workOrders])
+  useEffect(() => {
+    localStorage.setItem('ind_departments_v3', JSON.stringify(departments))
+  }, [departments])
+  useEffect(() => {
+    localStorage.setItem('ind_trucks_v3', JSON.stringify(trucks))
+  }, [trucks])
 
   const navItems = [
     { id: 'dashboard', icon: BarChart3, label: t('nav.dashboard', lang) },
     { id: 'admin', icon: Settings, label: t('nav.admin', lang), submenu: [
       { id: 'admin-stores', label: t('admin.stores', lang) },
       { id: 'admin-categories', label: t('admin.categories', lang) },
+      { id: 'admin-departments', label: 'Departments / แผนก' },
       { id: 'admin-materials', label: t('admin.materials', lang) },
       { id: 'admin-customers', label: t('admin.customers', lang) },
       { id: 'admin-vendors', label: t('admin.vendors', lang) },
@@ -3269,6 +4968,8 @@ export default function App() {
         return <StoreBuilder stores={stores} setStores={setStores} categories={categories} lang={lang} />
       case 'admin-categories':
         return <CategoryManager categories={categories} setCategories={setCategories} lang={lang} />
+      case 'admin-departments':
+        return <DepartmentManager departments={departments} setDepartments={setDepartments} lang={lang} />
       case 'inventory':
         return <InventoryModule inventory={inventory} setInventory={setInventory} stores={stores} categories={categories} lang={lang} />
       case 'purchase':
@@ -3281,6 +4982,18 @@ export default function App() {
           inventory={inventory}
           setInventory={setInventory}
           lang={lang} 
+        />
+      case 'production':
+        return <ProductionModule 
+          workOrders={workOrders}
+          setWorkOrders={setWorkOrders}
+          departments={departments}
+          customers={customers}
+          inventory={inventory}
+          setInventory={setInventory}
+          categories={categories}
+          stores={stores}
+          lang={lang}
         />
       default:
         return (
