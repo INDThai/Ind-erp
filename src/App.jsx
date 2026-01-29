@@ -205,6 +205,129 @@ const INITIAL_INVENTORY = [
   { id: 20, lotNo: 'PRTB-002', category: 'PRTB', code: 'IND-PRTB/12/100/2440', store: 'STORE1', qty: 300, cbm: 0.88, cost: 4200, costPerCbm: 4773, status: 'available', dateIn: '2024-07-12', vendor: 'Board Co' },
 ]
 
+// ============================================
+// VENDORS
+// ============================================
+const INITIAL_VENDORS = [
+  { id: 'V001', code: 'V001', name: 'Thai Timber Co., Ltd', nameTh: 'ไม้ไทย จำกัด', type: 'local', country: 'TH', currency: 'THB', paymentTerms: 30, taxId: '0105548123456', email: 'sales@thaitimber.co.th', phone: '038-123-456', materials: ['MLH', 'PW', 'PWKD', 'PWGRN'], isActive: true },
+  { id: 'V002', code: 'V002', name: 'Stora Enso', nameTh: 'สโตร่า เอ็นโซ่', type: 'import', country: 'FI', currency: 'USD', paymentTerms: 60, taxId: '', email: 'asia@storaenso.com', phone: '', materials: ['PW', 'PWKD'], isActive: true },
+  { id: 'V003', code: 'V003', name: 'Timberlink Australia', nameTh: 'ทิมเบอร์ลิงค์', type: 'import', country: 'AU', currency: 'USD', paymentTerms: 60, taxId: '', email: 'export@timberlink.com.au', phone: '', materials: ['PW', 'PWGRN'], isActive: true },
+  { id: 'V004', code: 'V004', name: 'Dai Nam Vietnam', nameTh: 'ได นาม เวียดนาม', type: 'import', country: 'VN', currency: 'USD', paymentTerms: 45, taxId: '', email: 'sales@dainam.vn', phone: '', materials: ['MLH', 'PRTB'], isActive: true },
+  { id: 'V005', code: 'V005', name: 'Green Pine Ltd', nameTh: 'กรีน ไพน์', type: 'local', country: 'TH', currency: 'THB', paymentTerms: 30, taxId: '0105552098765', email: 'order@greenpine.co.th', phone: '038-987-654', materials: ['PWGRN'], isActive: true },
+  { id: 'V006', code: 'V006', name: 'Ply Masters Thailand', nameTh: 'พลาย มาสเตอร์ส', type: 'local', country: 'TH', currency: 'THB', paymentTerms: 30, taxId: '0105556012345', email: 'sales@plymasters.co.th', phone: '02-123-4567', materials: ['PLYWW', 'PLYRR', 'PLYRW'], isActive: true },
+  { id: 'V007', code: 'V007', name: 'Board Co', nameTh: 'บอร์ด โค', type: 'local', country: 'TH', currency: 'THB', paymentTerms: 30, taxId: '0105559876543', email: 'info@boardco.co.th', phone: '02-456-7890', materials: ['PRTB'], isActive: true },
+]
+
+// ============================================
+// IMPORT COST TYPES (13 Types)
+// ============================================
+const IMPORT_COST_TYPES = [
+  { id: 'custom_duty', nameEn: 'Custom Duty', nameTh: 'อากรศุลกากร', hasVat: true },
+  { id: 'thc_do_storage', nameEn: 'THC/DO Fee/Storage', nameTh: 'ค่า THC/DO/จัดเก็บ', hasVat: false },
+  { id: 'forest_officer', nameEn: 'Forest Officer', nameTh: 'ค่าตรวจป่าไม้', hasVat: true },
+  { id: 'phyto_office', nameEn: 'Phyto Office', nameTh: 'ค่าใบรับรอง Phyto', hasVat: true },
+  { id: 'transport', nameEn: 'Transport', nameTh: 'ค่าขนส่ง', hasVat: true },
+  { id: 'surcharge_customs', nameEn: 'Surcharge on Customs', nameTh: 'ค่าธรรมเนียมศุลกากร', hasVat: true },
+  { id: 'advance_thc', nameEn: 'Advance THC', nameTh: 'ค่า THC ล่วงหน้า', hasVat: false },
+  { id: 'bank_charges', nameEn: 'Bank Charges', nameTh: 'ค่าธรรมเนียมธนาคาร', hasVat: false },
+  { id: 'lc_commission', nameEn: 'LC/Remittance Commission', nameTh: 'ค่า LC/โอนเงิน', hasVat: false },
+  { id: 'insurance', nameEn: 'Insurance', nameTh: 'ค่าประกันภัย', hasVat: false },
+  { id: 'freight', nameEn: 'Freight', nameTh: 'ค่าระวาง', hasVat: false },
+  { id: 'other', nameEn: 'Other Expenses', nameTh: 'ค่าใช้จ่ายอื่นๆ', hasVat: false },
+]
+
+// ============================================
+// PURCHASE ORDERS
+// ============================================
+const INITIAL_PURCHASE_ORDERS = [
+  { 
+    id: 'PO-2401-001', 
+    type: 'import', 
+    vendorId: 'V002', 
+    status: 'received',
+    poDate: '2024-01-15',
+    invoiceNo: '7323200006',
+    invoiceDate: '2024-01-10',
+    containerNo: 'MSKU1234567',
+    expectedDelivery: '2024-02-15',
+    currency: 'USD',
+    exchangeRate: 35.50,
+    items: [
+      { id: 1, category: 'PW', materialCode: 'IND-PW/39/145/3960', thickness: 39, width: 145, length: 3960, qtyOrdered: 500, unit: 'pcs', unitPrice: 45, qtyReceived: 478, status: 'received' }
+    ],
+    importCosts: {
+      custom_duty: 42842,
+      thc_do_storage: 16000,
+      forest_officer: 4000,
+      phyto_office: 1500,
+      transport: 10000,
+      surcharge_customs: 4500,
+      advance_thc: 0,
+      bank_charges: 0,
+      lc_commission: 0,
+      insurance: 2500,
+      freight: 15000,
+      other: 0,
+    },
+    subtotal: 798750, // 500 * 45 * 35.50
+    totalImportCosts: 96342,
+    vat7: 6734,
+    withholding3: 2890,
+    grandTotal: 898936,
+    createdAt: '2024-01-15',
+    createdBy: 'Vinit'
+  },
+  { 
+    id: 'PO-2401-002', 
+    type: 'local', 
+    vendorId: 'V001', 
+    status: 'partial',
+    poDate: '2024-01-20',
+    invoiceNo: 'INV-2401-0055',
+    invoiceDate: '2024-01-20',
+    containerNo: '',
+    expectedDelivery: '2024-01-25',
+    currency: 'THB',
+    exchangeRate: 1,
+    items: [
+      { id: 1, category: 'MLH', materialCode: 'IND-MLH/0.5/3/1', thickness: 0.5, width: 3, length: 1, qtyOrdered: 1000, unit: 'pcs', unitPrice: 125, qtyReceived: 700, status: 'partial' },
+      { id: 2, category: 'MLH', materialCode: 'IND-MLH/0.5/3.4/1.3', thickness: 0.5, width: 3.4, length: 1.3, qtyOrdered: 500, unit: 'pcs', unitPrice: 135, qtyReceived: 0, status: 'pending' }
+    ],
+    importCosts: {},
+    subtotal: 192500,
+    totalImportCosts: 0,
+    vat7: 13475,
+    withholding3: 0,
+    grandTotal: 205975,
+    createdAt: '2024-01-20',
+    createdBy: 'Vinit'
+  },
+  { 
+    id: 'PO-2401-003', 
+    type: 'local', 
+    vendorId: 'V006', 
+    status: 'pending',
+    poDate: '2024-07-15',
+    invoiceNo: '',
+    invoiceDate: '',
+    containerNo: '',
+    expectedDelivery: '2024-07-25',
+    currency: 'THB',
+    exchangeRate: 1,
+    items: [
+      { id: 1, category: 'PLYWW', materialCode: 'IND-PLYWW/12/1220/2440', thickness: 12, width: 1220, length: 2440, qtyOrdered: 200, unit: 'sheets', unitPrice: 350, qtyReceived: 0, status: 'pending' }
+    ],
+    importCosts: {},
+    subtotal: 70000,
+    totalImportCosts: 0,
+    vat7: 4900,
+    withholding3: 0,
+    grandTotal: 74900,
+    createdAt: '2024-07-15',
+    createdBy: 'Vinit'
+  },
+]
+
 const INITIAL_CUSTOMERS = [
   { id: 'FRKW-001', code: 'FRKW-001', name: 'Furukawa', paymentTerms: 30, taxId: '0105540069331', email: 'cholnapa_furukawa@hotmail.com', language: 'jp', isActive: true },
   { id: 'PLX-002', code: 'PLX-002', name: 'Polyplex', paymentTerms: 30, taxId: '0205556010518', email: 'vthongkhumsan@polyplex.com', language: 'en', isActive: true },
@@ -802,21 +925,319 @@ const CategoryManager = ({ categories, setCategories, lang }) => {
 }
 
 // ============================================
+// EDIT LOT MODAL (for variance correction)
+// ============================================
+const EditLotModal = ({ isOpen, onClose, lot, categories, stores, onSave, onPrintLabel }) => {
+  const [formData, setFormData] = useState({
+    lotNo: lot?.lotNo || '',
+    category: lot?.category || '',
+    code: lot?.code || '',
+    qty: lot?.qty || 0,
+    store: lot?.store || '',
+    cost: lot?.cost || 0,
+    dateIn: lot?.dateIn || '',
+    notes: '',
+  })
+
+  React.useEffect(() => {
+    if (lot) {
+      setFormData({
+        lotNo: lot.lotNo,
+        category: lot.category,
+        code: lot.code,
+        qty: lot.qty,
+        store: lot.store,
+        cost: lot.cost,
+        dateIn: lot.dateIn,
+        notes: '',
+      })
+    }
+  }, [lot])
+
+  // Parse dimensions from code (e.g., IND-MLH/0.5/3/1 → T=0.5, W=3, L=1)
+  const parseDimensions = (code) => {
+    const parts = code.split('/')
+    if (parts.length >= 4) {
+      return {
+        thickness: parseFloat(parts[1]) || 0,
+        width: parseFloat(parts[2]) || 0,
+        length: parseFloat(parts[3]) || 0,
+      }
+    }
+    return { thickness: 0, width: 0, length: 0 }
+  }
+
+  const [dimensions, setDimensions] = useState(parseDimensions(lot?.code || ''))
+
+  React.useEffect(() => {
+    if (lot?.code) {
+      setDimensions(parseDimensions(lot.code))
+    }
+  }, [lot])
+
+  // Rebuild code when dimensions change
+  const updateCode = (newDims) => {
+    const codeParts = formData.code.split('/')
+    if (codeParts.length >= 4) {
+      const prefix = codeParts[0] // e.g., "IND-MLH"
+      const newCode = `${prefix}/${newDims.thickness}/${newDims.width}/${newDims.length}`
+      setFormData(prev => ({ ...prev, code: newCode }))
+    }
+  }
+
+  const handleDimensionChange = (field, value) => {
+    const newDims = { ...dimensions, [field]: parseFloat(value) || 0 }
+    setDimensions(newDims)
+    updateCode(newDims)
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave({
+      ...lot,
+      ...formData,
+      cbm: (dimensions.thickness * dimensions.width * dimensions.length * formData.qty) / 1000000000,
+    })
+  }
+
+  if (!isOpen || !lot) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
+        <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-amber-500 to-orange-500">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <Edit3 className="w-5 h-5" />
+            Edit Lot - Variance Correction
+          </h2>
+          <button onClick={onClose} className="p-1 text-white/80 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Warning */}
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <div className="font-medium text-amber-800">Editing Lot After Receiving</div>
+                <div className="text-sm text-amber-600">
+                  Use this to correct quantities or sizes when actual goods differ from pre-printed labels.
+                  Don't forget to <strong>reprint the label</strong> after saving changes.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Lot Info (read-only) */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Lot Number</label>
+              <input
+                type="text"
+                value={formData.lotNo}
+                disabled
+                className="w-full px-3 py-2 border rounded-lg bg-gray-100 font-mono font-bold text-[#1A5276]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <input
+                type="text"
+                value={formData.category}
+                disabled
+                className="w-full px-3 py-2 border rounded-lg bg-gray-100"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date Received</label>
+              <input
+                type="date"
+                value={formData.dateIn}
+                onChange={(e) => setFormData({ ...formData, dateIn: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+          </div>
+
+          {/* Editable Fields */}
+          <div className="p-4 bg-blue-50 rounded-lg space-y-4">
+            <div className="font-medium text-blue-800 flex items-center gap-2">
+              <Edit3 className="w-4 h-4" />
+              Editable Fields
+            </div>
+
+            {/* Quantity */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Quantity * <span className="text-gray-400">(Original: {lot.qty})</span>
+              </label>
+              <input
+                type="number"
+                required
+                value={formData.qty}
+                onChange={(e) => setFormData({ ...formData, qty: parseInt(e.target.value) || 0 })}
+                className={`w-full px-3 py-2 border rounded-lg ${formData.qty !== lot.qty ? 'border-amber-400 bg-amber-50' : ''}`}
+              />
+              {formData.qty !== lot.qty && (
+                <div className="text-sm text-amber-600 mt-1">
+                  ⚠️ Variance: {formData.qty - lot.qty > 0 ? '+' : ''}{formData.qty - lot.qty} pieces
+                </div>
+              )}
+            </div>
+
+            {/* Dimensions */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Dimensions (T × W × L)
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={dimensions.thickness}
+                    onChange={(e) => handleDimensionChange('thickness', e.target.value)}
+                    placeholder="Thickness"
+                    className={`w-full px-3 py-2 border rounded-lg ${dimensions.thickness !== parseDimensions(lot.code).thickness ? 'border-amber-400 bg-amber-50' : ''}`}
+                  />
+                  <div className="text-xs text-gray-500 text-center mt-1">Thickness</div>
+                </div>
+                <div>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={dimensions.width}
+                    onChange={(e) => handleDimensionChange('width', e.target.value)}
+                    placeholder="Width"
+                    className={`w-full px-3 py-2 border rounded-lg ${dimensions.width !== parseDimensions(lot.code).width ? 'border-amber-400 bg-amber-50' : ''}`}
+                  />
+                  <div className="text-xs text-gray-500 text-center mt-1">Width</div>
+                </div>
+                <div>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={dimensions.length}
+                    onChange={(e) => handleDimensionChange('length', e.target.value)}
+                    placeholder="Length"
+                    className={`w-full px-3 py-2 border rounded-lg ${dimensions.length !== parseDimensions(lot.code).length ? 'border-amber-400 bg-amber-50' : ''}`}
+                  />
+                  <div className="text-xs text-gray-500 text-center mt-1">Length</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Generated Code */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Material Code (auto-generated)</label>
+              <input
+                type="text"
+                value={formData.code}
+                disabled
+                className="w-full px-3 py-2 border rounded-lg bg-white font-mono"
+              />
+            </div>
+
+            {/* Store */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Store Location</label>
+              <select
+                value={formData.store}
+                onChange={(e) => setFormData({ ...formData, store: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                {stores.map(s => (
+                  <option key={s.id} value={s.id}>{s.nameEn} ({s.branch})</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Reason */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Correction</label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              rows={2}
+              placeholder="e.g., Actual count was 98 pcs instead of 100, 2 pieces were short"
+              className="w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-between pt-4 border-t">
+            <Button 
+              type="button" 
+              variant="outline" 
+              icon={Printer}
+              onClick={() => onPrintLabel(formData)}
+            >
+              Save & Print Label
+            </Button>
+            <div className="flex gap-3">
+              <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button type="submit" icon={Save}>Save Changes</Button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
 // INVENTORY MODULE
 // ============================================
-const InventoryModule = ({ inventory, stores, categories, lang }) => {
+const InventoryModule = ({ inventory, setInventory, stores, categories, lang }) => {
   const [selectedStore, setSelectedStore] = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [expandedRows, setExpandedRows] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [showLabelModal, setShowLabelModal] = useState(false)
+  const [lotsForLabels, setLotsForLabels] = useState([])
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingLot, setEditingLot] = useState(null)
 
   const filteredInventory = inventory.filter(item => {
     const matchesStore = selectedStore === 'all' || item.store === selectedStore
     const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory
     const matchesSearch = item.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.lotNo.toLowerCase().includes(searchTerm.toLowerCase())
+                         item.lotNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.category.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesStore && matchesCategory && matchesSearch
   })
+
+  const handlePrintLabel = (lot) => {
+    setLotsForLabels([lot])
+    setShowLabelModal(true)
+  }
+
+  const handlePrintAllLabels = () => {
+    setLotsForLabels(filteredInventory)
+    setShowLabelModal(true)
+  }
+
+  const handleEditLot = (lot) => {
+    setEditingLot(lot)
+    setShowEditModal(true)
+  }
+
+  const handleSaveEditedLot = (updatedLot) => {
+    setInventory(inventory.map(lot => 
+      lot.id === updatedLot.id ? { ...lot, ...updatedLot, status: updatedLot.qty < 100 ? 'low' : 'available' } : lot
+    ))
+    setShowEditModal(false)
+    setEditingLot(null)
+  }
+
+  const handleSaveAndPrintLabel = (updatedLot) => {
+    handleSaveEditedLot(updatedLot)
+    setLotsForLabels([updatedLot])
+    setShowLabelModal(true)
+  }
 
   // Group by material code
   const groupedInventory = filteredInventory.reduce((acc, item) => {
@@ -1052,13 +1473,24 @@ const InventoryModule = ({ inventory, stores, categories, lang }) => {
                         </td>
                         <td className="px-4 py-2 text-center">
                           <div className="flex items-center justify-center gap-1">
-                            <button className="p-1 text-gray-400 hover:text-amber-500" title="Issue">
+                            <button 
+                              className="p-1 text-gray-400 hover:text-amber-500" 
+                              title="Edit Lot"
+                              onClick={() => handleEditLot(lot)}
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button className="p-1 text-gray-400 hover:text-blue-500" title="Issue">
                               <ArrowRight className="w-4 h-4" />
                             </button>
-                            <button className="p-1 text-gray-400 hover:text-blue-500" title="Transfer">
+                            <button className="p-1 text-gray-400 hover:text-purple-500" title="Transfer">
                               <RefreshCw className="w-4 h-4" />
                             </button>
-                            <button className="p-1 text-gray-400 hover:text-green-500" title="Print Label">
+                            <button 
+                              className="p-1 text-gray-400 hover:text-green-500" 
+                              title="Print Label"
+                              onClick={() => handlePrintLabel(lot)}
+                            >
                               <Printer className="w-4 h-4" />
                             </button>
                           </div>
@@ -1079,15 +1511,1549 @@ const InventoryModule = ({ inventory, stores, categories, lang }) => {
         <Button variant="outline" icon={ArrowLeft}>Return Material</Button>
         <Button variant="outline" icon={RefreshCw}>Transfer</Button>
         <Button variant="outline" icon={Edit3}>Adjustment</Button>
+        <Button variant="outline" icon={Printer} onClick={handlePrintAllLabels}>Print Labels</Button>
+      </div>
+
+      {/* Label Print Modal */}
+      <LabelPrintModal
+        isOpen={showLabelModal}
+        onClose={() => setShowLabelModal(false)}
+        lots={lotsForLabels}
+        lang={lang}
+      />
+
+      {/* Edit Lot Modal */}
+      <EditLotModal
+        isOpen={showEditModal}
+        onClose={() => { setShowEditModal(false); setEditingLot(null) }}
+        lot={editingLot}
+        categories={categories}
+        stores={stores}
+        onSave={handleSaveEditedLot}
+        onPrintLabel={handleSaveAndPrintLabel}
+      />
+    </div>
+  )
+}
+
+// ============================================
+// LABEL PRINTING COMPONENT
+// ============================================
+const LabelPrintModal = ({ isOpen, onClose, lots, lang, title, isPrePrint }) => {
+  const [selectedLots, setSelectedLots] = useState(lots.map(l => l.lotNo))
+  const printRef = React.useRef()
+
+  // Reset selection when lots change
+  React.useEffect(() => {
+    setSelectedLots(lots.map(l => l.lotNo))
+  }, [lots])
+
+  const toggleLot = (lotNo) => {
+    setSelectedLots(prev => 
+      prev.includes(lotNo) ? prev.filter(l => l !== lotNo) : [...prev, lotNo]
+    )
+  }
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank')
+    const lotsToShow = lots.filter(l => selectedLots.includes(l.lotNo))
+    
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>IND Labels - ${new Date().toLocaleDateString()}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; }
+            @page { size: A4; margin: 10mm; }
+            .labels-container { display: flex; flex-wrap: wrap; gap: 10mm; }
+            .label {
+              width: 90mm;
+              height: 55mm;
+              border: 1px solid #000;
+              padding: 3mm;
+              page-break-inside: avoid;
+              display: flex;
+              flex-direction: column;
+            }
+            .header {
+              text-align: center;
+              font-weight: bold;
+              font-size: 9pt;
+              border-bottom: 1px solid #000;
+              padding-bottom: 2mm;
+              margin-bottom: 2mm;
+            }
+            .row {
+              display: flex;
+              border-bottom: 1px solid #ccc;
+            }
+            .row:last-child { border-bottom: none; }
+            .label-key {
+              width: 28mm;
+              font-weight: bold;
+              font-size: 8pt;
+              padding: 1.5mm;
+              background: #f5f5f5;
+              border-right: 1px solid #ccc;
+            }
+            .label-value {
+              flex: 1;
+              font-size: 10pt;
+              padding: 1.5mm;
+              font-weight: bold;
+            }
+            .material-code {
+              text-align: center;
+              font-size: 12pt;
+              font-weight: bold;
+              padding: 3mm;
+              border-bottom: 1px solid #000;
+            }
+            .barcode-area {
+              text-align: center;
+              padding: 2mm;
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+            }
+            .barcode {
+              font-family: 'Libre Barcode 128', monospace;
+              font-size: 36pt;
+              letter-spacing: -2px;
+            }
+            .barcode-text {
+              font-size: 7pt;
+              margin-top: 1mm;
+            }
+            .issue-section {
+              border-top: 1px solid #000;
+              margin-top: auto;
+            }
+            @media print {
+              .no-print { display: none; }
+            }
+          </style>
+          <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+        </head>
+        <body>
+          <div class="labels-container">
+            ${lotsToShow.map(lot => `
+              <div class="label">
+                <div class="header">IND THAI PACKWELL INDUSTRIES CO., LTD.</div>
+                <div class="row">
+                  <div class="label-key">LOT NO:</div>
+                  <div class="label-value">${lot.lotNo}</div>
+                </div>
+                <div class="material-code">${lot.code}</div>
+                <div class="row">
+                  <div class="label-key">QUANTITY</div>
+                  <div class="label-value">${lot.qty}</div>
+                </div>
+                <div class="row">
+                  <div class="label-key">DATE RECD</div>
+                  <div class="label-value">${new Date(lot.dateIn).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                </div>
+                <div class="barcode-area">
+                  <div class="barcode">*${lot.code}*</div>
+                  <div class="barcode-text">${lot.code}</div>
+                </div>
+                <div class="issue-section">
+                  <div class="row">
+                    <div class="label-key">DATE ISSUED</div>
+                    <div class="label-value"></div>
+                  </div>
+                  <div class="row">
+                    <div class="label-key">PCS ISSUED</div>
+                    <div class="label-value"></div>
+                  </div>
+                  <div class="row">
+                    <div class="label-key">ISSUED BY</div>
+                    <div class="label-value"></div>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          <script>
+            setTimeout(() => { window.print(); }, 500);
+          </script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-[#1A5276] to-[#2ECC40]">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            {isPrePrint ? <Tag className="w-5 h-5" /> : <Printer className="w-5 h-5" />}
+            {title || 'Print Inventory Labels'}
+            {isPrePrint && <Badge variant="warning" className="ml-2">PRE-PRINT</Badge>}
+          </h2>
+          <button onClick={onClose} className="p-1 text-white/80 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+          {/* Pre-Print Notice */}
+          {isPrePrint && (
+            <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-medium text-amber-800">Pre-Print Labels from PO Data</div>
+                  <div className="text-sm text-amber-600">
+                    These labels are based on invoice/PO quantities. If actual received quantities differ, 
+                    go to <strong>Inventory → Edit Lot</strong> to adjust and reprint.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Select Labels */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className="font-medium text-gray-700">Select Labels to Print ({selectedLots.length} selected)</label>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setSelectedLots(lots.map(l => l.lotNo))}
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  Select All
+                </button>
+                <button 
+                  onClick={() => setSelectedLots([])}
+                  className="text-sm text-gray-600 hover:underline"
+                >
+                  Deselect All
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto p-2 bg-gray-50 rounded-lg">
+              {lots.map(lot => (
+                <label
+                  key={lot.lotNo}
+                  className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                    selectedLots.includes(lot.lotNo) 
+                      ? 'border-[#1A5276] bg-blue-50' 
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedLots.includes(lot.lotNo)}
+                    onChange={() => toggleLot(lot.lotNo)}
+                    className="w-5 h-5 rounded text-[#1A5276]"
+                  />
+                  <div className="flex-1">
+                    <div className="font-mono font-bold text-[#1A5276]">{lot.lotNo}</div>
+                    <div className="text-sm text-gray-600">{lot.code}</div>
+                    <div className="text-sm text-gray-500">Qty: {lot.qty} | {lot.dateIn}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Label Preview */}
+          <div className="mb-4">
+            <label className="font-medium text-gray-700 mb-2 block">Label Preview</label>
+            <div className="border rounded-lg p-4 bg-gray-50">
+              {selectedLots.length > 0 ? (
+                <div className="flex gap-4 overflow-x-auto pb-2">
+                  {lots.filter(l => selectedLots.includes(l.lotNo)).slice(0, 4).map(lot => (
+                    <div key={lot.lotNo} className="flex-shrink-0 w-[280px] border border-gray-800 bg-white p-2 text-sm">
+                      <div className="text-center font-bold text-xs border-b pb-1 mb-1">
+                        IND THAI PACKWELL INDUSTRIES CO., LTD.
+                      </div>
+                      <div className="flex border-b">
+                        <div className="w-20 bg-gray-100 p-1 font-bold text-xs border-r">LOT NO:</div>
+                        <div className="flex-1 p-1 font-bold">{lot.lotNo}</div>
+                      </div>
+                      <div className="text-center font-bold py-2 border-b text-lg">{lot.code}</div>
+                      <div className="flex border-b">
+                        <div className="w-20 bg-gray-100 p-1 font-bold text-xs border-r">QUANTITY</div>
+                        <div className="flex-1 p-1 font-bold">{lot.qty}</div>
+                      </div>
+                      <div className="flex border-b">
+                        <div className="w-20 bg-gray-100 p-1 font-bold text-xs border-r">DATE RECD</div>
+                        <div className="flex-1 p-1">{lot.dateIn}</div>
+                      </div>
+                      <div className="text-center py-2 border-b">
+                        <div className="text-2xl font-mono tracking-[-2px]">||||||||||||||||</div>
+                        <div className="text-[10px]">{lot.code}</div>
+                      </div>
+                      <div className="text-xs">
+                        <div className="flex border-b">
+                          <div className="w-20 bg-gray-100 p-1 border-r">DATE ISSUED</div>
+                          <div className="flex-1 p-1"></div>
+                        </div>
+                        <div className="flex border-b">
+                          <div className="w-20 bg-gray-100 p-1 border-r">PCS ISSUED</div>
+                          <div className="flex-1 p-1"></div>
+                        </div>
+                        <div className="flex">
+                          <div className="w-20 bg-gray-100 p-1 border-r">ISSUED BY</div>
+                          <div className="flex-1 p-1"></div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {selectedLots.length > 4 && (
+                    <div className="flex-shrink-0 w-[280px] border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-gray-500">
+                      +{selectedLots.length - 4} more labels
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  Select labels to see preview
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button 
+              icon={Printer} 
+              onClick={handlePrint}
+              disabled={selectedLots.length === 0}
+            >
+              Print {selectedLots.length} Label{selectedLots.length !== 1 ? 's' : ''}
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   )
 }
 
 // ============================================
+// PURCHASE MODULE
+// ============================================
+const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories, stores, inventory, setInventory, lang }) => {
+  const [activeTab, setActiveTab] = useState('dashboard')
+  const [showPOModal, setShowPOModal] = useState(false)
+  const [showGRNModal, setShowGRNModal] = useState(false)
+  const [showPrePrintModal, setShowPrePrintModal] = useState(false)
+  const [selectedPO, setSelectedPO] = useState(null)
+  const [editingPO, setEditingPO] = useState(null)
+  const [prePrintLots, setPrePrintLots] = useState([])
+
+  const tabs = [
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    { id: 'orders', label: 'Purchase Orders', icon: FileText },
+    { id: 'receiving', label: 'Goods Receipt', icon: Package },
+    { id: 'vendors', label: 'Vendors', icon: Building2 },
+  ]
+
+  const stats = {
+    totalPOs: purchaseOrders.length,
+    pendingPOs: purchaseOrders.filter(p => p.status === 'pending').length,
+    partialPOs: purchaseOrders.filter(p => p.status === 'partial').length,
+    totalValue: purchaseOrders.reduce((sum, po) => sum + po.grandTotal, 0),
+    pendingValue: purchaseOrders.filter(p => p.status !== 'received').reduce((sum, po) => sum + po.grandTotal, 0),
+  }
+
+  const handleReceive = (po) => {
+    setSelectedPO(po)
+    setShowGRNModal(true)
+  }
+
+  // Pre-print labels from PO (before container arrives)
+  const handlePrePrintLabels = (po) => {
+    const lots = po.items.map((item, idx) => {
+      const prefix = po.type === 'import' || item.category.startsWith('PLY') ? 'IND2' : 'IND'
+      const lotNo = `LP${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(idx + 1).padStart(3, '0')}`
+      return {
+        lotNo,
+        code: `${prefix}-${item.category}/${item.thickness}/${item.width}/${item.length}`,
+        category: item.category,
+        qty: item.qtyOrdered - (item.qtyReceived || 0), // Remaining qty to receive
+        dateIn: po.expectedDelivery || new Date().toISOString().split('T')[0],
+        poId: po.id,
+        status: 'pre-printed',
+      }
+    })
+    setPrePrintLots(lots)
+    setSelectedPO(po)
+    setShowPrePrintModal(true)
+  }
+
+  const handleGRNSave = (grnData) => {
+    // Update PO with received quantities
+    setPurchaseOrders(purchaseOrders.map(po => {
+      if (po.id === grnData.poId) {
+        const updatedItems = po.items.map(item => {
+          const grnItem = grnData.items.find(g => g.id === item.id)
+          if (grnItem) {
+            return { 
+              ...item, 
+              qtyReceived: (item.qtyReceived || 0) + grnItem.qtyReceived,
+              status: (item.qtyReceived || 0) + grnItem.qtyReceived >= item.qtyOrdered ? 'received' : 'partial'
+            }
+          }
+          return item
+        })
+        const allReceived = updatedItems.every(i => i.status === 'received')
+        const anyReceived = updatedItems.some(i => i.qtyReceived > 0)
+        return { 
+          ...po, 
+          items: updatedItems,
+          status: allReceived ? 'received' : (anyReceived ? 'partial' : 'pending')
+        }
+      }
+      return po
+    }))
+
+    // Add to inventory
+    const newLots = grnData.items.filter(item => item.qtyReceived > 0).map((item, idx) => {
+      const po = purchaseOrders.find(p => p.id === grnData.poId)
+      const vendor = vendors.find(v => v.id === po?.vendorId)
+      const lotNo = `LP${Date.now().toString().slice(-5)}${idx}`
+      const store = po?.type === 'import' || item.category.startsWith('PLY') ? 'STORE2' : 'STORE1'
+      const prefix = stores.find(s => s.id === store)?.branch === 'IND-2' ? 'IND2' : 'IND'
+      
+      return {
+        id: Date.now() + idx,
+        lotNo,
+        category: item.category,
+        code: `${prefix}-${item.category}/${item.thickness}/${item.width}/${item.length}`,
+        store,
+        qty: item.qtyReceived,
+        cbm: (item.thickness * item.width * item.length * item.qtyReceived) / 1000000000,
+        cost: item.qtyReceived * item.unitPrice * (po?.exchangeRate || 1),
+        costPerCbm: 0, // Calculate based on CBM
+        status: item.qtyReceived < 100 ? 'low' : 'available',
+        dateIn: new Date().toISOString().split('T')[0],
+        vendor: vendor?.name || 'Unknown',
+        poId: grnData.poId,
+      }
+    })
+
+    setInventory([...inventory, ...newLots])
+    setShowGRNModal(false)
+    setSelectedPO(null)
+  }
+
+  return (
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">{t('nav.purchase', lang)}</h1>
+          <p className="text-gray-500">Manage purchase orders, receiving, and import costing</p>
+        </div>
+        <Button icon={Plus} onClick={() => { setEditingPO(null); setShowPOModal(true) }}>
+          New Purchase Order
+        </Button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6 border-b">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
+              activeTab === tab.id
+                ? 'border-[#1A5276] text-[#1A5276] font-medium'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      {activeTab === 'dashboard' && (
+        <PurchaseDashboard stats={stats} purchaseOrders={purchaseOrders} vendors={vendors} onReceive={handleReceive} onPrePrint={handlePrePrintLabels} />
+      )}
+      {activeTab === 'orders' && (
+        <PurchaseOrderList 
+          purchaseOrders={purchaseOrders} 
+          vendors={vendors} 
+          onEdit={(po) => { setEditingPO(po); setShowPOModal(true) }}
+          onReceive={handleReceive}
+          onPrintLabels={handlePrePrintLabels}
+        />
+      )}
+      {activeTab === 'receiving' && (
+        <GoodsReceiptList purchaseOrders={purchaseOrders} vendors={vendors} onReceive={handleReceive} />
+      )}
+      {activeTab === 'vendors' && (
+        <VendorList vendors={vendors} />
+      )}
+
+      {/* PO Modal */}
+      <Modal
+        isOpen={showPOModal}
+        onClose={() => { setShowPOModal(false); setEditingPO(null) }}
+        title={editingPO ? 'Edit Purchase Order' : 'Create Purchase Order'}
+        size="xl"
+      >
+        <PurchaseOrderForm
+          po={editingPO}
+          vendors={vendors}
+          categories={categories}
+          onSave={(poData) => {
+            if (editingPO) {
+              setPurchaseOrders(purchaseOrders.map(p => p.id === editingPO.id ? { ...p, ...poData } : p))
+            } else {
+              const newId = `PO-${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(purchaseOrders.length + 1).padStart(3, '0')}`
+              setPurchaseOrders([...purchaseOrders, { ...poData, id: newId, createdAt: new Date().toISOString().split('T')[0], createdBy: 'Vinit' }])
+            }
+            setShowPOModal(false)
+            setEditingPO(null)
+          }}
+          onCancel={() => { setShowPOModal(false); setEditingPO(null) }}
+          lang={lang}
+        />
+      </Modal>
+
+      {/* GRN Modal */}
+      <Modal
+        isOpen={showGRNModal}
+        onClose={() => { setShowGRNModal(false); setSelectedPO(null) }}
+        title={`Goods Receipt - ${selectedPO?.id}`}
+        size="xl"
+      >
+        {selectedPO && (
+          <GoodsReceiptForm
+            po={selectedPO}
+            vendors={vendors}
+            onSave={handleGRNSave}
+            onCancel={() => { setShowGRNModal(false); setSelectedPO(null) }}
+            lang={lang}
+          />
+        )}
+      </Modal>
+
+      {/* Pre-Print Labels Modal */}
+      <LabelPrintModal
+        isOpen={showPrePrintModal}
+        onClose={() => { setShowPrePrintModal(false); setSelectedPO(null) }}
+        lots={prePrintLots}
+        lang={lang}
+        title={`Pre-Print Labels - ${selectedPO?.id}`}
+        isPrePrint={true}
+      />
+    </div>
+  )
+}
+
+const PurchaseDashboard = ({ stats, purchaseOrders, vendors, onReceive, onPrePrint }) => {
+  const pendingOrders = purchaseOrders.filter(p => p.status !== 'received').slice(0, 5)
+
+  return (
+    <div className="space-y-6">
+      {/* Workflow Info */}
+      <Card className="p-4 bg-gradient-to-r from-blue-50 to-green-50 border-blue-200">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <Tag className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <div className="font-bold text-gray-800 mb-1">Label Workflow for Swift Offloading</div>
+            <div className="text-sm text-gray-600 space-y-1">
+              <div>1️⃣ <strong>Pre-Print Labels</strong> from PO before container arrives</div>
+              <div>2️⃣ <strong>Attach Labels</strong> during offloading for instant identification</div>
+              <div>3️⃣ <strong>Edit & Reprint</strong> if quantities or sizes differ from invoice</div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-5 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+              <FileText className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-800">{stats.totalPOs}</div>
+              <div className="text-sm text-gray-500">Total POs</div>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+              <Clock className="w-6 h-6 text-amber-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-amber-600">{stats.pendingPOs}</div>
+              <div className="text-sm text-gray-500">Pending</div>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
+              <AlertTriangle className="w-6 h-6 text-orange-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-orange-600">{stats.partialPOs}</div>
+              <div className="text-sm text-gray-500">Partial Receipt</div>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+              <DollarSign className="w-6 h-6 text-green-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-800">{formatCurrency(stats.totalValue)}</div>
+              <div className="text-sm text-gray-500">Total Value</div>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
+              <Wallet className="w-6 h-6 text-red-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-red-600">{formatCurrency(stats.pendingValue)}</div>
+              <div className="text-sm text-gray-500">Pending Value</div>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Pending Orders */}
+      <Card className="p-5">
+        <h3 className="font-bold text-gray-800 mb-4">Orders Awaiting Receipt</h3>
+        {pendingOrders.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-500" />
+            <p>All orders have been received!</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {pendingOrders.map(po => {
+              const vendor = vendors.find(v => v.id === po.vendorId)
+              return (
+                <div key={po.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${po.type === 'import' ? 'bg-blue-100' : 'bg-green-100'}`}>
+                      {po.type === 'import' ? <Globe className="w-5 h-5 text-blue-600" /> : <MapPin className="w-5 h-5 text-green-600" />}
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-800">{po.id}</div>
+                      <div className="text-sm text-gray-500">{vendor?.name}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-gray-800">{formatCurrency(po.grandTotal)}</div>
+                    <div className="text-sm text-gray-500">Expected: {po.expectedDelivery}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={po.status === 'partial' ? 'warning' : 'info'}>
+                      {po.status === 'partial' ? 'Partial' : 'Pending'}
+                    </Badge>
+                    <Button size="sm" variant="outline" onClick={() => onPrePrint(po)} title="Pre-Print Labels">
+                      <Tag className="w-4 h-4" />
+                    </Button>
+                    <Button size="sm" onClick={() => onReceive(po)}>Receive</Button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </Card>
+    </div>
+  )
+}
+
+const PurchaseOrderList = ({ purchaseOrders, vendors, onEdit, onReceive, onPrintLabels }) => {
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterType, setFilterType] = useState('all')
+
+  const filtered = purchaseOrders.filter(po => {
+    const vendor = vendors.find(v => v.id === po.vendorId)
+    const matchesSearch = po.id.toLowerCase().includes(search.toLowerCase()) ||
+                          vendor?.name.toLowerCase().includes(search.toLowerCase())
+    const matchesStatus = filterStatus === 'all' || po.status === filterStatus
+    const matchesType = filterType === 'all' || po.type === filterType
+    return matchesSearch && matchesStatus && matchesType
+  })
+
+  return (
+    <div className="space-y-4">
+      {/* Info Banner */}
+      <Card className="p-4 bg-blue-50 border-blue-200">
+        <div className="flex items-center gap-3">
+          <Printer className="w-6 h-6 text-blue-600" />
+          <div>
+            <div className="font-medium text-blue-800">Pre-Print Labels for Swift Offloading</div>
+            <div className="text-sm text-blue-600">Print labels before container arrives. Click 🏷️ on any PO to generate labels from invoice data.</div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Filters */}
+      <Card className="p-4">
+        <div className="flex gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search PO or vendor..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A5276]"
+            />
+          </div>
+          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="px-4 py-2 border rounded-lg">
+            <option value="all">All Types</option>
+            <option value="import">Import</option>
+            <option value="local">Local</option>
+          </select>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-4 py-2 border rounded-lg">
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="partial">Partial</option>
+            <option value="received">Received</option>
+          </select>
+        </div>
+      </Card>
+
+      {/* Table */}
+      <Card className="overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gradient-to-r from-[#1A5276] to-[#2ECC40] text-white">
+            <tr>
+              <th className="px-4 py-3 text-left text-sm font-medium">PO Number</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Type</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Vendor</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Date</th>
+              <th className="px-4 py-3 text-right text-sm font-medium">Items</th>
+              <th className="px-4 py-3 text-right text-sm font-medium">Total</th>
+              <th className="px-4 py-3 text-center text-sm font-medium">Status</th>
+              <th className="px-4 py-3 text-center text-sm font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {filtered.map(po => {
+              const vendor = vendors.find(v => v.id === po.vendorId)
+              return (
+                <tr key={po.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <span className="font-mono font-medium text-[#1A5276]">{po.id}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant={po.type === 'import' ? 'info' : 'success'}>
+                      {po.type === 'import' ? '🚢 Import' : '🏠 Local'}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-gray-800">{vendor?.name}</div>
+                    <div className="text-sm text-gray-500">{vendor?.country}</div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{po.poDate}</td>
+                  <td className="px-4 py-3 text-right">{po.items.length}</td>
+                  <td className="px-4 py-3 text-right font-bold text-[#2ECC40]">{formatCurrency(po.grandTotal)}</td>
+                  <td className="px-4 py-3 text-center">
+                    <Badge variant={
+                      po.status === 'received' ? 'success' :
+                      po.status === 'partial' ? 'warning' : 'info'
+                    }>
+                      {po.status === 'received' ? '✅ Received' :
+                       po.status === 'partial' ? '⏳ Partial' : '🕐 Pending'}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => onEdit(po)} className="p-1.5 text-gray-400 hover:text-[#1A5276] hover:bg-gray-100 rounded" title="View/Edit">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => onPrintLabels(po)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-gray-100 rounded" title="Pre-Print Labels">
+                        <Tag className="w-4 h-4" />
+                      </button>
+                      {po.status !== 'received' && (
+                        <button onClick={() => onReceive(po)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded" title="Receive Goods">
+                          <Package className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-gray-100 rounded" title="Print PO">
+                        <Printer className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  )
+}
+
+const GoodsReceiptList = ({ purchaseOrders, vendors, onReceive }) => {
+  const pendingPOs = purchaseOrders.filter(p => p.status !== 'received')
+
+  return (
+    <div className="space-y-4">
+      <Card className="p-4 bg-amber-50 border-amber-200">
+        <div className="flex items-center gap-3">
+          <AlertTriangle className="w-6 h-6 text-amber-600" />
+          <div>
+            <div className="font-medium text-amber-800">{pendingPOs.length} Purchase Orders awaiting receipt</div>
+            <div className="text-sm text-amber-600">Select a PO below to record goods receipt</div>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4">
+        {pendingPOs.map(po => {
+          const vendor = vendors.find(v => v.id === po.vendorId)
+          const totalOrdered = po.items.reduce((sum, i) => sum + i.qtyOrdered, 0)
+          const totalReceived = po.items.reduce((sum, i) => sum + (i.qtyReceived || 0), 0)
+          
+          return (
+            <Card key={po.id} className="p-5">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-4">
+                  <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${po.type === 'import' ? 'bg-blue-100' : 'bg-green-100'}`}>
+                    {po.type === 'import' ? <Globe className="w-7 h-7 text-blue-600" /> : <MapPin className="w-7 h-7 text-green-600" />}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className="font-mono font-bold text-lg text-[#1A5276]">{po.id}</span>
+                      <Badge variant={po.type === 'import' ? 'info' : 'success'}>{po.type}</Badge>
+                      <Badge variant={po.status === 'partial' ? 'warning' : 'default'}>{po.status}</Badge>
+                    </div>
+                    <div className="text-gray-600">{vendor?.name}</div>
+                    <div className="text-sm text-gray-500">Invoice: {po.invoiceNo || 'N/A'} | Expected: {po.expectedDelivery}</div>
+                  </div>
+                </div>
+                <Button onClick={() => onReceive(po)}>
+                  <Package className="w-4 h-4 mr-2" />
+                  Receive Goods
+                </Button>
+              </div>
+
+              {/* Items Summary */}
+              <div className="mt-4 pt-4 border-t">
+                <div className="grid grid-cols-4 gap-4 text-sm">
+                  {po.items.map(item => (
+                    <div key={item.id} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="font-medium text-gray-800">{item.category}</div>
+                      <div className="text-xs text-gray-500 mb-2">{item.materialCode}</div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Ordered:</span>
+                        <span className="font-medium">{item.qtyOrdered}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Received:</span>
+                        <span className={`font-medium ${item.qtyReceived < item.qtyOrdered ? 'text-amber-600' : 'text-green-600'}`}>
+                          {item.qtyReceived || 0}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end mt-3 text-sm">
+                  <span className="text-gray-500 mr-2">Progress:</span>
+                  <span className="font-bold">{totalReceived} / {totalOrdered}</span>
+                  <span className="text-gray-400 ml-1">({Math.round((totalReceived / totalOrdered) * 100)}%)</span>
+                </div>
+              </div>
+            </Card>
+          )
+        })}
+
+        {pendingPOs.length === 0 && (
+          <Card className="p-12 text-center">
+            <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
+            <h3 className="text-xl font-bold text-gray-800 mb-2">All Caught Up!</h3>
+            <p className="text-gray-500">No pending goods receipts at the moment.</p>
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const VendorList = ({ vendors }) => {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {vendors.map(vendor => (
+        <Card key={vendor.id} className="p-5">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${vendor.type === 'import' ? 'bg-blue-100' : 'bg-green-100'}`}>
+                {vendor.type === 'import' ? <Globe className="w-6 h-6 text-blue-600" /> : <MapPin className="w-6 h-6 text-green-600" />}
+              </div>
+              <div>
+                <div className="font-bold text-gray-800">{vendor.code}</div>
+                <Badge variant={vendor.type === 'import' ? 'info' : 'success'}>{vendor.type}</Badge>
+              </div>
+            </div>
+            <button className="p-1.5 text-gray-400 hover:text-[#1A5276]">
+              <Edit3 className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="mb-3">
+            <div className="font-medium text-gray-800">{vendor.name}</div>
+            <div className="text-sm text-gray-500">{vendor.nameTh}</div>
+          </div>
+          <div className="space-y-1 text-sm text-gray-600 mb-3">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-gray-400" />
+              <span>{vendor.country}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-gray-400" />
+              <span>{vendor.currency} • {vendor.paymentTerms} days</span>
+            </div>
+            {vendor.email && (
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-gray-400" />
+                <span className="truncate">{vendor.email}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1 pt-3 border-t">
+            {vendor.materials.map(mat => (
+              <Badge key={mat} variant="default">{mat}</Badge>
+            ))}
+          </div>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+const PurchaseOrderForm = ({ po, vendors, categories, onSave, onCancel, lang }) => {
+  const rmCategories = categories.filter(c => c.type === 'raw_material')
+  const [formData, setFormData] = useState({
+    type: po?.type || 'local',
+    vendorId: po?.vendorId || '',
+    poDate: po?.poDate || new Date().toISOString().split('T')[0],
+    invoiceNo: po?.invoiceNo || '',
+    invoiceDate: po?.invoiceDate || '',
+    containerNo: po?.containerNo || '',
+    expectedDelivery: po?.expectedDelivery || '',
+    currency: po?.currency || 'THB',
+    exchangeRate: po?.exchangeRate || 1,
+    items: po?.items || [{ id: 1, category: '', materialCode: '', thickness: 0, width: 0, length: 0, qtyOrdered: 0, unit: 'pcs', unitPrice: 0 }],
+    importCosts: po?.importCosts || {},
+    status: po?.status || 'pending',
+  })
+
+  const selectedVendor = vendors.find(v => v.id === formData.vendorId)
+
+  useEffect(() => {
+    if (selectedVendor) {
+      setFormData(prev => ({
+        ...prev,
+        type: selectedVendor.type,
+        currency: selectedVendor.currency,
+        exchangeRate: selectedVendor.currency === 'USD' ? 35.50 : 1,
+      }))
+    }
+  }, [formData.vendorId])
+
+  const addItem = () => {
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, { id: prev.items.length + 1, category: '', materialCode: '', thickness: 0, width: 0, length: 0, qtyOrdered: 0, unit: 'pcs', unitPrice: 0 }]
+    }))
+  }
+
+  const updateItem = (idx, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) => i === idx ? { ...item, [field]: value } : item)
+    }))
+  }
+
+  const removeItem = (idx) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== idx)
+    }))
+  }
+
+  const updateImportCost = (costId, value) => {
+    setFormData(prev => ({
+      ...prev,
+      importCosts: { ...prev.importCosts, [costId]: parseFloat(value) || 0 }
+    }))
+  }
+
+  // Calculations
+  const subtotal = formData.items.reduce((sum, item) => sum + (item.qtyOrdered * item.unitPrice * formData.exchangeRate), 0)
+  const totalImportCosts = Object.values(formData.importCosts).reduce((sum, cost) => sum + (cost || 0), 0)
+  const vat7 = (subtotal + totalImportCosts) * 0.07
+  const withholding3 = formData.type === 'import' ? totalImportCosts * 0.03 : 0
+  const grandTotal = subtotal + totalImportCosts + vat7 - withholding3
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave({
+      ...formData,
+      subtotal,
+      totalImportCosts,
+      vat7,
+      withholding3,
+      grandTotal,
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Type & Vendor */}
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Type</label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, type: 'local' })}
+              className={`flex-1 py-2 px-4 rounded-lg border-2 transition-all ${formData.type === 'local' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200'}`}
+            >
+              🏠 Local
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, type: 'import' })}
+              className={`flex-1 py-2 px-4 rounded-lg border-2 transition-all ${formData.type === 'import' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200'}`}
+            >
+              🚢 Import
+            </button>
+          </div>
+        </div>
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Vendor *</label>
+          <select
+            required
+            value={formData.vendorId}
+            onChange={(e) => setFormData({ ...formData, vendorId: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A5276]"
+          >
+            <option value="">Select Vendor</option>
+            {vendors.filter(v => formData.type === 'all' || v.type === formData.type).map(v => (
+              <option key={v.id} value={v.id}>{v.name} ({v.country})</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Dates & Invoice */}
+      <div className="grid grid-cols-4 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">PO Date *</label>
+          <input
+            type="date"
+            required
+            value={formData.poDate}
+            onChange={(e) => setFormData({ ...formData, poDate: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Vendor Invoice #</label>
+          <input
+            type="text"
+            value={formData.invoiceNo}
+            onChange={(e) => setFormData({ ...formData, invoiceNo: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Expected Delivery *</label>
+          <input
+            type="date"
+            required
+            value={formData.expectedDelivery}
+            onChange={(e) => setFormData({ ...formData, expectedDelivery: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        {formData.type === 'import' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Container #</label>
+            <input
+              type="text"
+              value={formData.containerNo}
+              onChange={(e) => setFormData({ ...formData, containerNo: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Currency */}
+      {formData.type === 'import' && (
+        <div className="grid grid-cols-3 gap-4 p-4 bg-blue-50 rounded-lg">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+            <select
+              value={formData.currency}
+              onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg"
+            >
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="THB">THB</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Exchange Rate</label>
+            <input
+              type="number"
+              step="0.01"
+              value={formData.exchangeRate}
+              onChange={(e) => setFormData({ ...formData, exchangeRate: parseFloat(e.target.value) })}
+              className="w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
+          <div className="flex items-end">
+            <div className="text-sm text-gray-600">
+              1 {formData.currency} = ฿{formData.exchangeRate.toFixed(2)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Items */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm font-medium text-gray-700">Order Items</label>
+          <Button type="button" size="sm" variant="outline" onClick={addItem}>+ Add Item</Button>
+        </div>
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-left">Category</th>
+                <th className="px-3 py-2 text-left">T x W x L (mm)</th>
+                <th className="px-3 py-2 text-right">Qty</th>
+                <th className="px-3 py-2 text-left">Unit</th>
+                <th className="px-3 py-2 text-right">Unit Price</th>
+                <th className="px-3 py-2 text-right">Total</th>
+                <th className="px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {formData.items.map((item, idx) => (
+                <tr key={idx}>
+                  <td className="px-3 py-2">
+                    <select
+                      value={item.category}
+                      onChange={(e) => updateItem(idx, 'category', e.target.value)}
+                      className="w-full px-2 py-1 border rounded text-sm"
+                    >
+                      <option value="">Select</option>
+                      {rmCategories.map(c => (
+                        <option key={c.id} value={c.id}>{c.code}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex gap-1">
+                      <input
+                        type="number"
+                        placeholder="T"
+                        value={item.thickness || ''}
+                        onChange={(e) => updateItem(idx, 'thickness', parseFloat(e.target.value))}
+                        className="w-16 px-2 py-1 border rounded text-sm"
+                      />
+                      <input
+                        type="number"
+                        placeholder="W"
+                        value={item.width || ''}
+                        onChange={(e) => updateItem(idx, 'width', parseFloat(e.target.value))}
+                        className="w-16 px-2 py-1 border rounded text-sm"
+                      />
+                      <input
+                        type="number"
+                        placeholder="L"
+                        value={item.length || ''}
+                        onChange={(e) => updateItem(idx, 'length', parseFloat(e.target.value))}
+                        className="w-20 px-2 py-1 border rounded text-sm"
+                      />
+                    </div>
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      type="number"
+                      value={item.qtyOrdered || ''}
+                      onChange={(e) => updateItem(idx, 'qtyOrdered', parseInt(e.target.value))}
+                      className="w-20 px-2 py-1 border rounded text-sm text-right"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <select
+                      value={item.unit}
+                      onChange={(e) => updateItem(idx, 'unit', e.target.value)}
+                      className="w-20 px-2 py-1 border rounded text-sm"
+                    >
+                      <option value="pcs">pcs</option>
+                      <option value="sheets">sheets</option>
+                      <option value="m3">m³</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.unitPrice || ''}
+                      onChange={(e) => updateItem(idx, 'unitPrice', parseFloat(e.target.value))}
+                      className="w-24 px-2 py-1 border rounded text-sm text-right"
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-right font-medium">
+                    {formatCurrency(item.qtyOrdered * item.unitPrice * formData.exchangeRate)}
+                  </td>
+                  <td className="px-3 py-2">
+                    {formData.items.length > 1 && (
+                      <button type="button" onClick={() => removeItem(idx)} className="text-red-500 hover:text-red-700">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Import Costs */}
+      {formData.type === 'import' && (
+        <div>
+          <label className="text-sm font-medium text-gray-700 mb-2 block">Import Costing (13 Types)</label>
+          <div className="grid grid-cols-4 gap-3 p-4 bg-blue-50 rounded-lg">
+            {IMPORT_COST_TYPES.map(cost => (
+              <div key={cost.id}>
+                <label className="block text-xs text-gray-600 mb-1">
+                  {cost.nameEn} {cost.hasVat && <span className="text-blue-500">(+VAT)</span>}
+                </label>
+                <input
+                  type="number"
+                  value={formData.importCosts[cost.id] || ''}
+                  onChange={(e) => updateImportCost(cost.id, e.target.value)}
+                  className="w-full px-2 py-1 border rounded text-sm text-right"
+                  placeholder="฿0"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Totals */}
+      <div className="bg-gray-50 rounded-lg p-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Subtotal (Materials)</span>
+              <span className="font-medium">{formatCurrency(subtotal)}</span>
+            </div>
+            {formData.type === 'import' && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Import Costs</span>
+                <span className="font-medium">{formatCurrency(totalImportCosts)}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-gray-600">VAT 7%</span>
+              <span className="font-medium">{formatCurrency(vat7)}</span>
+            </div>
+            {formData.type === 'import' && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Withholding 3%</span>
+                <span className="font-medium text-red-600">-{formatCurrency(withholding3)}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-end justify-end">
+            <div className="text-right">
+              <div className="text-sm text-gray-500">Grand Total</div>
+              <div className="text-3xl font-bold text-[#2ECC40]">{formatCurrency(grandTotal)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="secondary" onClick={onCancel}>{t('action.cancel', lang)}</Button>
+        <Button type="submit" icon={Save}>{t('action.save', lang)}</Button>
+      </div>
+    </form>
+  )
+}
+
+const GoodsReceiptForm = ({ po, vendors, onSave, onCancel, lang }) => {
+  const vendor = vendors.find(v => v.id === po.vendorId)
+  const [grnItems, setGrnItems] = useState(
+    po.items.map(item => ({
+      ...item,
+      qtyToReceive: item.qtyOrdered - (item.qtyReceived || 0),
+      actualThickness: item.thickness,
+      actualWidth: item.width,
+      actualLength: item.length,
+      varianceReason: '',
+    }))
+  )
+  const [grnDate, setGrnDate] = useState(new Date().toISOString().split('T')[0])
+  const [notes, setNotes] = useState('')
+  const [showLabelModal, setShowLabelModal] = useState(false)
+  const [pendingLots, setPendingLots] = useState([])
+
+  const updateGrnItem = (idx, field, value) => {
+    setGrnItems(items => items.map((item, i) => i === idx ? { ...item, [field]: value } : item))
+  }
+
+  // Generate lot preview for label printing
+  const generatePreviewLots = () => {
+    return grnItems.filter(item => item.qtyToReceive > 0).map((item, idx) => {
+      const prefix = po.type === 'import' || item.category.startsWith('PLY') ? 'IND2' : 'IND'
+      const lotNo = `LP${Date.now().toString().slice(-5)}${idx}`
+      return {
+        lotNo,
+        code: `${prefix}-${item.category}/${item.actualThickness}/${item.actualWidth}/${item.actualLength}`,
+        category: item.category,
+        qty: item.qtyToReceive,
+        dateIn: grnDate,
+      }
+    })
+  }
+
+  const handlePrintLabels = () => {
+    const lots = generatePreviewLots()
+    setPendingLots(lots)
+    setShowLabelModal(true)
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave({
+      poId: po.id,
+      grnDate,
+      notes,
+      items: grnItems.map(item => ({
+        id: item.id,
+        category: item.category,
+        materialCode: item.materialCode,
+        thickness: item.actualThickness,
+        width: item.actualWidth,
+        length: item.actualLength,
+        qtyReceived: item.qtyToReceive,
+        unitPrice: item.unitPrice,
+        varianceReason: item.varianceReason,
+      }))
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* PO Info */}
+      <div className="p-4 bg-gray-50 rounded-lg">
+        <div className="grid grid-cols-4 gap-4 text-sm">
+          <div>
+            <div className="text-gray-500">PO Number</div>
+            <div className="font-bold text-[#1A5276]">{po.id}</div>
+          </div>
+          <div>
+            <div className="text-gray-500">Vendor</div>
+            <div className="font-medium">{vendor?.name}</div>
+          </div>
+          <div>
+            <div className="text-gray-500">Invoice</div>
+            <div className="font-medium">{po.invoiceNo || 'N/A'}</div>
+          </div>
+          <div>
+            <div className="text-gray-500">Type</div>
+            <Badge variant={po.type === 'import' ? 'info' : 'success'}>{po.type}</Badge>
+          </div>
+        </div>
+      </div>
+
+      {/* GRN Date */}
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Receipt Date *</label>
+          <input
+            type="date"
+            required
+            value={grnDate}
+            onChange={(e) => setGrnDate(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+      </div>
+
+      {/* Items to Receive */}
+      <div>
+        <label className="text-sm font-medium text-gray-700 mb-2 block">Items to Receive (Editable)</label>
+        <div className="space-y-4">
+          {grnItems.map((item, idx) => {
+            const remaining = item.qtyOrdered - (po.items[idx].qtyReceived || 0)
+            const hasVariance = item.qtyToReceive !== remaining || 
+                               item.actualThickness !== item.thickness ||
+                               item.actualWidth !== item.width ||
+                               item.actualLength !== item.length
+            
+            return (
+              <Card key={idx} className={`p-4 ${hasVariance ? 'border-amber-300 bg-amber-50' : ''}`}>
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="info">{item.category}</Badge>
+                      <span className="font-mono text-sm">{item.materialCode}</span>
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      Ordered: {item.qtyOrdered} {item.unit} | Already Received: {po.items[idx].qtyReceived || 0} | Remaining: {remaining}
+                    </div>
+                  </div>
+                  {hasVariance && (
+                    <Badge variant="warning">⚠️ Variance</Badge>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-5 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Qty to Receive *</label>
+                    <input
+                      type="number"
+                      value={item.qtyToReceive}
+                      onChange={(e) => updateGrnItem(idx, 'qtyToReceive', parseInt(e.target.value) || 0)}
+                      className={`w-full px-3 py-2 border rounded-lg ${item.qtyToReceive !== remaining ? 'border-amber-400 bg-amber-50' : ''}`}
+                      max={remaining}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Actual Thickness</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={item.actualThickness}
+                      onChange={(e) => updateGrnItem(idx, 'actualThickness', parseFloat(e.target.value))}
+                      className={`w-full px-3 py-2 border rounded-lg ${item.actualThickness !== item.thickness ? 'border-amber-400 bg-amber-50' : ''}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Actual Width</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={item.actualWidth}
+                      onChange={(e) => updateGrnItem(idx, 'actualWidth', parseFloat(e.target.value))}
+                      className={`w-full px-3 py-2 border rounded-lg ${item.actualWidth !== item.width ? 'border-amber-400 bg-amber-50' : ''}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Actual Length</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={item.actualLength}
+                      onChange={(e) => updateGrnItem(idx, 'actualLength', parseFloat(e.target.value))}
+                      className={`w-full px-3 py-2 border rounded-lg ${item.actualLength !== item.length ? 'border-amber-400 bg-amber-50' : ''}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Cost</label>
+                    <div className="px-3 py-2 bg-gray-100 rounded-lg font-medium text-[#2ECC40]">
+                      {formatCurrency(item.qtyToReceive * item.unitPrice * (po.exchangeRate || 1))}
+                    </div>
+                  </div>
+                </div>
+
+                {hasVariance && (
+                  <div className="mt-3">
+                    <label className="block text-xs text-gray-500 mb-1">Variance Reason *</label>
+                    <input
+                      type="text"
+                      value={item.varianceReason}
+                      onChange={(e) => updateGrnItem(idx, 'varianceReason', e.target.value)}
+                      placeholder="Explain the variance (e.g., 2 pieces short, 10mm shorter length)"
+                      className="w-full px-3 py-2 border border-amber-400 rounded-lg bg-amber-50"
+                      required={hasVariance}
+                    />
+                  </div>
+                )}
+              </Card>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Receipt Notes</label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={2}
+          className="w-full px-3 py-2 border rounded-lg"
+          placeholder="Any additional notes about this receipt..."
+        />
+      </div>
+
+      {/* Summary */}
+      <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-medium text-green-800">Receipt Summary</div>
+            <div className="text-sm text-green-600">
+              {grnItems.reduce((sum, i) => sum + i.qtyToReceive, 0)} items will be added to inventory
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-sm text-green-600">Total Value</div>
+            <div className="text-2xl font-bold text-green-700">
+              {formatCurrency(grnItems.reduce((sum, i) => sum + (i.qtyToReceive * i.unitPrice * (po.exchangeRate || 1)), 0))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="secondary" onClick={onCancel}>{t('action.cancel', lang)}</Button>
+        <Button type="button" variant="outline" icon={Printer} onClick={handlePrintLabels}>Print Labels</Button>
+        <Button type="submit" icon={Save}>Confirm Receipt</Button>
+      </div>
+
+      {/* Label Print Modal */}
+      <LabelPrintModal
+        isOpen={showLabelModal}
+        onClose={() => setShowLabelModal(false)}
+        lots={pendingLots}
+        lang={lang}
+      />
+    </form>
+  )
+}
+
+// ============================================
 // DASHBOARD
 // ============================================
-const Dashboard = ({ stores, inventory, categories, lang }) => {
+const Dashboard = ({ stores, inventory, categories, purchaseOrders = [], lang }) => {
   const stats = {
     totalValue: inventory.reduce((sum, i) => sum + i.cost, 0),
     totalLots: inventory.length,
@@ -1095,11 +3061,12 @@ const Dashboard = ({ stores, inventory, categories, lang }) => {
     activeWO: 15,
     onTimeDelivery: 92,
     monthlyRevenue: 12500000,
+    pendingPOs: purchaseOrders.filter(p => p.status !== 'received').length,
   }
 
   const recentActivity = [
     { type: 'receive', text: 'Received MLH from Thai Timber', time: '2 hours ago', icon: Package, color: 'green' },
-    { type: 'issue', text: 'Issued materials to WO-2601-024', time: '3 hours ago', icon: ArrowRight, color: 'blue' },
+    { type: 'po', text: 'New PO created for Stora Enso', time: '3 hours ago', icon: FileText, color: 'blue' },
     { type: 'alert', text: 'Low stock alert: PW 39x145x3960', time: '5 hours ago', icon: AlertTriangle, color: 'red' },
     { type: 'complete', text: 'WO-2601-022 completed', time: '1 day ago', icon: CheckCircle, color: 'green' },
   ]
@@ -1226,35 +3193,49 @@ export default function App() {
   
   // Configurable Data (loaded from localStorage or defaults)
   const [stores, setStores] = useState(() => {
-    const saved = localStorage.getItem('ind_stores')
+    const saved = localStorage.getItem('ind_stores_v3')
     return saved ? JSON.parse(saved) : INITIAL_STORES
   })
   const [categories, setCategories] = useState(() => {
-    const saved = localStorage.getItem('ind_categories')
+    const saved = localStorage.getItem('ind_categories_v3')
     return saved ? JSON.parse(saved) : INITIAL_CATEGORIES
   })
   const [inventory, setInventory] = useState(() => {
-    const saved = localStorage.getItem('ind_inventory')
+    const saved = localStorage.getItem('ind_inventory_v3')
     return saved ? JSON.parse(saved) : INITIAL_INVENTORY
   })
   const [customers, setCustomers] = useState(() => {
-    const saved = localStorage.getItem('ind_customers')
+    const saved = localStorage.getItem('ind_customers_v3')
     return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS
+  })
+  const [vendors, setVendors] = useState(() => {
+    const saved = localStorage.getItem('ind_vendors_v3')
+    return saved ? JSON.parse(saved) : INITIAL_VENDORS
+  })
+  const [purchaseOrders, setPurchaseOrders] = useState(() => {
+    const saved = localStorage.getItem('ind_purchase_orders_v3')
+    return saved ? JSON.parse(saved) : INITIAL_PURCHASE_ORDERS
   })
 
   // Save to localStorage
   useEffect(() => {
-    localStorage.setItem('ind_stores', JSON.stringify(stores))
+    localStorage.setItem('ind_stores_v3', JSON.stringify(stores))
   }, [stores])
   useEffect(() => {
-    localStorage.setItem('ind_categories', JSON.stringify(categories))
+    localStorage.setItem('ind_categories_v3', JSON.stringify(categories))
   }, [categories])
   useEffect(() => {
-    localStorage.setItem('ind_inventory', JSON.stringify(inventory))
+    localStorage.setItem('ind_inventory_v3', JSON.stringify(inventory))
   }, [inventory])
   useEffect(() => {
-    localStorage.setItem('ind_customers', JSON.stringify(customers))
+    localStorage.setItem('ind_customers_v3', JSON.stringify(customers))
   }, [customers])
+  useEffect(() => {
+    localStorage.setItem('ind_vendors_v3', JSON.stringify(vendors))
+  }, [vendors])
+  useEffect(() => {
+    localStorage.setItem('ind_purchase_orders_v3', JSON.stringify(purchaseOrders))
+  }, [purchaseOrders])
 
   const navItems = [
     { id: 'dashboard', icon: BarChart3, label: t('nav.dashboard', lang) },
@@ -1283,13 +3264,24 @@ export default function App() {
   const renderContent = () => {
     switch (currentModule) {
       case 'dashboard':
-        return <Dashboard stores={stores} inventory={inventory} categories={categories} lang={lang} />
+        return <Dashboard stores={stores} inventory={inventory} categories={categories} purchaseOrders={purchaseOrders} lang={lang} />
       case 'admin-stores':
         return <StoreBuilder stores={stores} setStores={setStores} categories={categories} lang={lang} />
       case 'admin-categories':
         return <CategoryManager categories={categories} setCategories={setCategories} lang={lang} />
       case 'inventory':
-        return <InventoryModule inventory={inventory} stores={stores} categories={categories} lang={lang} />
+        return <InventoryModule inventory={inventory} setInventory={setInventory} stores={stores} categories={categories} lang={lang} />
+      case 'purchase':
+        return <PurchaseModule 
+          purchaseOrders={purchaseOrders} 
+          setPurchaseOrders={setPurchaseOrders}
+          vendors={vendors}
+          categories={categories}
+          stores={stores}
+          inventory={inventory}
+          setInventory={setInventory}
+          lang={lang} 
+        />
       default:
         return (
           <div className="p-6 flex items-center justify-center h-full">
