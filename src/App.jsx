@@ -12,7 +12,7 @@ import {
   Warehouse, ArrowRight, ArrowLeft, MoreVertical, Copy, Archive,
   Languages, Check, AlertCircle, Info, HelpCircle, ExternalLink, Play,
   Car, Hammer, CalendarDays, FileUp, Briefcase, UserPlus, Banknote,
-  Route, Fuel, MapPinned, Navigation, FileImage, FileScan, Brain,
+  Fuel, MapPinned, Navigation, FileImage, FileScan, Brain,
   Cog, AlertOctagon, ClipboardCheck, Timer, BadgeCheck
 } from 'lucide-react'
 
@@ -1352,7 +1352,7 @@ const TransportModule = ({ deliveries, setDeliveries, trucks, employees, salesOr
     { id: 'calendar', label: lang === 'th' ? 'ปฏิทิน' : 'Calendar', icon: CalendarDays },
     { id: 'deliveries', label: lang === 'th' ? 'รายการส่ง' : 'Deliveries', icon: Truck },
     { id: 'vehicles', label: lang === 'th' ? 'ยานพาหนะ' : 'Vehicles', icon: Car },
-    { id: 'routes', label: lang === 'th' ? 'เส้นทาง' : 'Routes', icon: Route },
+    { id: 'routes', label: lang === 'th' ? 'เส้นทาง' : 'Routes', icon: Navigation },
   ]
 
   const drivers = employees?.filter(e => e.department === 'transport') || []
