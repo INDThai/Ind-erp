@@ -4789,24 +4789,625 @@ const MaterialIssueForm = ({ wo, inventory, onIssue, onCancel, lang }) => {
 // ============================================
 // DASHBOARD
 // ============================================
-const Dashboard = ({ stores, inventory, categories, purchaseOrders, workOrders, salesOrders, invoices, deliveries, lang }) => {
-  // Calculate stats
+// ============================================
+// DEPARTMENT CALENDAR COMPONENT
+// ============================================
+const DepartmentCalendar = ({ department, events = [], workOrders = [], deliveries = [], leaves = [], lang }) => {
+  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState(null)
+  
+  const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate()
+  const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay()
+  
+  const monthNames = lang === 'th' 
+    ? ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+    : ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+  
+  const dayNames = lang === 'th' 
+    ? ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
+    : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  
+  // Get events for a specific date
+  const getEventsForDate = (date) => {
+    const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`
+    const dayEvents = []
+    
+    // Work Order deliveries
+    workOrders.filter(wo => wo.deliveryDate === dateStr).forEach(wo => {
+      dayEvents.push({ type: 'wo', color: 'bg-orange-500', title: `WO: ${wo.woNumber}` })
+    })
+    
+    // Scheduled deliveries
+    deliveries.filter(d => d.date === dateStr).forEach(d => {
+      dayEvents.push({ type: 'delivery', color: 'bg-cyan-500', title: `${lang === 'th' ? 'ส่ง' : 'Delivery'}: ${d.customerName || d.id}` })
+    })
+    
+    // Leave requests
+    leaves.filter(l => l.startDate <= dateStr && l.endDate >= dateStr).forEach(l => {
+      dayEvents.push({ type: 'leave', color: 'bg-pink-500', title: `${l.employeeName}: ${l.type}` })
+    })
+    
+    // Custom events
+    events.filter(e => e.date === dateStr).forEach(e => {
+      dayEvents.push({ type: 'event', color: e.color || 'bg-blue-500', title: e.title })
+    })
+    
+    return dayEvents
+  }
+  
+  const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))
+  const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))
+  
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-[#1A5276]" />
+          {lang === 'th' ? 'ปฏิทินแผนก' : 'Department Calendar'}
+        </h3>
+        <div className="flex items-center gap-2">
+          <button onClick={prevMonth} className="p-1 hover:bg-gray-100 rounded">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <span className="font-medium min-w-[150px] text-center">
+            {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+          </span>
+          <button onClick={nextMonth} className="p-1 hover:bg-gray-100 rounded">
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+      
+      {/* Day names */}
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {dayNames.map(day => (
+          <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">{day}</div>
+        ))}
+      </div>
+      
+      {/* Calendar grid */}
+      <div className="grid grid-cols-7 gap-1">
+        {/* Empty cells for days before month starts */}
+        {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+          <div key={`empty-${i}`} className="h-20 bg-gray-50 rounded" />
+        ))}
+        
+        {/* Days of month */}
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const date = i + 1
+          const dayEvents = getEventsForDate(date)
+          const isToday = new Date().toDateString() === new Date(currentMonth.getFullYear(), currentMonth.getMonth(), date).toDateString()
+          
+          return (
+            <div 
+              key={date}
+              onClick={() => setSelectedDate(date)}
+              className={`h-20 p-1 border rounded cursor-pointer hover:bg-gray-50 ${
+                isToday ? 'border-[#1A5276] bg-blue-50' : 'border-gray-200'
+              } ${selectedDate === date ? 'ring-2 ring-[#2ECC40]' : ''}`}
+            >
+              <div className={`text-sm font-medium ${isToday ? 'text-[#1A5276]' : 'text-gray-700'}`}>{date}</div>
+              <div className="space-y-0.5 mt-1 overflow-hidden">
+                {dayEvents.slice(0, 2).map((event, idx) => (
+                  <div key={idx} className={`text-xs px-1 py-0.5 rounded truncate text-white ${event.color}`}>
+                    {event.title}
+                  </div>
+                ))}
+                {dayEvents.length > 2 && (
+                  <div className="text-xs text-gray-500">+{dayEvents.length - 2} more</div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      
+      {/* Legend */}
+      <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t text-xs">
+        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-orange-500" /> {lang === 'th' ? 'ใบสั่งผลิต' : 'Work Orders'}</div>
+        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-cyan-500" /> {lang === 'th' ? 'การส่งสินค้า' : 'Deliveries'}</div>
+        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-pink-500" /> {lang === 'th' ? 'ลางาน' : 'Leave'}</div>
+        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-blue-500" /> {lang === 'th' ? 'กิจกรรม' : 'Events'}</div>
+      </div>
+    </Card>
+  )
+}
+
+// ============================================
+// COMPANY CALENDAR (Admin - All Departments)
+// ============================================
+const CompanyCalendar = ({ workOrders = [], deliveries = [], leaves = [], departments = [], lang }) => {
+  const [currentMonth, setCurrentMonth] = useState(new Date())
+  
+  const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate()
+  const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay()
+  
+  const monthNames = lang === 'th' 
+    ? ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+    : ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+  
+  const dayNames = lang === 'th' ? ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+  
+  // Department colors
+  const deptColors = {
+    production: 'bg-orange-500',
+    sales: 'bg-pink-500',
+    warehouse: 'bg-yellow-500',
+    hr: 'bg-indigo-500',
+    accounting: 'bg-green-500',
+    transport: 'bg-cyan-500',
+    maintenance: 'bg-purple-500',
+    office: 'bg-blue-500'
+  }
+  
+  const getEventsForDate = (date) => {
+    const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`
+    const dayEvents = []
+    
+    workOrders.filter(wo => wo.deliveryDate === dateStr).forEach(wo => {
+      dayEvents.push({ dept: 'production', color: deptColors.production, title: wo.woNumber })
+    })
+    
+    deliveries.filter(d => d.date === dateStr).forEach(d => {
+      dayEvents.push({ dept: 'transport', color: deptColors.transport, title: d.id })
+    })
+    
+    return dayEvents
+  }
+  
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-[#1A5276]" />
+          {lang === 'th' ? 'ปฏิทินบริษัท' : 'Company Calendar'}
+        </h3>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))} className="p-1 hover:bg-gray-100 rounded">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <span className="font-medium">{monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}</span>
+          <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))} className="p-1 hover:bg-gray-100 rounded">
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {dayNames.map(day => (
+          <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">{day}</div>
+        ))}
+      </div>
+      
+      <div className="grid grid-cols-7 gap-1">
+        {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+          <div key={`e-${i}`} className="h-16 bg-gray-50 rounded" />
+        ))}
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const date = i + 1
+          const dayEvents = getEventsForDate(date)
+          const isToday = new Date().toDateString() === new Date(currentMonth.getFullYear(), currentMonth.getMonth(), date).toDateString()
+          
+          return (
+            <div key={date} className={`h-16 p-1 border rounded ${isToday ? 'border-[#1A5276] bg-blue-50' : 'border-gray-200'}`}>
+              <div className={`text-xs font-medium ${isToday ? 'text-[#1A5276]' : 'text-gray-700'}`}>{date}</div>
+              <div className="flex flex-wrap gap-0.5 mt-1">
+                {dayEvents.slice(0, 3).map((e, idx) => (
+                  <div key={idx} className={`w-2 h-2 rounded-full ${e.color}`} title={e.title} />
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      
+      <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t text-xs">
+        {Object.entries(deptColors).slice(0, 6).map(([dept, color]) => (
+          <div key={dept} className="flex items-center gap-1">
+            <div className={`w-2 h-2 rounded-full ${color}`} />
+            <span className="capitalize">{dept}</span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+// ============================================
+// ROLE-BASED DASHBOARD COMPONENT
+// ============================================
+const Dashboard = ({ stores, inventory, categories, purchaseOrders, workOrders, salesOrders, invoices, deliveries, employees = [], lang, currentUser }) => {
+  const userRole = currentUser?.role || 'admin'
+  
+  // Calculate stats (only for roles that need them)
   const totalInventoryValue = inventory.reduce((sum, i) => sum + (i.cost || 0), 0)
   const totalLots = inventory.length
   const lowStockCount = inventory.filter(i => i.status === 'low').length
-  
   const pendingPOs = (purchaseOrders || []).filter(po => po.status === 'pending').length
   const activeWOs = (workOrders || []).filter(wo => wo.status === 'in_progress').length
   const unpaidInvoices = (invoices || []).filter(inv => inv.balance > 0).length
   const todayDeliveries = (deliveries || []).filter(d => d.date === new Date().toISOString().split('T')[0]).length
 
-  // Category distribution
+  // Category distribution (only for inventory-related roles)
   const categoryStats = categories.filter(c => c.type === 'raw_material').map(cat => {
     const catItems = inventory.filter(i => i.category === cat.id)
     const value = catItems.reduce((sum, i) => sum + (i.cost || 0), 0)
     return { ...cat, items: catItems.length, value }
   }).sort((a, b) => b.value - a.value)
 
+  // HR-specific dashboard
+  if (userRole === 'hr') {
+    const totalEmployees = employees.length
+    const ftCount = employees.filter(e => e.type === 'FT').length
+    const ptCount = employees.filter(e => e.type === 'PT').length
+    const todayLeave = 2 // Mock data
+    const pendingLeave = 3 // Mock data
+    
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">{lang === 'th' ? 'แดชบอร์ด HR' : 'HR Dashboard'}</h1>
+            <p className="text-gray-500">{lang === 'th' ? 'ภาพรวมทรัพยากรบุคคล' : 'Human Resources Overview'}</p>
+          </div>
+          <div className="text-sm text-gray-500">
+            {new Date().toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <Card className="p-4 col-span-1">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
+                <Users className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-500">{lang === 'th' ? 'พนักงานทั้งหมด' : 'Total Staff'}</div>
+                <div className="text-2xl font-bold text-gray-800">{totalEmployees}</div>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-blue-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'ประจำ' : 'Full-time'}</div>
+            <div className="text-2xl font-bold text-blue-600">{ftCount}</div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-orange-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'พาร์ทไทม์' : 'Part-time'}</div>
+            <div className="text-2xl font-bold text-orange-600">{ptCount}</div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-pink-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'ลาวันนี้' : 'On Leave'}</div>
+            <div className="text-2xl font-bold text-pink-600">{todayLeave}</div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-yellow-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'รออนุมัติ' : 'Pending'}</div>
+            <div className="text-2xl font-bold text-yellow-600">{pendingLeave}</div>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <DepartmentCalendar department="hr" workOrders={[]} deliveries={[]} leaves={[]} lang={lang} />
+          
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'การดำเนินการด่วน' : 'Quick Actions'}</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <button className="p-4 border rounded-lg hover:bg-gray-50 transition-all text-left">
+                <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center mb-2">
+                  <UserPlus className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div className="font-medium text-gray-800">{lang === 'th' ? 'เพิ่มพนักงาน' : 'Add Employee'}</div>
+              </button>
+              <button className="p-4 border rounded-lg hover:bg-gray-50 transition-all text-left">
+                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center mb-2">
+                  <DollarSign className="w-5 h-5 text-green-600" />
+                </div>
+                <div className="font-medium text-gray-800">{lang === 'th' ? 'เงินเดือน' : 'Run Payroll'}</div>
+              </button>
+              <button className="p-4 border rounded-lg hover:bg-gray-50 transition-all text-left">
+                <div className="w-10 h-10 rounded-lg bg-pink-100 flex items-center justify-center mb-2">
+                  <Calendar className="w-5 h-5 text-pink-600" />
+                </div>
+                <div className="font-medium text-gray-800">{lang === 'th' ? 'อนุมัติลา' : 'Approve Leave'}</div>
+              </button>
+              <button className="p-4 border rounded-lg hover:bg-gray-50 transition-all text-left">
+                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center mb-2">
+                  <Clock className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="font-medium text-gray-800">{lang === 'th' ? 'ตรวจเช็ค' : 'Attendance'}</div>
+              </button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // Sales-specific dashboard
+  if (userRole === 'sales') {
+    const totalOrders = salesOrders.length
+    const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0)
+    const totalReceived = invoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0)
+    const pendingOrders = salesOrders.filter(so => so.status === 'confirmed').length
+    
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">{lang === 'th' ? 'แดชบอร์ดการขาย' : 'Sales Dashboard'}</h1>
+            <p className="text-gray-500">{lang === 'th' ? 'ภาพรวมการขายและลูกค้า' : 'Sales & Customer Overview'}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="p-4 col-span-1">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-500">{lang === 'th' ? 'รายได้รวม' : 'Revenue'}</div>
+                <div className="text-xl font-bold text-[#2ECC40]">{formatCurrency(totalRevenue)}</div>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-blue-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'รับแล้ว' : 'Received'}</div>
+            <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalReceived)}</div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-orange-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'ค้างชำระ' : 'Outstanding'}</div>
+            <div className="text-2xl font-bold text-orange-600">{formatCurrency(totalRevenue - totalReceived)}</div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-pink-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบสั่งขาย' : 'Orders'}</div>
+            <div className="text-2xl font-bold text-pink-600">{totalOrders}</div>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <DepartmentCalendar department="sales" workOrders={workOrders} deliveries={deliveries} leaves={[]} lang={lang} />
+          
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'การดำเนินการด่วน' : 'Quick Actions'}</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <button className="p-4 border rounded-lg hover:bg-gray-50 transition-all text-left">
+                <div className="w-10 h-10 rounded-lg bg-pink-100 flex items-center justify-center mb-2">
+                  <ClipboardList className="w-5 h-5 text-pink-600" />
+                </div>
+                <div className="font-medium text-gray-800">{lang === 'th' ? 'ใบสั่งขายใหม่' : 'New Order'}</div>
+              </button>
+              <button className="p-4 border rounded-lg hover:bg-gray-50 transition-all text-left">
+                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center mb-2">
+                  <Receipt className="w-5 h-5 text-green-600" />
+                </div>
+                <div className="font-medium text-gray-800">{lang === 'th' ? 'สร้างใบแจ้งหนี้' : 'New Invoice'}</div>
+              </button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // Production-specific dashboard
+  if (userRole === 'production') {
+    const completedWOs = workOrders.filter(wo => wo.status === 'completed').length
+    const inProgressWOs = workOrders.filter(wo => wo.status === 'in_progress').length
+    
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">{lang === 'th' ? 'แดชบอร์ดการผลิต' : 'Production Dashboard'}</h1>
+            <p className="text-gray-500">{lang === 'th' ? 'ภาพรวมการผลิต' : 'Production Overview'}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="p-4 border-l-4 border-l-blue-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบสั่งผลิต' : 'Work Orders'}</div>
+            <div className="text-2xl font-bold text-blue-600">{workOrders.length}</div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-orange-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'กำลังผลิต' : 'In Progress'}</div>
+            <div className="text-2xl font-bold text-orange-600">{inProgressWOs}</div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-green-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'เสร็จแล้ว' : 'Completed'}</div>
+            <div className="text-2xl font-bold text-green-600">{completedWOs}</div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-yellow-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'วัตถุดิบใกล้หมด' : 'Low Stock'}</div>
+            <div className="text-2xl font-bold text-yellow-600">{lowStockCount}</div>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <DepartmentCalendar department="production" workOrders={workOrders} deliveries={deliveries} leaves={[]} lang={lang} />
+          
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'การดำเนินการด่วน' : 'Quick Actions'}</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <button className="p-4 border rounded-lg hover:bg-gray-50 transition-all text-left">
+                <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center mb-2">
+                  <Factory className="w-5 h-5 text-orange-600" />
+                </div>
+                <div className="font-medium text-gray-800">{lang === 'th' ? 'ใบสั่งผลิตใหม่' : 'New WO'}</div>
+              </button>
+              <button className="p-4 border rounded-lg hover:bg-gray-50 transition-all text-left">
+                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center mb-2">
+                  <Package className="w-5 h-5 text-green-600" />
+                </div>
+                <div className="font-medium text-gray-800">{lang === 'th' ? 'ตรวจสอบสต็อก' : 'Check Stock'}</div>
+              </button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // Transport-specific dashboard
+  if (userRole === 'transport') {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">{lang === 'th' ? 'แดชบอร์ดขนส่ง' : 'Transport Dashboard'}</h1>
+            <p className="text-gray-500">{lang === 'th' ? 'ภาพรวมการจัดส่ง' : 'Delivery Overview'}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="p-4 border-l-4 border-l-cyan-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'ส่งวันนี้' : 'Today'}</div>
+            <div className="text-2xl font-bold text-cyan-600">{todayDeliveries}</div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-yellow-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'รอส่ง' : 'Pending'}</div>
+            <div className="text-2xl font-bold text-yellow-600">{deliveries.filter(d => d.status === 'scheduled').length}</div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-green-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'ส่งแล้ว' : 'Delivered'}</div>
+            <div className="text-2xl font-bold text-green-600">{deliveries.filter(d => d.status === 'delivered').length}</div>
+          </Card>
+        </div>
+
+        <DepartmentCalendar department="transport" workOrders={workOrders} deliveries={deliveries} leaves={[]} lang={lang} />
+      </div>
+    )
+  }
+
+  // Accounting-specific dashboard
+  if (userRole === 'accounting') {
+    const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0)
+    const totalReceived = invoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0)
+    const totalOutstanding = totalRevenue - totalReceived
+    
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">{lang === 'th' ? 'แดชบอร์ดบัญชี' : 'Accounting Dashboard'}</h1>
+            <p className="text-gray-500">{lang === 'th' ? 'ภาพรวมการเงิน' : 'Financial Overview'}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="p-4 col-span-1">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-500">{lang === 'th' ? 'รายได้รวม' : 'Revenue'}</div>
+                <div className="text-xl font-bold text-[#2ECC40]">{formatCurrency(totalRevenue)}</div>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-blue-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'รับแล้ว' : 'Received'}</div>
+            <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalReceived)}</div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-red-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'ค้างชำระ' : 'Outstanding'}</div>
+            <div className="text-2xl font-bold text-red-600">{formatCurrency(totalOutstanding)}</div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-orange-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices'}</div>
+            <div className="text-2xl font-bold text-orange-600">{invoices.length}</div>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <DepartmentCalendar department="accounting" workOrders={[]} deliveries={[]} leaves={[]} lang={lang} />
+          
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'การดำเนินการด่วน' : 'Quick Actions'}</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <button className="p-4 border rounded-lg hover:bg-gray-50 transition-all text-left">
+                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center mb-2">
+                  <Receipt className="w-5 h-5 text-green-600" />
+                </div>
+                <div className="font-medium text-gray-800">{lang === 'th' ? 'สร้างใบแจ้งหนี้' : 'New Invoice'}</div>
+              </button>
+              <button className="p-4 border rounded-lg hover:bg-gray-50 transition-all text-left">
+                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center mb-2">
+                  <CreditCard className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="font-medium text-gray-800">{lang === 'th' ? 'บันทึกรับเงิน' : 'Record Payment'}</div>
+              </button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // Warehouse-specific dashboard  
+  if (userRole === 'warehouse') {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">{lang === 'th' ? 'แดชบอร์ดคลังสินค้า' : 'Warehouse Dashboard'}</h1>
+            <p className="text-gray-500">{lang === 'th' ? 'ภาพรวมสินค้าคงคลัง' : 'Inventory Overview'}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="p-4 col-span-1">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่าคลัง' : 'Value'}</div>
+                <div className="text-xl font-bold text-[#2ECC40]">{formatCurrency(totalInventoryValue)}</div>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-blue-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'ล็อตสินค้า' : 'Lots'}</div>
+            <div className="text-2xl font-bold text-blue-600">{totalLots}</div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-red-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'สินค้าใกล้หมด' : 'Low Stock'}</div>
+            <div className="text-2xl font-bold text-red-600">{lowStockCount}</div>
+          </Card>
+          <Card className="p-4 border-l-4 border-l-yellow-500">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'รอรับสินค้า' : 'Pending POs'}</div>
+            <div className="text-2xl font-bold text-yellow-600">{pendingPOs}</div>
+          </Card>
+        </div>
+
+        {/* Store Cards - Warehouse sees this */}
+        <div>
+          <h3 className="font-bold text-gray-800 mb-3">{lang === 'th' ? 'คลังสินค้า' : 'Warehouses'}</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {stores.map(store => {
+              const storeItems = inventory.filter(i => i.store === store.id)
+              const storeValue = storeItems.reduce((sum, i) => sum + (i.cost || 0), 0)
+              return (
+                <Card key={store.id} className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-[#1A5276] font-medium">{store.code}</span>
+                    <Badge variant={store.type === 'raw_material' ? 'success' : 'info'}>{storeItems.length}</Badge>
+                  </div>
+                  <div className="text-sm text-gray-500 truncate">{lang === 'th' ? store.nameTh : store.nameEn}</div>
+                  <div className="font-bold text-[#2ECC40] mt-2">{formatCurrency(storeValue)}</div>
+                </Card>
+              )
+            })}
+          </div>
+        </div>
+
+        <DepartmentCalendar department="warehouse" workOrders={[]} deliveries={deliveries} leaves={[]} lang={lang} />
+      </div>
+    )
+  }
+
+  // Admin/Default Dashboard - Full view with everything
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -4864,7 +5465,7 @@ const Dashboard = ({ stores, inventory, categories, purchaseOrders, workOrders, 
         </Card>
       </div>
 
-      {/* Store Cards */}
+      {/* Store Cards - Admin sees all stores */}
       <div>
         <h3 className="font-bold text-gray-800 mb-3">{lang === 'th' ? 'คลังสินค้า (6 คลัง)' : 'Stores (6 Warehouses)'}</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -4887,8 +5488,8 @@ const Dashboard = ({ stores, inventory, categories, purchaseOrders, workOrders, 
         </div>
       </div>
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Three Column Layout with Calendar */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Category Distribution */}
         <Card className="p-5">
           <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'มูลค่าตามหมวดหมู่' : 'Value by Category'}</h3>
@@ -4913,6 +5514,9 @@ const Dashboard = ({ stores, inventory, categories, purchaseOrders, workOrders, 
             })}
           </div>
         </Card>
+
+        {/* Company Calendar */}
+        <CompanyCalendar workOrders={workOrders} deliveries={deliveries} leaves={[]} lang={lang} />
 
         {/* Quick Actions */}
         <Card className="p-5">
@@ -6090,7 +6694,9 @@ export default function App() {
                   salesOrders={salesOrders}
                   invoices={invoices}
                   deliveries={scheduledDeliveries}
+                  employees={employees}
                   lang={lang}
+                  currentUser={currentUser}
                 />
               )}
               {activeModule === 'admin' && (
@@ -7262,20 +7868,37 @@ const InvoiceView = ({ invoice, customer, entity, lang }) => {
     printWindow.document.write('<style>')
     printWindow.document.write(`
       * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial', sans-serif; }
-      body { padding: 20mm; }
+      body { padding: 15mm; }
       .invoice { max-width: 210mm; }
-      .header { display: flex; justify-content: space-between; border-bottom: 2px solid #1A5276; padding-bottom: 15px; margin-bottom: 20px; }
-      .logo { font-size: 24pt; font-weight: bold; color: #1A5276; }
-      .invoice-title { font-size: 18pt; color: #1A5276; text-align: right; }
-      .section { margin-bottom: 20px; }
-      .label { font-size: 9pt; color: #666; }
-      .value { font-size: 11pt; font-weight: 500; }
-      table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-      th { background: #f5f5f5; padding: 10px; text-align: left; font-size: 10pt; }
-      td { padding: 10px; border-bottom: 1px solid #eee; font-size: 10pt; }
+      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+      .logo-container { display: flex; align-items: center; gap: 15px; }
+      .logo img { width: 80px; height: auto; }
+      .company-info { font-size: 9pt; line-height: 1.4; }
+      .company-name { font-size: 14pt; font-weight: bold; color: #1A5276; }
+      .company-name-th { font-size: 12pt; color: #333; }
+      .invoice-header { text-align: right; }
+      .invoice-title { font-size: 20pt; font-weight: bold; color: #1A5276; border: 2px solid #1A5276; padding: 5px 15px; display: inline-block; }
+      .invoice-title-th { font-size: 14pt; color: #1A5276; }
+      .invoice-number { font-size: 14pt; font-weight: bold; margin-top: 10px; }
+      .divider { border-bottom: 2px solid #1A5276; margin: 15px 0; }
+      .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px; }
+      .info-box { border: 1px solid #ddd; padding: 10px; }
+      .info-label { font-size: 9pt; color: #666; margin-bottom: 3px; }
+      .info-value { font-size: 11pt; font-weight: 500; }
+      table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+      th { background: #1A5276; color: white; padding: 8px; text-align: left; font-size: 10pt; }
+      th.text-right { text-align: right; }
+      td { padding: 8px; border-bottom: 1px solid #eee; font-size: 10pt; }
       .text-right { text-align: right; }
-      .totals { background: #f9f9f9; padding: 15px; margin-top: 20px; }
+      .totals-container { display: flex; justify-content: flex-end; }
+      .totals { width: 250px; }
+      .total-row { display: flex; justify-content: space-between; padding: 5px 0; }
+      .total-row.grand { border-top: 2px solid #1A5276; padding-top: 10px; margin-top: 5px; }
       .grand-total { font-size: 16pt; font-weight: bold; color: #2ECC40; }
+      .qr-section { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd; }
+      .qr-code { width: 80px; height: 80px; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 8pt; color: #999; }
+      .signature-line { width: 150px; border-top: 1px solid #333; margin-top: 50px; padding-top: 5px; text-align: center; font-size: 9pt; }
+      .footer { margin-top: 20px; font-size: 8pt; color: #666; text-align: center; }
     `)
     printWindow.document.write('</style></head><body>')
     printWindow.document.write(content.innerHTML)
@@ -7285,90 +7908,184 @@ const InvoiceView = ({ invoice, customer, entity, lang }) => {
   }
 
   const companyInfo = COMPANY_ENTITIES.find(e => e.id === (entity || 'IND'))
+  const invoiceDate = new Date(invoice.invoiceDate)
+  const dueDate = new Date(invoiceDate.getTime() + (customer?.paymentTerms || 30) * 24 * 60 * 60 * 1000)
 
   return (
     <div className="space-y-4">
-      <div ref={printRef} className="invoice bg-white p-8 border rounded-lg">
-        {/* Header */}
-        <div className="header flex justify-between items-start border-b-2 border-[#1A5276] pb-4 mb-6">
-          <div>
-            <div className="logo text-2xl font-bold text-[#1A5276]">IND Thai Packwell</div>
-            <div className="text-sm text-gray-500 mt-1">{companyInfo?.address}</div>
-            <div className="text-sm text-gray-500">{lang === 'th' ? 'เลขประจำตัวผู้เสียภาษี:' : 'Tax ID:'} {companyInfo?.taxId}</div>
+      <div ref={printRef} className="invoice bg-white p-6 border rounded-lg shadow-sm">
+        {/* Header with Logo */}
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex items-start gap-4">
+            <img src={IND_LOGO_SVG} alt="IND" className="w-20 h-20" />
+            <div className="text-sm">
+              <div className="text-lg font-bold text-[#1A5276]">{companyInfo?.name || 'IND Thai Packwell Industries Co., Ltd.'}</div>
+              <div className="text-[#1A5276]">{lang === 'th' ? 'บริษัท อินด์ ไทย แพ็คเวลล์ อินดัสตรีส์ จำกัด' : ''}</div>
+              <div className="text-gray-600 mt-1">{companyInfo?.address}</div>
+              <div className="text-gray-600">Tel: {companyInfo?.phone || '02-XXX-XXXX'} | Fax: {companyInfo?.fax || '02-XXX-XXXX'}</div>
+              <div className="text-gray-600">{lang === 'th' ? 'เลขประจำตัวผู้เสียภาษี' : 'Tax ID'}: {companyInfo?.taxId}</div>
+            </div>
           </div>
           <div className="text-right">
-            <div className="invoice-title text-2xl font-bold text-[#1A5276]">
-              {lang === 'th' ? 'ใบแจ้งหนี้' : 'INVOICE'}
+            <div className="inline-block border-2 border-[#1A5276] px-4 py-2">
+              <div className="text-xl font-bold text-[#1A5276]">{lang === 'th' ? 'ใบแจ้งหนี้/ใบกำกับภาษี' : 'TAX INVOICE'}</div>
+              <div className="text-sm text-[#1A5276]">{lang !== 'th' ? 'ใบแจ้งหนี้/ใบกำกับภาษี' : 'TAX INVOICE'}</div>
             </div>
-            <div className="text-lg font-mono mt-2">{invoice.id}</div>
-            <div className="text-sm text-gray-500">{formatDate(invoice.invoiceDate)}</div>
+            <div className="mt-3">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'เลขที่' : 'No.'}</div>
+              <div className="text-lg font-bold font-mono">{invoice.id}</div>
+            </div>
           </div>
         </div>
 
-        {/* Customer Info */}
-        <div className="section grid grid-cols-2 gap-8 mb-6">
-          <div>
-            <div className="label text-sm text-gray-500">{lang === 'th' ? 'ลูกค้า' : 'Bill To'}</div>
-            <div className="value font-medium text-lg">{customer?.name}</div>
+        <div className="border-b-2 border-[#1A5276] mb-4" />
+
+        {/* Customer & Invoice Info */}
+        <div className="grid grid-cols-2 gap-6 mb-4">
+          <div className="border rounded p-4">
+            <div className="text-xs text-gray-500 mb-1">{lang === 'th' ? 'ลูกค้า / Customer' : 'Bill To / Customer'}</div>
+            <div className="font-bold text-lg">{customer?.name}</div>
             <div className="text-sm text-gray-600">{customer?.address}</div>
-            <div className="text-sm text-gray-600">{lang === 'th' ? 'เลขประจำตัวผู้เสียภาษี:' : 'Tax ID:'} {customer?.taxId}</div>
+            <div className="text-sm text-gray-600 mt-1">
+              <span className="text-gray-500">{lang === 'th' ? 'เลขประจำตัวผู้เสียภาษี:' : 'Tax ID:'}</span> {customer?.taxId || '-'}
+            </div>
+            <div className="text-sm text-gray-600">
+              <span className="text-gray-500">{lang === 'th' ? 'สาขา:' : 'Branch:'}</span> {customer?.branch || lang === 'th' ? 'สำนักงานใหญ่' : 'Head Office'}
+            </div>
           </div>
-          <div className="text-right">
-            <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="border rounded p-4">
+            <div className="grid grid-cols-2 gap-y-2 text-sm">
+              <div className="text-gray-500">{lang === 'th' ? 'วันที่:' : 'Date:'}</div>
+              <div className="font-medium">{formatDate(invoice.invoiceDate)}</div>
+              
+              <div className="text-gray-500">{lang === 'th' ? 'ครบกำหนด:' : 'Due Date:'}</div>
+              <div className="font-medium">{formatDate(dueDate.toISOString().split('T')[0])}</div>
+              
               <div className="text-gray-500">{lang === 'th' ? 'PO ลูกค้า:' : 'Customer PO:'}</div>
               <div className="font-medium">{invoice.customerPO || '-'}</div>
+              
               <div className="text-gray-500">{lang === 'th' ? 'ใบสั่งขาย:' : 'Sales Order:'}</div>
               <div className="font-medium">{invoice.soId || '-'}</div>
-              <div className="text-gray-500">{lang === 'th' ? 'เงื่อนไขชำระ:' : 'Payment Terms:'}</div>
-              <div className="font-medium">{customer?.paymentTerms || 30} {lang === 'th' ? 'วัน' : 'days'}</div>
+              
+              <div className="text-gray-500">{lang === 'th' ? 'เงื่อนไขชำระ:' : 'Credit Terms:'}</div>
+              <div className="font-medium">{customer?.paymentTerms || 30} {lang === 'th' ? 'วัน' : 'Days'}</div>
+              
+              <div className="text-gray-500">{lang === 'th' ? 'พนักงานขาย:' : 'Salesperson:'}</div>
+              <div className="font-medium">{invoice.salesperson || '-'}</div>
             </div>
           </div>
         </div>
 
-        {/* Items */}
-        <table className="w-full mb-6">
+        {/* Items Table */}
+        <table className="w-full mb-4">
           <thead>
-            <tr className="bg-gray-100">
-              <th className="px-4 py-3 text-left">{lang === 'th' ? 'รายการ' : 'Description'}</th>
-              <th className="px-4 py-3 text-right">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
-              <th className="px-4 py-3 text-right">{lang === 'th' ? 'ราคา/หน่วย' : 'Unit Price'}</th>
-              <th className="px-4 py-3 text-right">{lang === 'th' ? 'รวม' : 'Amount'}</th>
+            <tr className="bg-[#1A5276] text-white">
+              <th className="px-3 py-2 text-left w-12">{lang === 'th' ? 'ลำดับ' : 'No.'}</th>
+              <th className="px-3 py-2 text-left">{lang === 'th' ? 'รายละเอียดสินค้า' : 'Description'}</th>
+              <th className="px-3 py-2 text-right w-24">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+              <th className="px-3 py-2 text-right w-20">{lang === 'th' ? 'หน่วย' : 'Unit'}</th>
+              <th className="px-3 py-2 text-right w-28">{lang === 'th' ? 'ราคา/หน่วย' : 'Unit Price'}</th>
+              <th className="px-3 py-2 text-right w-32">{lang === 'th' ? 'จำนวนเงิน' : 'Amount'}</th>
             </tr>
           </thead>
           <tbody>
             {(invoice.items || []).map((item, idx) => (
-              <tr key={idx}>
-                <td className="px-4 py-3">{item.productName || item.description}</td>
-                <td className="px-4 py-3 text-right">{item.qty} {item.unit}</td>
-                <td className="px-4 py-3 text-right">{formatCurrency(item.unitPrice)}</td>
-                <td className="px-4 py-3 text-right">{formatCurrency(item.qty * item.unitPrice)}</td>
+              <tr key={idx} className="border-b">
+                <td className="px-3 py-2 text-center">{idx + 1}</td>
+                <td className="px-3 py-2">
+                  <div>{item.productName || item.description}</div>
+                  {item.lotNo && <div className="text-xs text-gray-500">Lot: {item.lotNo}</div>}
+                </td>
+                <td className="px-3 py-2 text-right">{item.qty?.toLocaleString()}</td>
+                <td className="px-3 py-2 text-right">{item.unit || 'pcs'}</td>
+                <td className="px-3 py-2 text-right">{formatCurrency(item.unitPrice)}</td>
+                <td className="px-3 py-2 text-right">{formatCurrency(item.qty * item.unitPrice)}</td>
+              </tr>
+            ))}
+            {/* Empty rows for minimum 5 lines */}
+            {Array.from({ length: Math.max(0, 5 - (invoice.items || []).length) }).map((_, idx) => (
+              <tr key={`empty-${idx}`} className="border-b h-10">
+                <td className="px-3 py-2"></td>
+                <td className="px-3 py-2"></td>
+                <td className="px-3 py-2"></td>
+                <td className="px-3 py-2"></td>
+                <td className="px-3 py-2"></td>
+                <td className="px-3 py-2"></td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        {/* Totals */}
-        <div className="totals bg-gray-50 p-4 rounded-lg">
-          <div className="flex justify-end">
-            <div className="w-64 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Subtotal'}</span>
-                <span className="font-medium">{formatCurrency(invoice.subtotal)}</span>
+        {/* Totals & QR Code Section */}
+        <div className="flex justify-between items-end">
+          {/* Thai Amount in Words */}
+          <div className="flex-1">
+            <div className="text-sm text-gray-500 mb-1">{lang === 'th' ? 'จำนวนเงินรวม (ตัวอักษร)' : 'Amount in Words'}</div>
+            <div className="border rounded p-2 bg-gray-50 text-sm min-h-[40px]">
+              {/* Amount in Thai words would go here */}
+              {lang === 'th' ? `(${formatCurrency(invoice.grandTotal)})` : `${formatCurrency(invoice.grandTotal)} THB`}
+            </div>
+          </div>
+          
+          {/* Totals */}
+          <div className="w-72 ml-4">
+            <div className="flex justify-between py-1 border-b">
+              <span className="text-gray-600">{lang === 'th' ? 'รวมเงิน' : 'Subtotal'}</span>
+              <span className="font-medium">{formatCurrency(invoice.subtotal)}</span>
+            </div>
+            {invoice.discount > 0 && (
+              <div className="flex justify-between py-1 border-b">
+                <span className="text-gray-600">{lang === 'th' ? 'ส่วนลด' : 'Discount'}</span>
+                <span className="font-medium text-red-600">-{formatCurrency(invoice.discount)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">VAT 7%</span>
-                <span className="font-medium">{formatCurrency(invoice.vat)}</span>
-              </div>
-              <div className="flex justify-between pt-2 border-t">
-                <span className="font-bold">{lang === 'th' ? 'รวมทั้งสิ้น' : 'Grand Total'}</span>
-                <span className="grand-total text-xl font-bold text-[#2ECC40]">{formatCurrency(invoice.grandTotal)}</span>
-              </div>
+            )}
+            <div className="flex justify-between py-1 border-b">
+              <span className="text-gray-600">{lang === 'th' ? 'ราคาก่อน VAT' : 'Before VAT'}</span>
+              <span className="font-medium">{formatCurrency(invoice.subtotal - (invoice.discount || 0))}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b">
+              <span className="text-gray-600">{lang === 'th' ? 'ภาษีมูลค่าเพิ่ม' : 'VAT'} 7%</span>
+              <span className="font-medium">{formatCurrency(invoice.vat)}</span>
+            </div>
+            <div className="flex justify-between py-2 bg-gray-100 px-2 rounded mt-1">
+              <span className="font-bold text-[#1A5276]">{lang === 'th' ? 'รวมทั้งสิ้น' : 'Grand Total'}</span>
+              <span className="text-xl font-bold text-[#2ECC40]">{formatCurrency(invoice.grandTotal)}</span>
             </div>
           </div>
         </div>
+
+        {/* Footer with QR and Signatures */}
+        <div className="flex justify-between items-end mt-6 pt-4 border-t">
+          {/* QR Code */}
+          <div className="text-center">
+            <div className="w-20 h-20 border-2 border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-400">
+              QR Code
+            </div>
+            <div className="text-xs text-gray-500 mt-1">{lang === 'th' ? 'สแกนชำระเงิน' : 'Scan to Pay'}</div>
+          </div>
+
+          {/* Signature Lines */}
+          <div className="flex gap-8">
+            <div className="text-center">
+              <div className="w-32 border-t border-gray-400 mt-10" />
+              <div className="text-xs text-gray-500 mt-1">{lang === 'th' ? 'ผู้รับสินค้า' : 'Received By'}</div>
+              <div className="text-xs text-gray-400">{lang === 'th' ? 'วันที่ ____/____/____' : 'Date ____/____/____'}</div>
+            </div>
+            <div className="text-center">
+              <div className="w-32 border-t border-gray-400 mt-10" />
+              <div className="text-xs text-gray-500 mt-1">{lang === 'th' ? 'ผู้มีอำนาจลงนาม' : 'Authorized Signature'}</div>
+              <div className="text-xs text-gray-400">{companyInfo?.name?.split(' ')[0] || 'IND'}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Document Footer */}
+        <div className="text-center text-xs text-gray-400 mt-4 pt-2 border-t">
+          {lang === 'th' ? 'เอกสารนี้ออกโดยระบบคอมพิวเตอร์' : 'This document is computer generated'}
+        </div>
       </div>
 
-      {/* Print Button */}
+      {/* Action Buttons */}
       <div className="flex justify-end gap-3">
         <Button variant="outline" icon={Download}>
           {lang === 'th' ? 'ดาวน์โหลด PDF' : 'Download PDF'}
