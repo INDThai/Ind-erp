@@ -250,46 +250,47 @@ const INITIAL_CATEGORIES = [
 // MASTER DATA - INVENTORY (with CBM & costPerCbm)
 // ============================================
 const INITIAL_INVENTORY = [
-  // STORE1 - MLH
-  { id: 1, lotNo: 'LP21499', category: 'MLH', code: 'IND-MLH/0.5/3/1', store: 'STORE1', qty: 700, cbm: 0.859, cost: 4218, costPerCbm: 4912, status: 'available', dateIn: '2024-07-03', vendor: 'Thai Timber' },
-  { id: 2, lotNo: 'LP21500', category: 'MLH', code: 'IND-MLH/0.5/3/1', store: 'STORE1', qty: 650, cbm: 0.797, cost: 3914, costPerCbm: 4912, status: 'available', dateIn: '2024-07-03', vendor: 'Thai Timber' },
-  { id: 3, lotNo: 'LP21501', category: 'MLH', code: 'IND-MLH/0.5/3/1', store: 'STORE1', qty: 45, cbm: 0.055, cost: 271, costPerCbm: 4912, status: 'low', dateIn: '2024-07-03', vendor: 'Thai Timber' },
-  { id: 4, lotNo: 'LP20044', category: 'MLH', code: 'IND-MLH/0.5/3.4/1.3', store: 'STORE1', qty: 241, cbm: 0.344, cost: 1689, costPerCbm: 4912, status: 'available', dateIn: '2024-05-25', vendor: 'Green Wood' },
-  { id: 5, lotNo: 'LP19507', category: 'MLH', code: 'IND-MLH/0.5/3.8/1.3', store: 'STORE1', qty: 254, cbm: 0.405, cost: 1990, costPerCbm: 4912, status: 'available', dateIn: '2024-04-30', vendor: 'Premium Lumber' },
-  // STORE1 - PW
-  { id: 6, lotNo: 'PW-2401', category: 'PW', code: 'IND-PW/39/145/3960', store: 'STORE1', qty: 128, cbm: 2.87, cost: 8500, costPerCbm: 2962, status: 'low', dateIn: '2024-06-15', vendor: 'Pine Supply Co' },
-  { id: 7, lotNo: 'PW-2402', category: 'PW', code: 'IND-PW/39/145/3960', store: 'STORE1', qty: 350, cbm: 7.84, cost: 23200, costPerCbm: 2962, status: 'available', dateIn: '2024-06-20', vendor: 'Pine Supply Co' },
-  // STORE1 - PWKD
-  { id: 8, lotNo: 'PWKD-001', category: 'PWKD', code: 'IND-PWKD/40/100/4000', store: 'STORE1', qty: 200, cbm: 3.2, cost: 12800, costPerCbm: 4000, status: 'available', dateIn: '2024-07-10', vendor: 'Kiln Dry Masters' },
-  { id: 9, lotNo: 'PWKD-002', category: 'PWKD', code: 'IND-PWKD/38/95/3800', store: 'STORE1', qty: 180, cbm: 2.6, cost: 10400, costPerCbm: 4000, status: 'available', dateIn: '2024-07-12', vendor: 'Kiln Dry Masters' },
-  // STORE1 - PWGRN
-  { id: 10, lotNo: 'PWGRN-001', category: 'PWGRN', code: 'IND-PWGRN/38/140/3900', store: 'STORE1', qty: 450, cbm: 9.35, cost: 18700, costPerCbm: 2000, status: 'available', dateIn: '2024-07-08', vendor: 'Green Pine Ltd' },
-  { id: 11, lotNo: 'PWGRN-002', category: 'PWGRN', code: 'IND-PWGRN/40/150/4000', store: 'STORE1', qty: 320, cbm: 7.68, cost: 15360, costPerCbm: 2000, status: 'available', dateIn: '2024-07-15', vendor: 'Green Pine Ltd' },
-  // STORE2 - PLYWW
-  { id: 12, lotNo: 'PLYWW-001', category: 'PLYWW', code: 'IND2-PLYWW/12/1220/2440', store: 'STORE2', qty: 150, cbm: 5.34, cost: 45000, costPerCbm: 8427, status: 'available', dateIn: '2024-07-01', vendor: 'IND-2 Production' },
-  { id: 13, lotNo: 'PLYWW-002', category: 'PLYWW', code: 'IND2-PLYWW/18/1220/2440', store: 'STORE2', qty: 80, cbm: 4.27, cost: 42000, costPerCbm: 9836, status: 'available', dateIn: '2024-07-05', vendor: 'IND-2 Production' },
-  // STORE1 - External PLY
-  { id: 14, lotNo: 'PLYWW-EXT-001', category: 'PLYWW', code: 'IND-PLYWW/12/1220/2440', store: 'STORE1', qty: 50, cbm: 1.78, cost: 16000, costPerCbm: 8989, status: 'available', dateIn: '2024-07-18', vendor: 'External Ply Co' },
-  // STORE2 - PLYRR
-  { id: 15, lotNo: 'PLYRR-001', category: 'PLYRR', code: 'IND2-PLYRR/15/1220/2440', store: 'STORE2', qty: 100, cbm: 4.46, cost: 52000, costPerCbm: 11659, status: 'available', dateIn: '2024-07-02', vendor: 'IND-2 Production' },
-  { id: 16, lotNo: 'PLYRR-002', category: 'PLYRR', code: 'IND2-PLYRR/12/1220/2440', store: 'STORE2', qty: 65, cbm: 2.31, cost: 27500, costPerCbm: 11905, status: 'low', dateIn: '2024-07-08', vendor: 'IND-2 Production' },
-  // STORE2 - PLYRW
-  { id: 17, lotNo: 'PLYRW-001', category: 'PLYRW', code: 'IND2-PLYRW/12/1220/2440', store: 'STORE2', qty: 120, cbm: 4.27, cost: 38000, costPerCbm: 8900, status: 'available', dateIn: '2024-07-03', vendor: 'IND-2 Production' },
-  { id: 18, lotNo: 'PLYRW-002', category: 'PLYRW', code: 'IND2-PLYRW/15/1220/2440', store: 'STORE2', qty: 90, cbm: 4.01, cost: 36000, costPerCbm: 8978, status: 'available', dateIn: '2024-07-10', vendor: 'IND-2 Production' },
-  // STORE1 - PRTB
-  { id: 19, lotNo: 'PRTB-001', category: 'PRTB', code: 'IND-PRTB/9/70/2440', store: 'STORE1', qty: 500, cbm: 0.77, cost: 3500, costPerCbm: 4545, status: 'available', dateIn: '2024-07-10', vendor: 'Board Co' },
-  { id: 20, lotNo: 'PRTB-002', category: 'PRTB', code: 'IND-PRTB/12/100/2440', store: 'STORE1', qty: 300, cbm: 0.88, cost: 4200, costPerCbm: 4773, status: 'available', dateIn: '2024-07-12', vendor: 'Board Co' },
+  // STORE1 - MLH (LP prefix)
+  { id: 1, lotNo: 'LP14899', category: 'MLH', code: 'IND-MLH/0.5/3/1', store: 'STORE1', qty: 700, cbm: 0.859, cost: 4218, costPerCbm: 4912, status: 'available', dateIn: '2024-07-03', vendor: 'Thai Timber Co., Ltd' },
+  { id: 2, lotNo: 'LP14900', category: 'MLH', code: 'IND-MLH/0.5/3/1', store: 'STORE1', qty: 650, cbm: 0.797, cost: 3914, costPerCbm: 4912, status: 'available', dateIn: '2024-07-03', vendor: 'Thai Timber Co., Ltd' },
+  { id: 3, lotNo: 'LP14901', category: 'MLH', code: 'IND-MLH/0.5/3/1', store: 'STORE1', qty: 45, cbm: 0.055, cost: 271, costPerCbm: 4912, status: 'low', dateIn: '2024-07-03', vendor: 'Thai Timber Co., Ltd' },
+  { id: 4, lotNo: 'LP14902', category: 'MLH', code: 'IND-MLH/0.5/3.4/1.3', store: 'STORE1', qty: 241, cbm: 0.344, cost: 1689, costPerCbm: 4912, status: 'available', dateIn: '2024-05-25', vendor: 'Green Wood Enterprise' },
+  { id: 5, lotNo: 'LP14903', category: 'MLH', code: 'IND-MLH/0.5/3.8/1.3', store: 'STORE1', qty: 254, cbm: 0.405, cost: 1990, costPerCbm: 4912, status: 'available', dateIn: '2024-04-30', vendor: 'Green Wood Enterprise' },
+  // STORE1 - PW (Vendor initials prefix: TH=Thongsiri, ARC=ARC Wood, SE=SE Trading)
+  { id: 6, lotNo: 'TH14904', category: 'PW', code: 'IND-PW/39/145/3960', store: 'STORE1', qty: 128, cbm: 2.87, cost: 8500, costPerCbm: 2962, status: 'low', dateIn: '2024-06-15', vendor: 'Thongsiri' },
+  { id: 7, lotNo: 'TH14905', category: 'PW', code: 'IND-PW/39/145/3960', store: 'STORE1', qty: 350, cbm: 7.84, cost: 23200, costPerCbm: 2962, status: 'available', dateIn: '2024-06-20', vendor: 'Thongsiri' },
+  { id: 8, lotNo: 'ARC14906', category: 'PW', code: 'IND-PW/40/100/4000', store: 'STORE1', qty: 200, cbm: 3.2, cost: 12800, costPerCbm: 4000, status: 'available', dateIn: '2024-07-10', vendor: 'ARC Wood Supply' },
+  { id: 9, lotNo: 'SE14907', category: 'PW', code: 'IND-PW/38/95/3800', store: 'STORE1', qty: 180, cbm: 2.6, cost: 10400, costPerCbm: 4000, status: 'available', dateIn: '2024-07-12', vendor: 'SE Trading' },
+  // STORE1 - More PW
+  { id: 10, lotNo: 'TH14908', category: 'PW', code: 'IND-PW/38/140/3900', store: 'STORE1', qty: 450, cbm: 9.35, cost: 18700, costPerCbm: 2000, status: 'available', dateIn: '2024-07-08', vendor: 'Thongsiri' },
+  { id: 11, lotNo: 'ARC14909', category: 'PW', code: 'IND-PW/40/150/4000', store: 'STORE1', qty: 320, cbm: 7.68, cost: 15360, costPerCbm: 2000, status: 'available', dateIn: '2024-07-15', vendor: 'ARC Wood Supply' },
+  // STORE2 - PLYWW (category prefix)
+  { id: 12, lotNo: 'PLYWW14910', category: 'PLYWW', code: 'IND2-PLYWW/12/1220/2440', store: 'STORE2', qty: 150, cbm: 5.34, cost: 45000, costPerCbm: 8427, status: 'available', dateIn: '2024-07-01', vendor: 'Malaysia Wood Import' },
+  { id: 13, lotNo: 'PLYWW14911', category: 'PLYWW', code: 'IND2-PLYWW/18/1220/2440', store: 'STORE2', qty: 80, cbm: 4.27, cost: 42000, costPerCbm: 9836, status: 'available', dateIn: '2024-07-05', vendor: 'Malaysia Wood Import' },
+  // STORE2 - PLYRR (category prefix)
+  { id: 14, lotNo: 'PLYRR14912', category: 'PLYRR', code: 'IND2-PLYRR/15/1220/2440', store: 'STORE2', qty: 100, cbm: 4.46, cost: 52000, costPerCbm: 11659, status: 'available', dateIn: '2024-07-02', vendor: 'Malaysia Wood Import' },
+  { id: 15, lotNo: 'PLYRR14913', category: 'PLYRR', code: 'IND2-PLYRR/12/1220/2440', store: 'STORE2', qty: 65, cbm: 2.31, cost: 27500, costPerCbm: 11905, status: 'low', dateIn: '2024-07-08', vendor: 'Malaysia Wood Import' },
+  // STORE2 - PLYRW (category prefix)
+  { id: 16, lotNo: 'PLYRW14914', category: 'PLYRW', code: 'IND2-PLYRW/12/1220/2440', store: 'STORE2', qty: 120, cbm: 4.27, cost: 38000, costPerCbm: 8900, status: 'available', dateIn: '2024-07-03', vendor: 'Malaysia Wood Import' },
+  { id: 17, lotNo: 'PLYRW14915', category: 'PLYRW', code: 'IND2-PLYRW/15/1220/2440', store: 'STORE2', qty: 90, cbm: 4.01, cost: 36000, costPerCbm: 8978, status: 'available', dateIn: '2024-07-10', vendor: 'Malaysia Wood Import' },
+  // STORE1 - PRTB (category prefix)
+  { id: 18, lotNo: 'PRTB14916', category: 'PRTB', code: 'IND-PRTB/9/70/2440', store: 'STORE1', qty: 500, cbm: 0.77, cost: 3500, costPerCbm: 4545, status: 'available', dateIn: '2024-07-10', vendor: 'Thai Timber Co., Ltd' },
+  { id: 19, lotNo: 'PRTB14917', category: 'PRTB', code: 'IND-PRTB/12/100/2440', store: 'STORE1', qty: 300, cbm: 0.88, cost: 4200, costPerCbm: 4773, status: 'available', dateIn: '2024-07-12', vendor: 'Thai Timber Co., Ltd' },
+  // More recent receipts
+  { id: 20, lotNo: 'LP14918', category: 'MLH', code: 'IND-MLH/0.5/4/1.5', store: 'STORE1', qty: 500, cbm: 1.23, cost: 6042, costPerCbm: 4912, status: 'available', dateIn: '2024-07-20', vendor: 'Thai Timber Co., Ltd' },
 ]
 
 // ============================================
 // VENDORS
 // ============================================
 const INITIAL_VENDORS = [
-  { id: 'V001', code: 'V001', name: 'Thai Timber Co., Ltd', nameTh: 'บริษัท ไทยทิมเบอร์ จำกัด', type: 'local', category: 'MLH', paymentTerms: 30, contact: 'Somchai', phone: '081-234-5678', isActive: true },
-  { id: 'V002', code: 'V002', name: 'Pine Supply Co., Ltd', nameTh: 'บริษัท ไพน์ซัพพลาย จำกัด', type: 'local', category: 'PW', paymentTerms: 30, contact: 'Wilai', phone: '089-876-5432', isActive: true },
-  { id: 'V003', code: 'V003', name: 'Green Wood Enterprise', nameTh: 'บริษัท กรีนวูด เอ็นเตอร์ไพรส์', type: 'local', category: 'MLH', paymentTerms: 45, contact: 'Prasit', phone: '086-111-2222', isActive: true },
-  { id: 'V004', code: 'V004', name: 'Malaysia Wood Import', nameTh: 'นำเข้าไม้มาเลเซีย', type: 'import', category: 'MLH', paymentTerms: 60, contact: 'Mr. Lee', phone: '+60-12-345-6789', isActive: true },
-  { id: 'V005', code: 'V005', name: 'Vietnam Pine Export', nameTh: 'ส่งออกไม้สนเวียดนาม', type: 'import', category: 'PW', paymentTerms: 60, contact: 'Mr. Nguyen', phone: '+84-90-123-4567', isActive: true },
+  { id: 'V001', code: 'V001', name: 'Thai Timber Co., Ltd', nameTh: 'บริษัท ไทยทิมเบอร์ จำกัด', initials: 'TT', type: 'local', category: 'MLH', paymentTerms: 30, contact: 'Somchai', phone: '081-234-5678', isActive: true },
+  { id: 'V002', code: 'V002', name: 'Thongsiri', nameTh: 'ทองศิริ', initials: 'TH', type: 'local', category: 'PW', paymentTerms: 30, contact: 'Wilai', phone: '089-876-5432', isActive: true },
+  { id: 'V003', code: 'V003', name: 'ARC Wood Supply', nameTh: 'บริษัท อาร์ค วู้ด ซัพพลาย', initials: 'ARC', type: 'local', category: 'PW', paymentTerms: 30, contact: 'Prasert', phone: '086-333-4444', isActive: true },
+  { id: 'V004', code: 'V004', name: 'SE Trading', nameTh: 'บริษัท เอสอี เทรดดิ้ง', initials: 'SE', type: 'local', category: 'PW', paymentTerms: 45, contact: 'Sakchai', phone: '087-555-6666', isActive: true },
+  { id: 'V005', code: 'V005', name: 'Green Wood Enterprise', nameTh: 'บริษัท กรีนวูด เอ็นเตอร์ไพรส์', initials: 'GW', type: 'local', category: 'MLH', paymentTerms: 45, contact: 'Prasit', phone: '086-111-2222', isActive: true },
+  { id: 'V006', code: 'V006', name: 'Malaysia Wood Import', nameTh: 'นำเข้าไม้มาเลเซีย', initials: 'MY', type: 'import', category: 'MLH', paymentTerms: 60, contact: 'Mr. Lee', phone: '+60-12-345-6789', isActive: true },
+  { id: 'V007', code: 'V007', name: 'Vietnam Pine Export', nameTh: 'ส่งออกไม้สนเวียดนาม', initials: 'VN', type: 'import', category: 'PW', paymentTerms: 60, contact: 'Mr. Nguyen', phone: '+84-90-123-4567', isActive: true },
 ]
 
 // ============================================
@@ -527,8 +528,8 @@ const INITIAL_WORK_ORDERS = [
       { dept: 'A1', status: 'in_progress', startTime: '2024-07-19 08:00', endTime: null, hours: 8, operator: 'Manop' },
     ],
     materialsIssued: [
-      { lotNo: 'LP21499', category: 'MLH', code: 'IND-MLH/0.5/3/1', qty: 400, cbm: 0.49, cost: 2407 },
-      { lotNo: 'LP21500', category: 'MLH', code: 'IND-MLH/0.5/3/1', qty: 350, cbm: 0.43, cost: 2112 },
+      { lotNo: 'LP14899', category: 'MLH', code: 'IND-MLH/0.5/3/1', qty: 400, cbm: 0.49, cost: 2407 },
+      { lotNo: 'LP14900', category: 'MLH', code: 'IND-MLH/0.5/3/1', qty: 350, cbm: 0.43, cost: 2112 },
     ],
     costs: {
       material: 4519,
@@ -1065,7 +1066,7 @@ const SmartDocumentUploadModal = ({ isOpen, onClose, module, lang, onProcessed, 
         store: 'STORE1',
         countDate: new Date().toISOString().split('T')[0],
         items: [
-          { code: 'IND-MLH/0.5/3/1', lotNo: 'LP21499', counted: 695, system: 700, variance: -5 },
+          { code: 'IND-MLH/0.5/3/1', lotNo: 'LP14899', counted: 695, system: 700, variance: -5 },
         ],
         confidence: 88,
       },
@@ -2769,6 +2770,48 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
   const [selectedPO, setSelectedPO] = useState(null)
   const [showLabelModal, setShowLabelModal] = useState(false)
   const [pendingLots, setPendingLots] = useState([])
+  
+  // GLOBAL LOT SEQUENCE - shared across ALL materials
+  const [globalLotSequence, setGlobalLotSequence] = useState(14926)
+  
+  // Generate lot number with correct prefix based on material and vendor
+  const generateLotNumber = (categoryCode, vendor) => {
+    const seq = globalLotSequence + 1
+    setGlobalLotSequence(seq)
+    
+    let prefix
+    switch (categoryCode) {
+      case 'MLH':
+        prefix = 'LP'
+        break
+      case 'PW':
+        // Use vendor initials for PW
+        prefix = vendor?.initials || vendor?.name?.substring(0, 2).toUpperCase() || 'PW'
+        break
+      case 'PLYRR':
+        prefix = 'PLYRR'
+        break
+      case 'PLYRW':
+        prefix = 'PLYRW'
+        break
+      case 'PLYWW':
+        prefix = 'PLYWW'
+        break
+      case 'PLYWB':
+        prefix = 'PLYWB'
+        break
+      case 'PRTB':
+        prefix = 'PRTB'
+        break
+      case 'PRTW':
+        prefix = 'PRTW'
+        break
+      default:
+        prefix = categoryCode
+    }
+    
+    return `${prefix}${seq}`
+  }
 
   const tabs = [
     { id: 'dashboard', label: lang === 'th' ? 'ภาพรวม' : 'Dashboard', icon: BarChart3 },
@@ -2793,11 +2836,12 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
   }
 
   const handlePrePrint = (po) => {
+    const vendor = vendors.find(v => v.id === po.vendorId)
     const lots = po.items.map((item, idx) => {
-      const prefix = po.type === 'import' ? 'IND2' : 'IND'
+      const entityPrefix = po.type === 'import' ? 'IND2' : 'IND'
       return {
-        lotNo: `LP${Date.now().toString().slice(-5)}${idx}`,
-        code: `${prefix}-${item.categoryId}/${item.thickness}/${item.width}/${item.length}`,
+        lotNo: generateLotNumber(item.categoryId, vendor),
+        code: `${entityPrefix}-${item.categoryId}/${item.thickness}/${item.width}/${item.length}`,
         category: item.categoryId,
         qty: item.qty,
         dateIn: po.deliveryDate || new Date().toISOString().split('T')[0],
@@ -2813,9 +2857,11 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
       po.id === grnData.poId ? { ...po, status: 'received', receivedDate: grnData.grnDate } : po
     ))
     
+    const vendor = vendors.find(v => v.id === selectedPO.vendorId)
+    
     // Add to inventory
     const newItems = grnData.items.map((item, idx) => {
-      const prefix = selectedPO.type === 'import' ? 'IND2' : 'IND'
+      const entityPrefix = selectedPO.type === 'import' ? 'IND2' : 'IND'
       const store = selectedPO.type === 'import' || ['PLYWW', 'PLYRR', 'PLYRW'].includes(item.category) ? 'STORE2' : 'STORE1'
       const cbm = (item.thickness * item.width * item.length * item.qtyReceived) / 1000000000
       
@@ -2829,9 +2875,9 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
       
       return {
         id: Date.now() + idx,
-        lotNo: `LP${Date.now().toString().slice(-5)}${idx}`,
+        lotNo: generateLotNumber(item.category, vendor),
         category: item.category,
-        code: `${prefix}-${item.category}/${item.thickness}/${item.width}/${item.length}`,
+        code: `${entityPrefix}-${item.category}/${item.thickness}/${item.width}/${item.length}`,
         store,
         qty: item.qtyReceived,
         cbm,
@@ -2839,7 +2885,7 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
         costPerCbm: cbm > 0 ? (item.qtyReceived * unitCost) / cbm : 0,
         status: 'available',
         dateIn: grnData.grnDate,
-        vendor: vendors.find(v => v.id === selectedPO.vendorId)?.name || '',
+        vendor: vendor?.name || '',
         poId: selectedPO.id,
       }
     })
@@ -5888,6 +5934,7 @@ export default function App() {
   const [trucks, setTrucks] = useState(INITIAL_TRUCKS)
   const [employees, setEmployees] = useState(INITIAL_EMPLOYEES)
   const [equipment, setEquipment] = useState(INITIAL_EQUIPMENT)
+  const [products, setProducts] = useState(INITIAL_PRODUCTS)
 
   // Transaction State
   const [purchaseOrders, setPurchaseOrders] = useState(INITIAL_PURCHASE_ORDERS)
@@ -5928,9 +5975,11 @@ export default function App() {
     { id: 'purchase', label: t('nav.purchase', lang), icon: ShoppingCart, color: 'text-yellow-500' },
     { id: 'production', label: t('nav.production', lang), icon: Factory, color: 'text-orange-500' },
     { id: 'sales', label: t('nav.sales', lang), icon: Receipt, color: 'text-pink-500' },
+    { id: 'accounting', label: t('nav.accounting', lang), icon: Calculator, color: 'text-emerald-500' },
     { id: 'hr', label: t('nav.hr', lang), icon: Users, color: 'text-indigo-500' },
     { id: 'transport', label: t('nav.transport', lang), icon: Truck, color: 'text-cyan-500' },
     { id: 'maintenance', label: t('nav.maintenance', lang), icon: Wrench, color: 'text-amber-500' },
+    { id: 'reports', label: t('nav.reports', lang), icon: BarChart3, color: 'text-violet-500' },
   ].filter(item => hasAccess(item.id))
 
   // Show login if not authenticated
@@ -6092,18 +6141,19 @@ export default function App() {
                 />
               )}
               {activeModule === 'sales' && (
-                <SalesModule
+                <SalesModuleFull
                   salesOrders={salesOrders}
                   setSalesOrders={setSalesOrders}
                   invoices={invoices}
                   setInvoices={setInvoices}
                   customers={customers}
                   workOrders={workOrders}
+                  products={products}
                   lang={lang}
                 />
               )}
               {activeModule === 'hr' && (
-                <HRModule
+                <HRModuleFull
                   employees={employees}
                   setEmployees={setEmployees}
                   lang={lang}
@@ -6124,6 +6174,30 @@ export default function App() {
                   tasks={maintenanceTasks}
                   setTasks={setMaintenanceTasks}
                   equipment={equipment}
+                  employees={employees}
+                  lang={lang}
+                />
+              )}
+              {activeModule === 'accounting' && (
+                <AccountingModule
+                  invoices={invoices}
+                  purchaseOrders={purchaseOrders}
+                  vendors={vendors}
+                  customers={customers}
+                  lang={lang}
+                />
+              )}
+              {activeModule === 'reports' && (
+                <ReportsModule
+                  inventory={inventory}
+                  purchaseOrders={purchaseOrders}
+                  workOrders={workOrders}
+                  salesOrders={salesOrders}
+                  invoices={invoices}
+                  categories={categories}
+                  stores={stores}
+                  customers={customers}
+                  vendors={vendors}
                   employees={employees}
                   lang={lang}
                 />
