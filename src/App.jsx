@@ -6135,3 +6135,4028 @@ export default function App() {
     </LanguageContext.Provider>
   )
 }
+
+// ============================================
+// ACCOUNTING MODULE (Full)
+// ============================================
+const AccountingModule = ({ invoices, purchaseOrders, vendors, customers, lang }) => {
+  const [activeTab, setActiveTab] = useState('dashboard')
+
+  const tabs = [
+    { id: 'dashboard', label: lang === 'th' ? 'ภาพรวม' : 'Dashboard', icon: BarChart3 },
+    { id: 'ap', label: lang === 'th' ? 'เจ้าหนี้' : 'Payables (AP)', icon: FileText },
+    { id: 'ar', label: lang === 'th' ? 'ลูกหนี้' : 'Receivables (AR)', icon: Receipt },
+    { id: 'journal', label: lang === 'th' ? 'สมุดรายวัน' : 'Journal', icon: BookOpen },
+    { id: 'cashflow', label: lang === 'th' ? 'กระแสเงินสด' : 'Cash Flow', icon: DollarSign },
+  ]
+
+  // Calculate AP (Accounts Payable)
+  const apData = purchaseOrders.map(po => {
+    const vendor = vendors.find(v => v.id === po.vendorId)
+    const paidAmount = po.paidAmount || 0
+    const balance = (po.total || po.grandTotal || 0) - paidAmount
+    const dueDate = new Date(po.poDate)
+    dueDate.setDate(dueDate.getDate() + (vendor?.paymentTerms || 30))
+    const today = new Date()
+    const daysOverdue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24))
+    
+    return {
+      ...po,
+      vendorName: vendor?.name || 'Unknown',
+      total: po.total || po.grandTotal || 0,
+      paidAmount,
+      balance,
+      dueDate: dueDate.toISOString().split('T')[0],
+      daysOverdue: balance > 0 ? Math.max(0, daysOverdue) : 0,
+      status: balance <= 0 ? 'paid' : daysOverdue > 0 ? 'overdue' : 'pending',
+    }
+  }).filter(po => po.balance > 0 || po.status === 'paid')
+
+  // Calculate AR (Accounts Receivable)
+  const arData = invoices.map(inv => {
+    const customer = customers.find(c => c.id === inv.customerId)
+    const dueDate = new Date(inv.invoiceDate)
+    dueDate.setDate(dueDate.getDate() + (customer?.paymentTerms || 30))
+    const today = new Date()
+    const daysOverdue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24))
+    
+    return {
+      ...inv,
+      customerName: customer?.name || 'Unknown',
+      dueDate: dueDate.toISOString().split('T')[0],
+      daysOverdue: inv.balance > 0 ? Math.max(0, daysOverdue) : 0,
+      status: inv.balance <= 0 ? 'paid' : daysOverdue > 0 ? 'overdue' : 'pending',
+    }
+  })
+
+  // Aging buckets
+  const getAgingBuckets = (data, balanceField = 'balance') => {
+    return {
+      current: data.filter(d => d.daysOverdue === 0 && d[balanceField] > 0).reduce((sum, d) => sum + d[balanceField], 0),
+      days1to30: data.filter(d => d.daysOverdue > 0 && d.daysOverdue <= 30).reduce((sum, d) => sum + d[balanceField], 0),
+      days31to60: data.filter(d => d.daysOverdue > 30 && d.daysOverdue <= 60).reduce((sum, d) => sum + d[balanceField], 0),
+      days61to90: data.filter(d => d.daysOverdue > 60 && d.daysOverdue <= 90).reduce((sum, d) => sum + d[balanceField], 0),
+      over90: data.filter(d => d.daysOverdue > 90).reduce((sum, d) => sum + d[balanceField], 0),
+    }
+  }
+
+  const apAging = getAgingBuckets(apData)
+  const arAging = getAgingBuckets(arData)
+
+  const totalAP = apData.reduce((sum, d) => sum + d.balance, 0)
+  const totalAR = arData.reduce((sum, d) => sum + d.balance, 0)
+
+  // Mock journal entries
+  const journalEntries = [
+    { id: 'JE-001', date: '2025-01-28', description: 'Purchase - MLH Wood from KBB', debit: 'Inventory', credit: 'AP', amount: 245000 },
+    { id: 'JE-002', date: '2025-01-27', description: 'Sales Invoice INV-2501-001', debit: 'AR', credit: 'Revenue', amount: 185000 },
+    { id: 'JE-003', date: '2025-01-26', description: 'Payment to KBB Enterprise', debit: 'AP', credit: 'Cash', amount: 150000 },
+    { id: 'JE-004', date: '2025-01-25', description: 'Receipt from Seagate', debit: 'Cash', credit: 'AR', amount: 320000 },
+    { id: 'JE-005', date: '2025-01-24', description: 'Payroll - January', debit: 'Wage Expense', credit: 'Cash', amount: 485000 },
+  ]
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">{t('nav.accounting', lang)}</h1>
+          <p className="text-gray-500">{lang === 'th' ? 'จัดการบัญชีและการเงิน' : 'Manage accounting and finance'}</p>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
+              activeTab === tab.id 
+                ? 'border-[#1A5276] text-[#1A5276]' 
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Dashboard */}
+      {activeTab === 'dashboard' && (
+        <div className="space-y-6">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="p-4 border-l-4 border-l-red-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'เจ้าหนี้รวม (AP)' : 'Total Payables'}</div>
+              <div className="text-2xl font-bold text-red-600">{formatCurrency(totalAP)}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-green-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ลูกหนี้รวม (AR)' : 'Total Receivables'}</div>
+              <div className="text-2xl font-bold text-green-600">{formatCurrency(totalAR)}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'สถานะสุทธิ' : 'Net Position'}</div>
+              <div className={`text-2xl font-bold ${totalAR - totalAP >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatCurrency(totalAR - totalAP)}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-orange-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'เกินกำหนด' : 'Overdue'}</div>
+              <div className="text-2xl font-bold text-orange-600">
+                {formatCurrency(apAging.days1to30 + apAging.days31to60 + apAging.days61to90 + apAging.over90 + arAging.days1to30 + arAging.days31to60 + arAging.days61to90 + arAging.over90)}
+              </div>
+            </Card>
+          </div>
+
+          {/* Aging Summary */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* AP Aging */}
+            <Card className="p-5">
+              <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'อายุเจ้าหนี้ (AP Aging)' : 'AP Aging'}</h3>
+              <div className="space-y-3">
+                {[
+                  { label: lang === 'th' ? 'ยังไม่ถึงกำหนด' : 'Current', value: apAging.current, color: 'bg-green-500' },
+                  { label: '1-30 ' + (lang === 'th' ? 'วัน' : 'days'), value: apAging.days1to30, color: 'bg-yellow-500' },
+                  { label: '31-60 ' + (lang === 'th' ? 'วัน' : 'days'), value: apAging.days31to60, color: 'bg-orange-500' },
+                  { label: '61-90 ' + (lang === 'th' ? 'วัน' : 'days'), value: apAging.days61to90, color: 'bg-red-400' },
+                  { label: '90+ ' + (lang === 'th' ? 'วัน' : 'days'), value: apAging.over90, color: 'bg-red-600' },
+                ].map(bucket => (
+                  <div key={bucket.label} className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${bucket.color}`} />
+                    <div className="flex-1 text-sm text-gray-600">{bucket.label}</div>
+                    <div className="font-medium">{formatCurrency(bucket.value)}</div>
+                  </div>
+                ))}
+                <div className="pt-3 border-t flex justify-between font-bold">
+                  <span>{lang === 'th' ? 'รวม' : 'Total'}</span>
+                  <span className="text-red-600">{formatCurrency(totalAP)}</span>
+                </div>
+              </div>
+            </Card>
+
+            {/* AR Aging */}
+            <Card className="p-5">
+              <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'อายุลูกหนี้ (AR Aging)' : 'AR Aging'}</h3>
+              <div className="space-y-3">
+                {[
+                  { label: lang === 'th' ? 'ยังไม่ถึงกำหนด' : 'Current', value: arAging.current, color: 'bg-green-500' },
+                  { label: '1-30 ' + (lang === 'th' ? 'วัน' : 'days'), value: arAging.days1to30, color: 'bg-yellow-500' },
+                  { label: '31-60 ' + (lang === 'th' ? 'วัน' : 'days'), value: arAging.days31to60, color: 'bg-orange-500' },
+                  { label: '61-90 ' + (lang === 'th' ? 'วัน' : 'days'), value: arAging.days61to90, color: 'bg-red-400' },
+                  { label: '90+ ' + (lang === 'th' ? 'วัน' : 'days'), value: arAging.over90, color: 'bg-red-600' },
+                ].map(bucket => (
+                  <div key={bucket.label} className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${bucket.color}`} />
+                    <div className="flex-1 text-sm text-gray-600">{bucket.label}</div>
+                    <div className="font-medium">{formatCurrency(bucket.value)}</div>
+                  </div>
+                ))}
+                <div className="pt-3 border-t flex justify-between font-bold">
+                  <span>{lang === 'th' ? 'รวม' : 'Total'}</span>
+                  <span className="text-green-600">{formatCurrency(totalAR)}</span>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Accounts Payable */}
+      {activeTab === 'ap' && (
+        <Card className="overflow-hidden">
+          <div className="p-4 bg-red-50 border-b border-red-100">
+            <h3 className="font-bold text-red-800">{lang === 'th' ? 'รายการเจ้าหนี้' : 'Accounts Payable'}</h3>
+            <p className="text-sm text-red-600">{lang === 'th' ? 'ยอดค้างชำระผู้ขาย' : 'Outstanding vendor balances'}</p>
+          </div>
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่ PO' : 'PO #'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ผู้ขาย' : 'Vendor'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันครบกำหนด' : 'Due Date'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Total'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ชำระแล้ว' : 'Paid'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Balance'}</th>
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {apData.map(item => (
+                <tr key={item.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-mono text-[#1A5276]">{item.id}</td>
+                  <td className="px-4 py-3">{item.vendorName}</td>
+                  <td className="px-4 py-3">
+                    {formatDate(item.dueDate)}
+                    {item.daysOverdue > 0 && (
+                      <div className="text-xs text-red-500">{item.daysOverdue} {lang === 'th' ? 'วันเกิน' : 'days over'}</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">{formatCurrency(item.total)}</td>
+                  <td className="px-4 py-3 text-right text-green-600">{formatCurrency(item.paidAmount)}</td>
+                  <td className="px-4 py-3 text-right font-bold text-red-600">{formatCurrency(item.balance)}</td>
+                  <td className="px-4 py-3 text-center">
+                    <Badge variant={item.status === 'paid' ? 'success' : item.status === 'overdue' ? 'danger' : 'warning'}>
+                      {item.status === 'paid' ? (lang === 'th' ? 'ชำระแล้ว' : 'Paid') : 
+                       item.status === 'overdue' ? (lang === 'th' ? 'เกินกำหนด' : 'Overdue') : 
+                       (lang === 'th' ? 'รอชำระ' : 'Pending')}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {/* Accounts Receivable */}
+      {activeTab === 'ar' && (
+        <Card className="overflow-hidden">
+          <div className="p-4 bg-green-50 border-b border-green-100">
+            <h3 className="font-bold text-green-800">{lang === 'th' ? 'รายการลูกหนี้' : 'Accounts Receivable'}</h3>
+            <p className="text-sm text-green-600">{lang === 'th' ? 'ยอดค้างรับจากลูกค้า' : 'Outstanding customer balances'}</p>
+          </div>
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่ใบแจ้งหนี้' : 'Invoice #'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันครบกำหนด' : 'Due Date'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Total'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'รับแล้ว' : 'Received'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Balance'}</th>
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {arData.map(item => (
+                <tr key={item.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-mono text-[#1A5276]">{item.id}</td>
+                  <td className="px-4 py-3">{item.customerName}</td>
+                  <td className="px-4 py-3">
+                    {formatDate(item.dueDate)}
+                    {item.daysOverdue > 0 && (
+                      <div className="text-xs text-red-500">{item.daysOverdue} {lang === 'th' ? 'วันเกิน' : 'days over'}</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">{formatCurrency(item.grandTotal)}</td>
+                  <td className="px-4 py-3 text-right text-green-600">{formatCurrency(item.paidAmount)}</td>
+                  <td className="px-4 py-3 text-right font-bold text-orange-600">{formatCurrency(item.balance)}</td>
+                  <td className="px-4 py-3 text-center">
+                    <Badge variant={item.status === 'paid' ? 'success' : item.status === 'overdue' ? 'danger' : 'warning'}>
+                      {item.status === 'paid' ? (lang === 'th' ? 'รับแล้ว' : 'Paid') : 
+                       item.status === 'overdue' ? (lang === 'th' ? 'เกินกำหนด' : 'Overdue') : 
+                       (lang === 'th' ? 'รอรับ' : 'Pending')}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {/* Journal Entries */}
+      {activeTab === 'journal' && (
+        <Card className="overflow-hidden">
+          <div className="p-4 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-blue-800">{lang === 'th' ? 'สมุดรายวันทั่วไป' : 'General Journal'}</h3>
+              <p className="text-sm text-blue-600">{lang === 'th' ? 'รายการบันทึกบัญชี' : 'Accounting entries'}</p>
+            </div>
+            <Button icon={Plus} size="sm">{lang === 'th' ? 'บันทึกรายการ' : 'New Entry'}</Button>
+          </div>
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'Entry #'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายละเอียด' : 'Description'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เดบิต' : 'Debit'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เครดิต' : 'Credit'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวนเงิน' : 'Amount'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {journalEntries.map(entry => (
+                <tr key={entry.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-mono text-[#1A5276]">{entry.id}</td>
+                  <td className="px-4 py-3">{formatDate(entry.date)}</td>
+                  <td className="px-4 py-3">{entry.description}</td>
+                  <td className="px-4 py-3">
+                    <Badge variant="info">{entry.debit}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant="success">{entry.credit}</Badge>
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium">{formatCurrency(entry.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {/* Cash Flow */}
+      {activeTab === 'cashflow' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'เงินเข้า' : 'Cash In'}</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between p-3 bg-green-50 rounded-lg">
+                <span className="text-green-700">{lang === 'th' ? 'รับชำระจากลูกค้า' : 'Customer Receipts'}</span>
+                <span className="font-bold text-green-700">{formatCurrency(320000)}</span>
+              </div>
+              <div className="flex justify-between p-3 bg-green-50 rounded-lg">
+                <span className="text-green-700">{lang === 'th' ? 'รายได้อื่น' : 'Other Income'}</span>
+                <span className="font-bold text-green-700">{formatCurrency(15000)}</span>
+              </div>
+              <div className="pt-3 border-t flex justify-between font-bold text-lg">
+                <span>{lang === 'th' ? 'รวมเงินเข้า' : 'Total In'}</span>
+                <span className="text-green-600">{formatCurrency(335000)}</span>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'เงินออก' : 'Cash Out'}</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between p-3 bg-red-50 rounded-lg">
+                <span className="text-red-700">{lang === 'th' ? 'ชำระผู้ขาย' : 'Vendor Payments'}</span>
+                <span className="font-bold text-red-700">{formatCurrency(150000)}</span>
+              </div>
+              <div className="flex justify-between p-3 bg-red-50 rounded-lg">
+                <span className="text-red-700">{lang === 'th' ? 'เงินเดือน' : 'Payroll'}</span>
+                <span className="font-bold text-red-700">{formatCurrency(485000)}</span>
+              </div>
+              <div className="flex justify-between p-3 bg-red-50 rounded-lg">
+                <span className="text-red-700">{lang === 'th' ? 'ค่าใช้จ่ายอื่น' : 'Other Expenses'}</span>
+                <span className="font-bold text-red-700">{formatCurrency(45000)}</span>
+              </div>
+              <div className="pt-3 border-t flex justify-between font-bold text-lg">
+                <span>{lang === 'th' ? 'รวมเงินออก' : 'Total Out'}</span>
+                <span className="text-red-600">{formatCurrency(680000)}</span>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// REPORTS MODULE (Full)
+// ============================================
+const ReportsModule = ({ inventory, purchaseOrders, workOrders, salesOrders, invoices, categories, stores, customers, vendors, employees, lang }) => {
+  const [activeReport, setActiveReport] = useState('inventory')
+  const [dateRange, setDateRange] = useState({ from: '2025-01-01', to: '2025-01-31' })
+
+  const reports = [
+    { id: 'inventory', label: lang === 'th' ? 'รายงานสินค้าคงคลัง' : 'Inventory Report', icon: Package },
+    { id: 'purchase', label: lang === 'th' ? 'รายงานการจัดซื้อ' : 'Purchase Report', icon: ShoppingCart },
+    { id: 'production', label: lang === 'th' ? 'รายงานการผลิต' : 'Production Report', icon: Factory },
+    { id: 'sales', label: lang === 'th' ? 'รายงานการขาย' : 'Sales Report', icon: Receipt },
+    { id: 'profitability', label: lang === 'th' ? 'รายงานกำไร' : 'Profitability Report', icon: TrendingUp },
+    { id: 'payroll', label: lang === 'th' ? 'รายงานเงินเดือน' : 'Payroll Report', icon: Users },
+  ]
+
+  // Calculate inventory by store
+  const inventoryByStore = stores.map(store => {
+    const items = inventory.filter(i => i.store === store.id)
+    return {
+      store: store.code,
+      storeName: lang === 'th' ? store.nameTh : store.nameEn,
+      items: items.length,
+      qty: items.reduce((sum, i) => sum + i.qty, 0),
+      cbm: items.reduce((sum, i) => sum + (i.cbm || 0), 0),
+      value: items.reduce((sum, i) => sum + (i.cost || 0), 0),
+    }
+  })
+
+  // Calculate inventory by category
+  const inventoryByCategory = categories.filter(c => c.type === 'raw_material').map(cat => {
+    const items = inventory.filter(i => i.category === cat.id)
+    return {
+      category: cat.code,
+      categoryName: lang === 'th' ? cat.nameTh : cat.nameEn,
+      color: cat.color,
+      items: items.length,
+      qty: items.reduce((sum, i) => sum + i.qty, 0),
+      cbm: items.reduce((sum, i) => sum + (i.cbm || 0), 0),
+      value: items.reduce((sum, i) => sum + (i.cost || 0), 0),
+    }
+  })
+
+  // Purchase summary
+  const purchaseSummary = {
+    totalPOs: purchaseOrders.length,
+    localPOs: purchaseOrders.filter(po => po.type === 'local').length,
+    importPOs: purchaseOrders.filter(po => po.type === 'import').length,
+    totalValue: purchaseOrders.reduce((sum, po) => sum + (po.total || po.grandTotal || 0), 0),
+    importCosts: purchaseOrders.reduce((sum, po) => sum + (po.totalImportCosts || 0), 0),
+    pending: purchaseOrders.filter(po => po.status === 'pending').length,
+    received: purchaseOrders.filter(po => po.status === 'received').length,
+  }
+
+  // Production summary
+  const productionSummary = {
+    totalWOs: workOrders.length,
+    completed: workOrders.filter(wo => wo.status === 'completed').length,
+    inProgress: workOrders.filter(wo => wo.status === 'in_progress').length,
+    totalRevenue: workOrders.reduce((sum, wo) => sum + (wo.totalRevenue || 0), 0),
+    totalCost: workOrders.reduce((sum, wo) => sum + (wo.costs?.total || 0), 0),
+    totalProfit: workOrders.reduce((sum, wo) => sum + (wo.totalRevenue || 0), 0) - workOrders.reduce((sum, wo) => sum + (wo.costs?.total || 0), 0),
+  }
+
+  // Sales summary
+  const salesSummary = {
+    totalOrders: salesOrders.length,
+    totalInvoices: invoices.length,
+    totalRevenue: invoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0),
+    totalReceived: invoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0),
+    outstanding: invoices.reduce((sum, inv) => sum + (inv.balance || 0), 0),
+  }
+
+  // Payroll summary
+  const payrollSummary = {
+    totalEmployees: employees.length,
+    fullTime: employees.filter(e => e.type === 'FT').length,
+    partTime: employees.filter(e => e.type === 'PT').length,
+    totalSalary: employees.reduce((sum, e) => sum + (e.salary || 0), 0),
+    totalGross: employees.reduce((sum, e) => sum + (e.salary || 0) + (e.positionInc || 0) + (e.diligenceInc || 0) + (e.phoneAllowance || 0), 0),
+    totalSSO: employees.filter(e => e.type === 'FT').reduce((sum, e) => sum + Math.min(((e.salary || 0) + (e.positionInc || 0)) * 0.05, 750), 0),
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">{t('nav.reports', lang)}</h1>
+          <p className="text-gray-500">{lang === 'th' ? 'รายงานและการวิเคราะห์' : 'Reports and Analytics'}</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-500">{lang === 'th' ? 'จาก' : 'From'}</label>
+            <input
+              type="date"
+              value={dateRange.from}
+              onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
+              className="px-3 py-2 border rounded-lg text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-500">{lang === 'th' ? 'ถึง' : 'To'}</label>
+            <input
+              type="date"
+              value={dateRange.to}
+              onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
+              className="px-3 py-2 border rounded-lg text-sm"
+            />
+          </div>
+          <Button variant="outline" icon={Download}>
+            {lang === 'th' ? 'ส่งออก' : 'Export'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Report Selection */}
+      <div className="flex flex-wrap gap-2">
+        {reports.map(report => (
+          <button
+            key={report.id}
+            onClick={() => setActiveReport(report.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+              activeReport === report.id
+                ? 'bg-[#1A5276] text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <report.icon className="w-4 h-4" />
+            {report.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Inventory Report */}
+      {activeReport === 'inventory' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-4 gap-4">
+            <Card className="p-4">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'จำนวนล็อต' : 'Total Lots'}</div>
+              <div className="text-2xl font-bold text-gray-800">{inventory.length}</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'จำนวนรวม' : 'Total Qty'}</div>
+              <div className="text-2xl font-bold text-gray-800">{formatNumber(inventory.reduce((sum, i) => sum + i.qty, 0))}</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ปริมาตรรวม' : 'Total CBM'}</div>
+              <div className="text-2xl font-bold text-blue-600">{inventory.reduce((sum, i) => sum + (i.cbm || 0), 0).toFixed(2)} m³</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่ารวม' : 'Total Value'}</div>
+              <div className="text-2xl font-bold text-[#2ECC40]">{formatCurrency(inventory.reduce((sum, i) => sum + (i.cost || 0), 0))}</div>
+            </Card>
+          </div>
+
+          {/* By Store */}
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'สินค้าคงคลังตามคลัง (6 คลัง)' : 'Inventory by Store (6 Stores)'}</h3>
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'คลัง' : 'Store'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'รายการ' : 'Items'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">CBM</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {inventoryByStore.map(row => (
+                  <tr key={row.store} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <div className="font-mono text-[#1A5276]">{row.store}</div>
+                      <div className="text-sm text-gray-500">{row.storeName}</div>
+                    </td>
+                    <td className="px-4 py-3 text-right">{row.items}</td>
+                    <td className="px-4 py-3 text-right">{formatNumber(row.qty)}</td>
+                    <td className="px-4 py-3 text-right">{row.cbm.toFixed(3)}</td>
+                    <td className="px-4 py-3 text-right font-medium text-[#2ECC40]">{formatCurrency(row.value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-100 font-bold">
+                <tr>
+                  <td className="px-4 py-3">{lang === 'th' ? 'รวม' : 'Total'}</td>
+                  <td className="px-4 py-3 text-right">{inventoryByStore.reduce((sum, r) => sum + r.items, 0)}</td>
+                  <td className="px-4 py-3 text-right">{formatNumber(inventoryByStore.reduce((sum, r) => sum + r.qty, 0))}</td>
+                  <td className="px-4 py-3 text-right">{inventoryByStore.reduce((sum, r) => sum + r.cbm, 0).toFixed(3)}</td>
+                  <td className="px-4 py-3 text-right text-[#2ECC40]">{formatCurrency(inventoryByStore.reduce((sum, r) => sum + r.value, 0))}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </Card>
+
+          {/* By Category */}
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'สินค้าคงคลังตามหมวดหมู่ (8 ประเภทไม้)' : 'Inventory by Category (8 Wood Types)'}</h3>
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'หมวดหมู่' : 'Category'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'รายการ' : 'Items'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">CBM</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {inventoryByCategory.map(row => (
+                  <tr key={row.category} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: row.color }} />
+                        <span className="font-mono" style={{ color: row.color }}>{row.category}</span>
+                      </div>
+                      <div className="text-sm text-gray-500 ml-5">{row.categoryName}</div>
+                    </td>
+                    <td className="px-4 py-3 text-right">{row.items}</td>
+                    <td className="px-4 py-3 text-right">{formatNumber(row.qty)}</td>
+                    <td className="px-4 py-3 text-right">{row.cbm.toFixed(3)}</td>
+                    <td className="px-4 py-3 text-right font-medium text-[#2ECC40]">{formatCurrency(row.value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        </div>
+      )}
+
+      {/* Purchase Report */}
+      {activeReport === 'purchase' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-4 gap-4">
+            <Card className="p-4">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบสั่งซื้อทั้งหมด' : 'Total POs'}</div>
+              <div className="text-2xl font-bold text-gray-800">{purchaseSummary.totalPOs}</div>
+              <div className="text-xs text-gray-400 mt-1">
+                🏠 {purchaseSummary.localPOs} {lang === 'th' ? 'ในประเทศ' : 'Local'} | 🚢 {purchaseSummary.importPOs} {lang === 'th' ? 'นำเข้า' : 'Import'}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-green-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่ารวม' : 'Total Value'}</div>
+              <div className="text-2xl font-bold text-green-600">{formatCurrency(purchaseSummary.totalValue)}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-orange-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ค่านำเข้ารวม' : 'Import Costs'}</div>
+              <div className="text-2xl font-bold text-orange-600">{formatCurrency(purchaseSummary.importCosts)}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'สถานะ' : 'Status'}</div>
+              <div className="text-sm mt-1">
+                <span className="text-yellow-600">⏳ {purchaseSummary.pending} {lang === 'th' ? 'รอ' : 'Pending'}</span>
+                <span className="mx-2">|</span>
+                <span className="text-green-600">✓ {purchaseSummary.received} {lang === 'th' ? 'รับแล้ว' : 'Received'}</span>
+              </div>
+            </Card>
+          </div>
+
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'รายการใบสั่งซื้อ' : 'Purchase Order List'}</h3>
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'PO #'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ผู้ขาย' : 'Vendor'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'วัสดุ' : 'Materials'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ค่านำเข้า' : 'Import'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'รวม' : 'Total'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {purchaseOrders.map(po => {
+                  const vendor = vendors.find(v => v.id === po.vendorId)
+                  return (
+                    <tr key={po.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono text-[#1A5276]">{po.id}</td>
+                      <td className="px-4 py-3">{vendor?.name || po.vendorId}</td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={po.type === 'import' ? 'info' : 'success'}>
+                          {po.type === 'import' ? '🚢' : '🏠'} {po.type}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right">{formatCurrency(po.subtotal || 0)}</td>
+                      <td className="px-4 py-3 text-right text-orange-600">{formatCurrency(po.totalImportCosts || 0)}</td>
+                      <td className="px-4 py-3 text-right font-bold">{formatCurrency(po.total || po.grandTotal || 0)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={po.status === 'received' ? 'success' : 'warning'}>{po.status}</Badge>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </Card>
+        </div>
+      )}
+
+      {/* Production Report */}
+      {activeReport === 'production' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-4 gap-4">
+            <Card className="p-4">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบสั่งผลิตทั้งหมด' : 'Total WOs'}</div>
+              <div className="text-2xl font-bold text-gray-800">{productionSummary.totalWOs}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-green-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รายได้รวม' : 'Total Revenue'}</div>
+              <div className="text-2xl font-bold text-green-600">{formatCurrency(productionSummary.totalRevenue)}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-red-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ต้นทุนรวม' : 'Total Cost'}</div>
+              <div className="text-2xl font-bold text-red-600">{formatCurrency(productionSummary.totalCost)}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'กำไรรวม' : 'Total Profit'}</div>
+              <div className="text-2xl font-bold text-blue-600">{formatCurrency(productionSummary.totalProfit)}</div>
+            </Card>
+          </div>
+
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'รายการใบสั่งผลิต' : 'Work Order List'}</h3>
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'WO #'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ต้นทุน' : 'Cost'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'รายได้' : 'Revenue'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'กำไร' : 'Margin'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {workOrders.map(wo => {
+                  const customer = customers.find(c => c.id === wo.customerId)
+                  const profit = (wo.totalRevenue || 0) - (wo.costs?.total || 0)
+                  const margin = wo.totalRevenue > 0 ? (profit / wo.totalRevenue * 100) : 0
+                  return (
+                    <tr key={wo.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono text-[#1A5276]">{wo.id}</td>
+                      <td className="px-4 py-3">{wo.productName}</td>
+                      <td className="px-4 py-3">{customer?.name || wo.customerId}</td>
+                      <td className="px-4 py-3 text-right">{wo.quantity}</td>
+                      <td className="px-4 py-3 text-right text-red-600">{formatCurrency(wo.costs?.total || 0)}</td>
+                      <td className="px-4 py-3 text-right text-green-600">{formatCurrency(wo.totalRevenue || 0)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <span className={`font-medium ${margin >= 20 ? 'text-green-600' : margin >= 10 ? 'text-yellow-600' : 'text-red-600'}`}>
+                          {margin.toFixed(1)}%
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </Card>
+        </div>
+      )}
+
+      {/* Sales Report */}
+      {activeReport === 'sales' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-4 gap-4">
+            <Card className="p-4">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบสั่งขาย' : 'Sales Orders'}</div>
+              <div className="text-2xl font-bold text-gray-800">{salesSummary.totalOrders}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-green-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รายได้รวม' : 'Total Revenue'}</div>
+              <div className="text-2xl font-bold text-green-600">{formatCurrency(salesSummary.totalRevenue)}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รับแล้ว' : 'Received'}</div>
+              <div className="text-2xl font-bold text-blue-600">{formatCurrency(salesSummary.totalReceived)}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-orange-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ค้างชำระ' : 'Outstanding'}</div>
+              <div className="text-2xl font-bold text-orange-600">{formatCurrency(salesSummary.outstanding)}</div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Profitability Report */}
+      {activeReport === 'profitability' && (
+        <ProductionCosting workOrders={workOrders} customers={customers} lang={lang} />
+      )}
+
+      {/* Payroll Report */}
+      {activeReport === 'payroll' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-4 gap-4">
+            <Card className="p-4">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'พนักงานทั้งหมด' : 'Total Employees'}</div>
+              <div className="text-2xl font-bold text-gray-800">{payrollSummary.totalEmployees}</div>
+              <div className="text-xs text-gray-400 mt-1">FT: {payrollSummary.fullTime} | PT: {payrollSummary.partTime}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'เงินเดือนรวม' : 'Total Salary'}</div>
+              <div className="text-2xl font-bold text-blue-600">{formatCurrency(payrollSummary.totalSalary)}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-green-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รายได้รวม (Gross)' : 'Total Gross'}</div>
+              <div className="text-2xl font-bold text-green-600">{formatCurrency(payrollSummary.totalGross)}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-red-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ประกันสังคมรวม' : 'Total SSO'}</div>
+              <div className="text-2xl font-bold text-red-600">{formatCurrency(payrollSummary.totalSSO)}</div>
+            </Card>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// SALES ORDER FORM
+// ============================================
+const SalesOrderForm = ({ so, customers, products, onSave, onCancel, lang }) => {
+  const [formData, setFormData] = useState({
+    customerId: so?.customerId || '',
+    customerPO: so?.customerPO || '',
+    orderDate: so?.orderDate || new Date().toISOString().split('T')[0],
+    deliveryDate: so?.deliveryDate || '',
+    items: so?.items || [{ id: 1, productName: '', qty: 0, unit: 'pcs', unitPrice: 0 }],
+    notes: so?.notes || '',
+    entity: so?.entity || 'IND',
+  })
+
+  const addItem = () => {
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, { id: prev.items.length + 1, productName: '', qty: 0, unit: 'pcs', unitPrice: 0 }]
+    }))
+  }
+
+  const updateItem = (idx, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) => i === idx ? { ...item, [field]: value } : item)
+    }))
+  }
+
+  const removeItem = (idx) => {
+    if (formData.items.length > 1) {
+      setFormData(prev => ({
+        ...prev,
+        items: prev.items.filter((_, i) => i !== idx)
+      }))
+    }
+  }
+
+  const subtotal = formData.items.reduce((sum, item) => sum + (item.qty * item.unitPrice), 0)
+  const vat = subtotal * 0.07
+  const grandTotal = subtotal + vat
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave({
+      ...formData,
+      subtotal,
+      vat,
+      grandTotal,
+      status: 'confirmed',
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Customer & PO */}
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'ลูกค้า *' : 'Customer *'}
+          </label>
+          <select
+            required
+            value={formData.customerId}
+            onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            <option value="">{lang === 'th' ? 'เลือกลูกค้า' : 'Select Customer'}</option>
+            {customers.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'PO ลูกค้า' : 'Customer PO #'}
+          </label>
+          <input
+            type="text"
+            value={formData.customerPO}
+            onChange={(e) => setFormData({ ...formData, customerPO: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+            placeholder="e.g., PO25001234"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'นิติบุคคล' : 'Entity'}
+          </label>
+          <select
+            value={formData.entity}
+            onChange={(e) => setFormData({ ...formData, entity: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            <option value="IND">IND Thai Packwell</option>
+            <option value="IND2">IND-2 Thai Packwell</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Dates */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'วันที่สั่งซื้อ *' : 'Order Date *'}
+          </label>
+          <input
+            type="date"
+            required
+            value={formData.orderDate}
+            onChange={(e) => setFormData({ ...formData, orderDate: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'กำหนดส่ง *' : 'Delivery Date *'}
+          </label>
+          <input
+            type="date"
+            required
+            value={formData.deliveryDate}
+            onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+      </div>
+
+      {/* Items */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm font-medium text-gray-700">
+            {lang === 'th' ? 'รายการสินค้า' : 'Order Items'}
+          </label>
+          <Button type="button" size="sm" variant="outline" onClick={addItem}>
+            + {lang === 'th' ? 'เพิ่มรายการ' : 'Add Item'}
+          </Button>
+        </div>
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-left">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
+                <th className="px-3 py-2 text-right">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+                <th className="px-3 py-2 text-left">{lang === 'th' ? 'หน่วย' : 'Unit'}</th>
+                <th className="px-3 py-2 text-right">{lang === 'th' ? 'ราคา/หน่วย' : 'Unit Price'}</th>
+                <th className="px-3 py-2 text-right">{lang === 'th' ? 'รวม' : 'Total'}</th>
+                <th className="px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {formData.items.map((item, idx) => (
+                <tr key={idx}>
+                  <td className="px-3 py-2">
+                    <input
+                      type="text"
+                      value={item.productName}
+                      onChange={(e) => updateItem(idx, 'productName', e.target.value)}
+                      className="w-full px-2 py-1 border rounded text-sm"
+                      placeholder="Pallet 1100x950x950"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      type="number"
+                      value={item.qty || ''}
+                      onChange={(e) => updateItem(idx, 'qty', parseInt(e.target.value) || 0)}
+                      className="w-20 px-2 py-1 border rounded text-sm text-right"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <select
+                      value={item.unit}
+                      onChange={(e) => updateItem(idx, 'unit', e.target.value)}
+                      className="w-20 px-2 py-1 border rounded text-sm"
+                    >
+                      <option value="pcs">pcs</option>
+                      <option value="sets">sets</option>
+                      <option value="pallets">pallets</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.unitPrice || ''}
+                      onChange={(e) => updateItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
+                      className="w-28 px-2 py-1 border rounded text-sm text-right"
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-right font-medium">
+                    {formatCurrency(item.qty * item.unitPrice)}
+                  </td>
+                  <td className="px-3 py-2">
+                    {formData.items.length > 1 && (
+                      <button type="button" onClick={() => removeItem(idx)} className="text-red-500 hover:text-red-700">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {lang === 'th' ? 'หมายเหตุ' : 'Notes'}
+        </label>
+        <textarea
+          value={formData.notes}
+          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          rows={2}
+          className="w-full px-3 py-2 border rounded-lg"
+        />
+      </div>
+
+      {/* Totals */}
+      <div className="bg-gray-50 rounded-lg p-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Subtotal'}</span>
+              <span className="font-medium">{formatCurrency(subtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">VAT 7%</span>
+              <span className="font-medium">{formatCurrency(vat)}</span>
+            </div>
+          </div>
+          <div className="flex items-end justify-end">
+            <div className="text-right">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รวมทั้งสิ้น' : 'Grand Total'}</div>
+              <div className="text-3xl font-bold text-[#2ECC40]">{formatCurrency(grandTotal)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="secondary" onClick={onCancel}>{t('action.cancel', lang)}</Button>
+        <Button type="submit" icon={Save}>{t('action.save', lang)}</Button>
+      </div>
+    </form>
+  )
+}
+
+// ============================================
+// INVOICE VIEW (For printing)
+// ============================================
+const InvoiceView = ({ invoice, customer, entity, lang }) => {
+  const printRef = useRef()
+
+  const handlePrint = () => {
+    const content = printRef.current
+    const printWindow = window.open('', '_blank')
+    printWindow.document.write('<html><head><title>Invoice ' + invoice.id + '</title>')
+    printWindow.document.write('<style>')
+    printWindow.document.write(`
+      * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial', sans-serif; }
+      body { padding: 20mm; }
+      .invoice { max-width: 210mm; }
+      .header { display: flex; justify-content: space-between; border-bottom: 2px solid #1A5276; padding-bottom: 15px; margin-bottom: 20px; }
+      .logo { font-size: 24pt; font-weight: bold; color: #1A5276; }
+      .invoice-title { font-size: 18pt; color: #1A5276; text-align: right; }
+      .section { margin-bottom: 20px; }
+      .label { font-size: 9pt; color: #666; }
+      .value { font-size: 11pt; font-weight: 500; }
+      table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+      th { background: #f5f5f5; padding: 10px; text-align: left; font-size: 10pt; }
+      td { padding: 10px; border-bottom: 1px solid #eee; font-size: 10pt; }
+      .text-right { text-align: right; }
+      .totals { background: #f9f9f9; padding: 15px; margin-top: 20px; }
+      .grand-total { font-size: 16pt; font-weight: bold; color: #2ECC40; }
+    `)
+    printWindow.document.write('</style></head><body>')
+    printWindow.document.write(content.innerHTML)
+    printWindow.document.write('</body></html>')
+    printWindow.document.close()
+    printWindow.print()
+  }
+
+  const companyInfo = COMPANY_ENTITIES.find(e => e.id === (entity || 'IND'))
+
+  return (
+    <div className="space-y-4">
+      <div ref={printRef} className="invoice bg-white p-8 border rounded-lg">
+        {/* Header */}
+        <div className="header flex justify-between items-start border-b-2 border-[#1A5276] pb-4 mb-6">
+          <div>
+            <div className="logo text-2xl font-bold text-[#1A5276]">IND Thai Packwell</div>
+            <div className="text-sm text-gray-500 mt-1">{companyInfo?.address}</div>
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'เลขประจำตัวผู้เสียภาษี:' : 'Tax ID:'} {companyInfo?.taxId}</div>
+          </div>
+          <div className="text-right">
+            <div className="invoice-title text-2xl font-bold text-[#1A5276]">
+              {lang === 'th' ? 'ใบแจ้งหนี้' : 'INVOICE'}
+            </div>
+            <div className="text-lg font-mono mt-2">{invoice.id}</div>
+            <div className="text-sm text-gray-500">{formatDate(invoice.invoiceDate)}</div>
+          </div>
+        </div>
+
+        {/* Customer Info */}
+        <div className="section grid grid-cols-2 gap-8 mb-6">
+          <div>
+            <div className="label text-sm text-gray-500">{lang === 'th' ? 'ลูกค้า' : 'Bill To'}</div>
+            <div className="value font-medium text-lg">{customer?.name}</div>
+            <div className="text-sm text-gray-600">{customer?.address}</div>
+            <div className="text-sm text-gray-600">{lang === 'th' ? 'เลขประจำตัวผู้เสียภาษี:' : 'Tax ID:'} {customer?.taxId}</div>
+          </div>
+          <div className="text-right">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="text-gray-500">{lang === 'th' ? 'PO ลูกค้า:' : 'Customer PO:'}</div>
+              <div className="font-medium">{invoice.customerPO || '-'}</div>
+              <div className="text-gray-500">{lang === 'th' ? 'ใบสั่งขาย:' : 'Sales Order:'}</div>
+              <div className="font-medium">{invoice.soId || '-'}</div>
+              <div className="text-gray-500">{lang === 'th' ? 'เงื่อนไขชำระ:' : 'Payment Terms:'}</div>
+              <div className="font-medium">{customer?.paymentTerms || 30} {lang === 'th' ? 'วัน' : 'days'}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Items */}
+        <table className="w-full mb-6">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="px-4 py-3 text-left">{lang === 'th' ? 'รายการ' : 'Description'}</th>
+              <th className="px-4 py-3 text-right">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+              <th className="px-4 py-3 text-right">{lang === 'th' ? 'ราคา/หน่วย' : 'Unit Price'}</th>
+              <th className="px-4 py-3 text-right">{lang === 'th' ? 'รวม' : 'Amount'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(invoice.items || []).map((item, idx) => (
+              <tr key={idx}>
+                <td className="px-4 py-3">{item.productName || item.description}</td>
+                <td className="px-4 py-3 text-right">{item.qty} {item.unit}</td>
+                <td className="px-4 py-3 text-right">{formatCurrency(item.unitPrice)}</td>
+                <td className="px-4 py-3 text-right">{formatCurrency(item.qty * item.unitPrice)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Totals */}
+        <div className="totals bg-gray-50 p-4 rounded-lg">
+          <div className="flex justify-end">
+            <div className="w-64 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Subtotal'}</span>
+                <span className="font-medium">{formatCurrency(invoice.subtotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">VAT 7%</span>
+                <span className="font-medium">{formatCurrency(invoice.vat)}</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t">
+                <span className="font-bold">{lang === 'th' ? 'รวมทั้งสิ้น' : 'Grand Total'}</span>
+                <span className="grand-total text-xl font-bold text-[#2ECC40]">{formatCurrency(invoice.grandTotal)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Print Button */}
+      <div className="flex justify-end gap-3">
+        <Button variant="outline" icon={Download}>
+          {lang === 'th' ? 'ดาวน์โหลด PDF' : 'Download PDF'}
+        </Button>
+        <Button icon={Printer} onClick={handlePrint}>
+          {lang === 'th' ? 'พิมพ์' : 'Print'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// PAYMENT TRACKER
+// ============================================
+const PaymentTracker = ({ invoices, setInvoices, customers, lang }) => {
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedInvoice, setSelectedInvoice] = useState(null)
+  const [paymentAmount, setPaymentAmount] = useState(0)
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0])
+  const [paymentMethod, setPaymentMethod] = useState('transfer')
+  const [paymentRef, setPaymentRef] = useState('')
+
+  const unpaidInvoices = invoices.filter(inv => inv.balance > 0)
+  const totalOutstanding = unpaidInvoices.reduce((sum, inv) => sum + inv.balance, 0)
+
+  const handleRecordPayment = () => {
+    if (!selectedInvoice || paymentAmount <= 0) return
+
+    setInvoices(invoices.map(inv => {
+      if (inv.id !== selectedInvoice.id) return inv
+      const newPaid = (inv.paidAmount || 0) + paymentAmount
+      const newBalance = inv.grandTotal - newPaid
+      return {
+        ...inv,
+        paidAmount: newPaid,
+        balance: newBalance,
+        status: newBalance <= 0 ? 'paid' : 'partial',
+        payments: [...(inv.payments || []), {
+          id: Date.now(),
+          amount: paymentAmount,
+          date: paymentDate,
+          method: paymentMethod,
+          ref: paymentRef,
+        }]
+      }
+    }))
+
+    setShowPaymentModal(false)
+    setSelectedInvoice(null)
+    setPaymentAmount(0)
+    setPaymentRef('')
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Summary */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="p-4 border-l-4 border-l-orange-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบแจ้งหนี้ค้างชำระ' : 'Unpaid Invoices'}</div>
+          <div className="text-2xl font-bold text-orange-600">{unpaidInvoices.length}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-red-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ยอดค้างชำระรวม' : 'Total Outstanding'}</div>
+          <div className="text-2xl font-bold text-red-600">{formatCurrency(totalOutstanding)}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-green-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รับชำระแล้ว' : 'Total Received'}</div>
+          <div className="text-2xl font-bold text-green-600">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0))}</div>
+        </Card>
+      </div>
+
+      {/* Unpaid Invoices List */}
+      <Card className="overflow-hidden">
+        <div className="p-4 bg-orange-50 border-b border-orange-100">
+          <h3 className="font-bold text-orange-800">{lang === 'th' ? 'รายการรอรับชำระ' : 'Pending Payments'}</h3>
+        </div>
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'Invoice #'}</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Total'}</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ชำระแล้ว' : 'Paid'}</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Balance'}</th>
+              <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Action'}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {unpaidInvoices.map(inv => {
+              const customer = customers.find(c => c.id === inv.customerId)
+              return (
+                <tr key={inv.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-mono text-[#1A5276]">{inv.id}</td>
+                  <td className="px-4 py-3">{customer?.name}</td>
+                  <td className="px-4 py-3">{formatDate(inv.invoiceDate)}</td>
+                  <td className="px-4 py-3 text-right">{formatCurrency(inv.grandTotal)}</td>
+                  <td className="px-4 py-3 text-right text-green-600">{formatCurrency(inv.paidAmount || 0)}</td>
+                  <td className="px-4 py-3 text-right font-bold text-red-600">{formatCurrency(inv.balance)}</td>
+                  <td className="px-4 py-3 text-center">
+                    <Button 
+                      size="sm" 
+                      onClick={() => { setSelectedInvoice(inv); setPaymentAmount(inv.balance); setShowPaymentModal(true) }}
+                    >
+                      {lang === 'th' ? 'รับชำระ' : 'Record Payment'}
+                    </Button>
+                  </td>
+                </tr>
+              )
+            })}
+            {unpaidInvoices.length === 0 && (
+              <tr>
+                <td colSpan="7" className="px-4 py-8 text-center text-gray-400">
+                  {lang === 'th' ? 'ไม่มีรายการค้างชำระ' : 'No outstanding invoices'}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </Card>
+
+      {/* Payment Modal */}
+      {showPaymentModal && selectedInvoice && (
+        <Modal isOpen={showPaymentModal} onClose={() => setShowPaymentModal(false)} title={lang === 'th' ? 'บันทึกการรับชำระ' : 'Record Payment'} size="md">
+          <div className="space-y-4">
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="text-gray-500">{lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoice'}</div>
+                  <div className="font-bold text-[#1A5276]">{selectedInvoice.id}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-gray-500">{lang === 'th' ? 'ยอดค้างชำระ' : 'Outstanding'}</div>
+                  <div className="font-bold text-red-600">{formatCurrency(selectedInvoice.balance)}</div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'th' ? 'จำนวนเงิน *' : 'Amount *'}
+              </label>
+              <input
+                type="number"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
+                max={selectedInvoice.balance}
+                className="w-full px-3 py-2 border rounded-lg text-right text-lg font-bold"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {lang === 'th' ? 'วันที่รับ' : 'Date'}
+                </label>
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {lang === 'th' ? 'วิธีชำระ' : 'Method'}
+                </label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="transfer">{lang === 'th' ? 'โอนเงิน' : 'Bank Transfer'}</option>
+                  <option value="cash">{lang === 'th' ? 'เงินสด' : 'Cash'}</option>
+                  <option value="cheque">{lang === 'th' ? 'เช็ค' : 'Cheque'}</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'th' ? 'เลขอ้างอิง' : 'Reference'}
+              </label>
+              <input
+                type="text"
+                value={paymentRef}
+                onChange={(e) => setPaymentRef(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg"
+                placeholder={lang === 'th' ? 'เลขที่โอน / เลขเช็ค' : 'Transfer ref / Cheque no.'}
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button variant="secondary" onClick={() => setShowPaymentModal(false)}>
+                {t('action.cancel', lang)}
+              </Button>
+              <Button icon={Save} onClick={handleRecordPayment}>
+                {lang === 'th' ? 'บันทึก' : 'Save Payment'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// HR MODULE (Full with Payroll)
+// ============================================
+const HRModuleFull = ({ employees, setEmployees, lang }) => {
+  const [activeTab, setActiveTab] = useState('employees')
+  const [selectedMonth, setSelectedMonth] = useState('01')
+  const [selectedYear, setSelectedYear] = useState('2025')
+  const [showEmployeeForm, setShowEmployeeForm] = useState(false)
+  const [editingEmployee, setEditingEmployee] = useState(null)
+
+  const tabs = [
+    { id: 'employees', label: lang === 'th' ? 'พนักงาน' : 'Employees', icon: Users },
+    { id: 'payroll', label: lang === 'th' ? 'เงินเดือน' : 'Payroll', icon: DollarSign },
+    { id: 'attendance', label: lang === 'th' ? 'การเข้างาน' : 'Attendance', icon: Clock },
+    { id: 'leave', label: lang === 'th' ? 'ลางาน' : 'Leave', icon: Calendar },
+  ]
+
+  // Payroll calculations
+  const calculatePayroll = (emp) => {
+    const baseSalary = emp.salary || 0
+    const positionInc = emp.positionInc || 0
+    const diligenceInc = emp.diligenceInc || 0
+    const phoneAllowance = emp.phoneAllowance || 0
+    const otHours = emp.otHours || 0
+    const otRate = (baseSalary / 30 / 8) * 1.5 // OT rate = 1.5x hourly
+    const otPay = otHours * otRate
+    
+    const gross = baseSalary + positionInc + diligenceInc + phoneAllowance + otPay
+    
+    // SSO calculation (5% of salary+position, max 750)
+    const ssoBase = baseSalary + positionInc
+    const sso = emp.type === 'FT' ? Math.min(ssoBase * 0.05, 750) : 0
+    
+    // Tax calculation (simplified)
+    const annualIncome = gross * 12
+    let tax = 0
+    if (annualIncome > 150000) {
+      if (annualIncome <= 300000) tax = (annualIncome - 150000) * 0.05
+      else if (annualIncome <= 500000) tax = 7500 + (annualIncome - 300000) * 0.10
+      else if (annualIncome <= 750000) tax = 27500 + (annualIncome - 500000) * 0.15
+      else tax = 65000 + (annualIncome - 750000) * 0.20
+    }
+    const monthlyTax = tax / 12
+
+    const deductions = sso + monthlyTax
+    const net = gross - deductions
+
+    return { baseSalary, positionInc, diligenceInc, phoneAllowance, otHours, otPay, gross, sso, tax: monthlyTax, deductions, net }
+  }
+
+  const ftEmployees = employees.filter(e => e.type === 'FT')
+  const ptEmployees = employees.filter(e => e.type === 'PT')
+
+  const payrollData = employees.map(emp => ({
+    ...emp,
+    payroll: calculatePayroll(emp)
+  }))
+
+  const totals = {
+    employees: employees.length,
+    ft: ftEmployees.length,
+    pt: ptEmployees.length,
+    totalGross: payrollData.reduce((sum, e) => sum + e.payroll.gross, 0),
+    totalSSO: payrollData.reduce((sum, e) => sum + e.payroll.sso, 0),
+    totalTax: payrollData.reduce((sum, e) => sum + e.payroll.tax, 0),
+    totalNet: payrollData.reduce((sum, e) => sum + e.payroll.net, 0),
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">{t('nav.hr', lang)}</h1>
+          <p className="text-gray-500">{lang === 'th' ? 'จัดการพนักงานและเงินเดือน' : 'Manage employees and payroll'}</p>
+        </div>
+        <Button icon={Plus} onClick={() => { setEditingEmployee(null); setShowEmployeeForm(true) }}>
+          {lang === 'th' ? 'เพิ่มพนักงาน' : 'Add Employee'}
+        </Button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <Card className="p-4">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'พนักงานทั้งหมด' : 'Total'}</div>
+          <div className="text-2xl font-bold text-gray-800">{totals.employees}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-blue-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ประจำ (FT)' : 'Full-time'}</div>
+          <div className="text-2xl font-bold text-blue-600">{totals.ft}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-orange-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'พาร์ทไทม์ (PT)' : 'Part-time'}</div>
+          <div className="text-2xl font-bold text-orange-600">{totals.pt}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-green-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รายได้รวม' : 'Gross'}</div>
+          <div className="text-2xl font-bold text-green-600">{formatCurrency(totals.totalGross)}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-red-500">
+          <div className="text-sm text-gray-500">SSO</div>
+          <div className="text-2xl font-bold text-red-600">{formatCurrency(totals.totalSSO)}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-purple-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ภาษี' : 'Tax'}</div>
+          <div className="text-2xl font-bold text-purple-600">{formatCurrency(totals.totalTax)}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-cyan-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'สุทธิ' : 'Net'}</div>
+          <div className="text-2xl font-bold text-cyan-600">{formatCurrency(totals.totalNet)}</div>
+        </Card>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
+              activeTab === tab.id 
+                ? 'border-[#1A5276] text-[#1A5276]' 
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Employees List */}
+      {activeTab === 'employees' && (
+        <Card className="overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส' : 'ID'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ชื่อ' : 'Name'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'แผนก' : 'Department'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ตำแหน่ง' : 'Position'}</th>
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'เงินเดือน' : 'Salary'}</th>
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'นิติบุคคล' : 'Entity'}</th>
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {employees.map(emp => (
+                <tr key={emp.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-mono text-[#1A5276]">{emp.id}</td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium">{emp.nameEn}</div>
+                    <div className="text-sm text-gray-500">{emp.nameTh}</div>
+                  </td>
+                  <td className="px-4 py-3">{emp.department}</td>
+                  <td className="px-4 py-3">{emp.position}</td>
+                  <td className="px-4 py-3 text-center">
+                    <Badge variant={emp.type === 'FT' ? 'info' : 'warning'}>{emp.type}</Badge>
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium">{formatCurrency(emp.salary)}</td>
+                  <td className="px-4 py-3 text-center">
+                    <Badge variant={emp.entity === 'IND' ? 'success' : 'default'}>{emp.entity}</Badge>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <Badge variant={emp.status === 'active' ? 'success' : 'danger'}>
+                      {emp.status === 'active' ? (lang === 'th' ? 'ทำงาน' : 'Active') : (lang === 'th' ? 'ลาออก' : 'Inactive')}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {/* Payroll */}
+      {activeTab === 'payroll' && (
+        <div className="space-y-6">
+          {/* Period Selector */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-500">{lang === 'th' ? 'เดือน' : 'Month'}</label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-3 py-2 border rounded-lg"
+              >
+                {['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'].map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-500">{lang === 'th' ? 'ปี' : 'Year'}</label>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="px-3 py-2 border rounded-lg"
+              >
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+              </select>
+            </div>
+            <Button variant="outline" icon={Download}>
+              {lang === 'th' ? 'ส่งออก Excel' : 'Export Excel'}
+            </Button>
+          </div>
+
+          {/* Payroll Table */}
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-3 text-left font-medium text-gray-600 sticky left-0 bg-gray-50">{lang === 'th' ? 'พนักงาน' : 'Employee'}</th>
+                    <th className="px-3 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'เงินเดือน' : 'Salary'}</th>
+                    <th className="px-3 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'ค่าตำแหน่ง' : 'Position'}</th>
+                    <th className="px-3 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'ขยัน' : 'Diligence'}</th>
+                    <th className="px-3 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'โทรศัพท์' : 'Phone'}</th>
+                    <th className="px-3 py-3 text-right font-medium text-gray-600">OT</th>
+                    <th className="px-3 py-3 text-right font-medium text-gray-600 bg-blue-50">{lang === 'th' ? 'รวม (Gross)' : 'Gross'}</th>
+                    <th className="px-3 py-3 text-right font-medium text-gray-600 bg-red-50">SSO</th>
+                    <th className="px-3 py-3 text-right font-medium text-gray-600 bg-red-50">{lang === 'th' ? 'ภาษี' : 'Tax'}</th>
+                    <th className="px-3 py-3 text-right font-medium text-gray-600 bg-green-50">{lang === 'th' ? 'สุทธิ (Net)' : 'Net'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {payrollData.filter(e => e.type === 'FT').map(emp => (
+                    <tr key={emp.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-3 sticky left-0 bg-white">
+                        <div className="font-medium">{emp.nameEn}</div>
+                        <div className="text-xs text-gray-400">{emp.position}</div>
+                      </td>
+                      <td className="px-3 py-3 text-right">{formatCurrency(emp.payroll.baseSalary)}</td>
+                      <td className="px-3 py-3 text-right">{formatCurrency(emp.payroll.positionInc)}</td>
+                      <td className="px-3 py-3 text-right">{formatCurrency(emp.payroll.diligenceInc)}</td>
+                      <td className="px-3 py-3 text-right">{formatCurrency(emp.payroll.phoneAllowance)}</td>
+                      <td className="px-3 py-3 text-right">{formatCurrency(emp.payroll.otPay)}</td>
+                      <td className="px-3 py-3 text-right font-bold text-blue-600 bg-blue-50">{formatCurrency(emp.payroll.gross)}</td>
+                      <td className="px-3 py-3 text-right text-red-600 bg-red-50">{formatCurrency(emp.payroll.sso)}</td>
+                      <td className="px-3 py-3 text-right text-red-600 bg-red-50">{formatCurrency(emp.payroll.tax)}</td>
+                      <td className="px-3 py-3 text-right font-bold text-green-600 bg-green-50">{formatCurrency(emp.payroll.net)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-100 font-bold">
+                  <tr>
+                    <td className="px-3 py-3 sticky left-0 bg-gray-100">{lang === 'th' ? 'รวม (FT)' : 'Total (FT)'}</td>
+                    <td className="px-3 py-3 text-right">{formatCurrency(ftEmployees.reduce((s, e) => s + (e.salary || 0), 0))}</td>
+                    <td className="px-3 py-3 text-right">{formatCurrency(ftEmployees.reduce((s, e) => s + (e.positionInc || 0), 0))}</td>
+                    <td className="px-3 py-3 text-right">{formatCurrency(ftEmployees.reduce((s, e) => s + (e.diligenceInc || 0), 0))}</td>
+                    <td className="px-3 py-3 text-right">{formatCurrency(ftEmployees.reduce((s, e) => s + (e.phoneAllowance || 0), 0))}</td>
+                    <td className="px-3 py-3 text-right">-</td>
+                    <td className="px-3 py-3 text-right text-blue-700 bg-blue-100">{formatCurrency(payrollData.filter(e => e.type === 'FT').reduce((s, e) => s + e.payroll.gross, 0))}</td>
+                    <td className="px-3 py-3 text-right text-red-700 bg-red-100">{formatCurrency(payrollData.filter(e => e.type === 'FT').reduce((s, e) => s + e.payroll.sso, 0))}</td>
+                    <td className="px-3 py-3 text-right text-red-700 bg-red-100">{formatCurrency(payrollData.filter(e => e.type === 'FT').reduce((s, e) => s + e.payroll.tax, 0))}</td>
+                    <td className="px-3 py-3 text-right text-green-700 bg-green-100">{formatCurrency(payrollData.filter(e => e.type === 'FT').reduce((s, e) => s + e.payroll.net, 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Attendance */}
+      {activeTab === 'attendance' && (
+        <Card className="p-8 text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Clock className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="font-bold text-gray-800 mb-2">{lang === 'th' ? 'ระบบลงเวลา' : 'Time Attendance'}</h3>
+          <p className="text-gray-500 mb-4">{lang === 'th' ? 'เชื่อมต่อกับเครื่องสแกนลายนิ้วมือ' : 'Integration with fingerprint scanner'}</p>
+          <Badge variant="warning">{lang === 'th' ? 'กำลังพัฒนา' : 'Coming Soon'}</Badge>
+        </Card>
+      )}
+
+      {/* Leave */}
+      {activeTab === 'leave' && (
+        <Card className="p-8 text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Calendar className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="font-bold text-gray-800 mb-2">{lang === 'th' ? 'ระบบลางาน' : 'Leave Management'}</h3>
+          <p className="text-gray-500 mb-4">{lang === 'th' ? 'จัดการวันลาพักร้อน ลาป่วย ลากิจ' : 'Manage annual, sick, and personal leave'}</p>
+          <Badge variant="warning">{lang === 'th' ? 'กำลังพัฒนา' : 'Coming Soon'}</Badge>
+        </Card>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// ENHANCED SALES MODULE
+// ============================================
+const SalesModuleFull = ({ salesOrders, setSalesOrders, invoices, setInvoices, customers, workOrders, products, lang }) => {
+  const [activeTab, setActiveTab] = useState('dashboard')
+  const [showSOModal, setShowSOModal] = useState(false)
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  const [selectedInvoice, setSelectedInvoice] = useState(null)
+
+  const tabs = [
+    { id: 'dashboard', label: lang === 'th' ? 'ภาพรวม' : 'Dashboard', icon: BarChart3 },
+    { id: 'orders', label: lang === 'th' ? 'ใบสั่งขาย' : 'Sales Orders', icon: ClipboardList },
+    { id: 'invoices', label: lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices', icon: Receipt },
+    { id: 'payments', label: lang === 'th' ? 'การชำระ' : 'Payments', icon: CreditCard },
+  ]
+
+  const stats = {
+    totalOrders: salesOrders.length,
+    pendingOrders: salesOrders.filter(so => so.status === 'confirmed').length,
+    totalInvoices: invoices.length,
+    unpaidInvoices: invoices.filter(inv => inv.balance > 0).length,
+    totalRevenue: invoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0),
+    totalReceived: invoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0),
+  }
+
+  const handleSOSave = (soData) => {
+    const newSO = {
+      id: `SO-${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(salesOrders.length + 1).padStart(3, '0')}`,
+      ...soData,
+      createdAt: new Date().toISOString().split('T')[0],
+    }
+    setSalesOrders([...salesOrders, newSO])
+    setShowSOModal(false)
+  }
+
+  const handleCreateInvoice = (so) => {
+    const newInvoice = {
+      id: `INV-${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(invoices.length + 1).padStart(3, '0')}`,
+      soId: so.id,
+      customerId: so.customerId,
+      customerPO: so.customerPO,
+      invoiceDate: new Date().toISOString().split('T')[0],
+      items: so.items,
+      subtotal: so.subtotal,
+      vat: so.vat,
+      grandTotal: so.grandTotal,
+      paidAmount: 0,
+      balance: so.grandTotal,
+      status: 'pending',
+      entity: so.entity,
+    }
+    setInvoices([...invoices, newInvoice])
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">{t('nav.sales', lang)}</h1>
+          <p className="text-gray-500">{lang === 'th' ? 'จัดการการขายและใบแจ้งหนี้' : 'Manage sales and invoices'}</p>
+        </div>
+        <Button icon={Plus} onClick={() => setShowSOModal(true)}>
+          {lang === 'th' ? 'สร้างใบสั่งขาย' : 'New Sales Order'}
+        </Button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <Card className="p-4">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบสั่งขาย' : 'Orders'}</div>
+          <div className="text-2xl font-bold text-gray-800">{stats.totalOrders}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-yellow-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รอผลิต' : 'Pending'}</div>
+          <div className="text-2xl font-bold text-yellow-600">{stats.pendingOrders}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-blue-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices'}</div>
+          <div className="text-2xl font-bold text-blue-600">{stats.totalInvoices}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-red-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ยังไม่ชำระ' : 'Unpaid'}</div>
+          <div className="text-2xl font-bold text-red-600">{stats.unpaidInvoices}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-purple-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รายได้รวม' : 'Revenue'}</div>
+          <div className="text-2xl font-bold text-purple-600">{formatCurrency(stats.totalRevenue)}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-green-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รับแล้ว' : 'Received'}</div>
+          <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.totalReceived)}</div>
+        </Card>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
+              activeTab === tab.id 
+                ? 'border-[#1A5276] text-[#1A5276]' 
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Orders Tab */}
+      {activeTab === 'orders' && (
+        <Card className="overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'SO #'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'PO ลูกค้า' : 'Customer PO'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {salesOrders.map(so => {
+                const customer = customers.find(c => c.id === so.customerId)
+                const hasInvoice = invoices.some(inv => inv.soId === so.id)
+                return (
+                  <tr key={so.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-mono text-[#1A5276]">{so.id}</td>
+                    <td className="px-4 py-3">{customer?.name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{so.customerPO}</td>
+                    <td className="px-4 py-3">{formatDate(so.orderDate)}</td>
+                    <td className="px-4 py-3 text-right font-medium">{formatCurrency(so.grandTotal)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <Badge variant={
+                        so.status === 'delivered' ? 'success' :
+                        so.status === 'in_production' ? 'info' :
+                        'warning'
+                      }>
+                        {so.status}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {!hasInvoice && (
+                        <Button size="sm" variant="outline" onClick={() => handleCreateInvoice(so)}>
+                          {lang === 'th' ? 'สร้างใบแจ้งหนี้' : 'Create Invoice'}
+                        </Button>
+                      )}
+                      {hasInvoice && (
+                        <Badge variant="success">{lang === 'th' ? 'ออกใบแจ้งหนี้แล้ว' : 'Invoiced'}</Badge>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {/* Invoices Tab */}
+      {activeTab === 'invoices' && (
+        <Card className="overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'Invoice #'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Total'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ชำระแล้ว' : 'Paid'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Balance'}</th>
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {invoices.map(inv => {
+                const customer = customers.find(c => c.id === inv.customerId)
+                return (
+                  <tr key={inv.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-mono text-[#1A5276]">{inv.id}</td>
+                    <td className="px-4 py-3">{customer?.name}</td>
+                    <td className="px-4 py-3">{formatDate(inv.invoiceDate)}</td>
+                    <td className="px-4 py-3 text-right font-medium">{formatCurrency(inv.grandTotal)}</td>
+                    <td className="px-4 py-3 text-right text-green-600">{formatCurrency(inv.paidAmount)}</td>
+                    <td className="px-4 py-3 text-right text-red-600">{formatCurrency(inv.balance)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <Badge variant={
+                        inv.status === 'paid' ? 'success' :
+                        inv.status === 'partial' ? 'warning' :
+                        'info'
+                      }>
+                        {inv.status}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <button 
+                        className="p-1 hover:bg-gray-100 rounded"
+                        onClick={() => { setSelectedInvoice(inv); setShowInvoiceModal(true) }}
+                      >
+                        <Printer className="w-4 h-4 text-gray-500" />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {/* Payments Tab */}
+      {activeTab === 'payments' && (
+        <PaymentTracker invoices={invoices} setInvoices={setInvoices} customers={customers} lang={lang} />
+      )}
+
+      {/* Dashboard */}
+      {activeTab === 'dashboard' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ใบแจ้งหนี้ล่าสุด' : 'Recent Invoices'}</h3>
+            <div className="space-y-3">
+              {invoices.slice(0, 5).map(inv => {
+                const customer = customers.find(c => c.id === inv.customerId)
+                return (
+                  <div key={inv.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <div className="font-mono text-[#1A5276] font-medium">{inv.id}</div>
+                      <div className="text-sm text-gray-500">{customer?.name}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">{formatCurrency(inv.grandTotal)}</div>
+                      <Badge variant={inv.balance > 0 ? 'warning' : 'success'}>
+                        {inv.balance > 0 ? (lang === 'th' ? 'ค้างชำระ' : 'Outstanding') : (lang === 'th' ? 'ชำระแล้ว' : 'Paid')}
+                      </Badge>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'สรุปรายได้' : 'Revenue Summary'}</h3>
+            <div className="space-y-4">
+              <div className="p-4 bg-green-50 rounded-lg">
+                <div className="text-sm text-green-600">{lang === 'th' ? 'รายได้รวม' : 'Total Revenue'}</div>
+                <div className="text-3xl font-bold text-green-700">{formatCurrency(stats.totalRevenue)}</div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <div className="text-sm text-blue-600">{lang === 'th' ? 'ได้รับแล้ว' : 'Received'}</div>
+                  <div className="text-xl font-bold text-blue-700">{formatCurrency(stats.totalReceived)}</div>
+                </div>
+                <div className="p-4 bg-red-50 rounded-lg">
+                  <div className="text-sm text-red-600">{lang === 'th' ? 'ค้างชำระ' : 'Outstanding'}</div>
+                  <div className="text-xl font-bold text-red-700">{formatCurrency(stats.totalRevenue - stats.totalReceived)}</div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* SO Modal */}
+      {showSOModal && (
+        <Modal isOpen={showSOModal} onClose={() => setShowSOModal(false)} title={lang === 'th' ? 'สร้างใบสั่งขาย' : 'New Sales Order'} size="xl">
+          <SalesOrderForm
+            customers={customers}
+            products={products || []}
+            lang={lang}
+            onSave={handleSOSave}
+            onCancel={() => setShowSOModal(false)}
+          />
+        </Modal>
+      )}
+
+      {/* Invoice View Modal */}
+      {showInvoiceModal && selectedInvoice && (
+        <Modal isOpen={showInvoiceModal} onClose={() => { setShowInvoiceModal(false); setSelectedInvoice(null) }} title={`${lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoice'} ${selectedInvoice.id}`} size="lg">
+          <InvoiceView
+            invoice={selectedInvoice}
+            customer={customers.find(c => c.id === selectedInvoice.customerId)}
+            entity={selectedInvoice.entity}
+            lang={lang}
+          />
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// UPDATED MAIN APP WITH ALL MODULES
+// ============================================
+// Override the previous App component export with full version
+const AppFull = () => {
+  // Authentication
+  const [currentUser, setCurrentUser] = useState(null)
+  const [lang, setLang] = useState('en')
+
+  // Master Data State
+  const [stores, setStores] = useState(INITIAL_STORES)
+  const [categories, setCategories] = useState(INITIAL_CATEGORIES)
+  const [inventory, setInventory] = useState(INITIAL_INVENTORY)
+  const [vendors, setVendors] = useState(INITIAL_VENDORS)
+  const [customers, setCustomers] = useState(INITIAL_CUSTOMERS)
+  const [departments, setDepartments] = useState(INITIAL_DEPARTMENTS)
+  const [trucks, setTrucks] = useState(INITIAL_TRUCKS)
+  const [employees, setEmployees] = useState(INITIAL_EMPLOYEES)
+  const [equipment, setEquipment] = useState(INITIAL_EQUIPMENT)
+  const [products, setProducts] = useState(INITIAL_PRODUCTS)
+
+  // Transaction State
+  const [purchaseOrders, setPurchaseOrders] = useState(INITIAL_PURCHASE_ORDERS)
+  const [workOrders, setWorkOrders] = useState(INITIAL_WORK_ORDERS)
+  const [salesOrders, setSalesOrders] = useState(INITIAL_SALES_ORDERS)
+  const [invoices, setInvoices] = useState(INITIAL_INVOICES)
+  const [deliveryOrders, setDeliveryOrders] = useState(INITIAL_DELIVERY_ORDERS)
+  const [scheduledDeliveries, setScheduledDeliveries] = useState(INITIAL_SCHEDULED_DELIVERIES)
+  const [maintenanceTasks, setMaintenanceTasks] = useState(INITIAL_MAINTENANCE_TASKS)
+
+  // UI State
+  const [activeModule, setActiveModule] = useState('dashboard')
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  // Auth handlers
+  const handleLogin = (user) => {
+    setCurrentUser(user)
+    setActiveModule('dashboard')
+  }
+
+  const handleLogout = () => {
+    setCurrentUser(null)
+    setActiveModule('dashboard')
+  }
+
+  // Check role permissions
+  const hasAccess = (module) => {
+    if (!currentUser) return false
+    const role = ROLES[currentUser.role]
+    return role?.modules.includes(module) || role?.permissions.includes('all')
+  }
+
+  // Full navigation items
+  const navItems = [
+    { id: 'dashboard', label: t('nav.dashboard', lang), icon: Home, color: 'text-blue-500' },
+    { id: 'admin', label: t('nav.admin', lang), icon: Settings, color: 'text-purple-500' },
+    { id: 'inventory', label: t('nav.inventory', lang), icon: Package, color: 'text-green-500' },
+    { id: 'purchase', label: t('nav.purchase', lang), icon: ShoppingCart, color: 'text-yellow-500' },
+    { id: 'production', label: t('nav.production', lang), icon: Factory, color: 'text-orange-500' },
+    { id: 'sales', label: t('nav.sales', lang), icon: Receipt, color: 'text-pink-500' },
+    { id: 'accounting', label: t('nav.accounting', lang), icon: Calculator, color: 'text-emerald-500' },
+    { id: 'hr', label: t('nav.hr', lang), icon: Users, color: 'text-indigo-500' },
+    { id: 'transport', label: t('nav.transport', lang), icon: Truck, color: 'text-cyan-500' },
+    { id: 'maintenance', label: t('nav.maintenance', lang), icon: Wrench, color: 'text-amber-500' },
+    { id: 'reports', label: t('nav.reports', lang), icon: BarChart3, color: 'text-violet-500' },
+  ].filter(item => hasAccess(item.id))
+
+  // Show login if not authenticated
+  if (!currentUser) {
+    return <LoginScreen onLogin={handleLogin} lang={lang} setLang={setLang} />
+  }
+
+  const role = ROLES[currentUser.role]
+
+  return (
+    <LanguageContext.Provider value={{ lang, setLang }}>
+      <AuthContext.Provider value={{ user: currentUser, logout: handleLogout }}>
+        <div className="flex h-screen bg-gray-100">
+          {/* Sidebar */}
+          <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white border-r flex flex-col transition-all duration-300`}>
+            {/* Logo */}
+            <div className="p-4 border-b">
+              <div className="flex items-center gap-3">
+                <img src={IND_LOGO_SVG} alt="IND" className="w-10 h-10" />
+                {sidebarOpen && (
+                  <div>
+                    <div className="font-bold text-[#1A5276]">IND Thai</div>
+                    <div className="text-xs text-gray-500">ERP v{VERSION}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Navigation */}
+            <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+              {navItems.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveModule(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+                    activeModule === item.id
+                      ? 'bg-gradient-to-r from-[#1A5276] to-[#2ECC40] text-white shadow-md'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <item.icon className={`w-5 h-5 ${activeModule === item.id ? 'text-white' : item.color}`} />
+                  {sidebarOpen && <span className="font-medium">{item.label}</span>}
+                </button>
+              ))}
+            </nav>
+
+            {/* User Info */}
+            <div className="p-4 border-t">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full ${role.color} flex items-center justify-center text-white font-bold`}>
+                  {currentUser.name.charAt(0)}
+                </div>
+                {sidebarOpen && (
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-gray-800 truncate">{currentUser.name}</div>
+                    <div className="text-xs text-gray-500 truncate">{role.name}</div>
+                  </div>
+                )}
+              </div>
+              {sidebarOpen && (
+                <button
+                  onClick={handleLogout}
+                  className="w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  <LogOut className="w-4 h-4" />
+                  {t('action.logout', lang)}
+                </button>
+              )}
+            </div>
+          </aside>
+
+          {/* Main Content */}
+          <main className="flex-1 flex flex-col overflow-hidden">
+            {/* Top Bar */}
+            <header className="h-16 bg-white border-b flex items-center justify-between px-6">
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <Menu className="w-5 h-5 text-gray-500" />
+                </button>
+                <div>
+                  <h1 className="font-bold text-gray-800">
+                    {navItems.find(n => n.id === activeModule)?.label || 'Dashboard'}
+                  </h1>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <LanguageSwitcher />
+                <Badge variant={currentUser.entity}>{currentUser.entity}</Badge>
+                <button className="p-2 hover:bg-gray-100 rounded-lg relative">
+                  <Bell className="w-5 h-5 text-gray-500" />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+                </button>
+              </div>
+            </header>
+
+            {/* Content Area - All Modules */}
+            <div className="flex-1 overflow-auto">
+              {activeModule === 'dashboard' && (
+                <Dashboard 
+                  stores={stores}
+                  inventory={inventory}
+                  categories={categories}
+                  purchaseOrders={purchaseOrders}
+                  workOrders={workOrders}
+                  salesOrders={salesOrders}
+                  invoices={invoices}
+                  deliveries={scheduledDeliveries}
+                  lang={lang}
+                />
+              )}
+              {activeModule === 'admin' && (
+                <AdminHub 
+                  stores={stores}
+                  setStores={setStores}
+                  categories={categories}
+                  setCategories={setCategories}
+                  departments={departments}
+                  setDepartments={setDepartments}
+                  vendors={vendors}
+                  customers={customers}
+                  lang={lang}
+                />
+              )}
+              {activeModule === 'inventory' && (
+                <InventoryModule
+                  inventory={inventory}
+                  setInventory={setInventory}
+                  stores={stores}
+                  categories={categories}
+                  lang={lang}
+                />
+              )}
+              {activeModule === 'purchase' && (
+                <PurchaseModule
+                  purchaseOrders={purchaseOrders}
+                  setPurchaseOrders={setPurchaseOrders}
+                  vendors={vendors}
+                  categories={categories}
+                  stores={stores}
+                  inventory={inventory}
+                  setInventory={setInventory}
+                  lang={lang}
+                />
+              )}
+              {activeModule === 'production' && (
+                <ProductionModule
+                  workOrders={workOrders}
+                  setWorkOrders={setWorkOrders}
+                  departments={departments}
+                  customers={customers}
+                  inventory={inventory}
+                  setInventory={setInventory}
+                  categories={categories}
+                  stores={stores}
+                  lang={lang}
+                />
+              )}
+              {activeModule === 'sales' && (
+                <SalesModuleFull
+                  salesOrders={salesOrders}
+                  setSalesOrders={setSalesOrders}
+                  invoices={invoices}
+                  setInvoices={setInvoices}
+                  customers={customers}
+                  workOrders={workOrders}
+                  products={products}
+                  lang={lang}
+                />
+              )}
+              {activeModule === 'accounting' && (
+                <AccountingModule
+                  invoices={invoices}
+                  purchaseOrders={purchaseOrders}
+                  vendors={vendors}
+                  customers={customers}
+                  lang={lang}
+                />
+              )}
+              {activeModule === 'hr' && (
+                <HRModuleFull
+                  employees={employees}
+                  setEmployees={setEmployees}
+                  lang={lang}
+                />
+              )}
+              {activeModule === 'transport' && (
+                <TransportModule
+                  deliveries={scheduledDeliveries}
+                  setDeliveries={setScheduledDeliveries}
+                  trucks={trucks}
+                  employees={employees}
+                  salesOrders={salesOrders}
+                  lang={lang}
+                />
+              )}
+              {activeModule === 'maintenance' && (
+                <MaintenanceModule
+                  tasks={maintenanceTasks}
+                  setTasks={setMaintenanceTasks}
+                  equipment={equipment}
+                  employees={employees}
+                  lang={lang}
+                />
+              )}
+              {activeModule === 'reports' && (
+                <ReportsModule
+                  inventory={inventory}
+                  purchaseOrders={purchaseOrders}
+                  workOrders={workOrders}
+                  salesOrders={salesOrders}
+                  invoices={invoices}
+                  categories={categories}
+                  stores={stores}
+                  customers={customers}
+                  vendors={vendors}
+                  employees={employees}
+                  lang={lang}
+                />
+              )}
+            </div>
+          </main>
+        </div>
+      </AuthContext.Provider>
+    </LanguageContext.Provider>
+  )
+}
+
+// Use the full version as the default export
+// Uncomment the line below to switch to full version
+// export default AppFull
+
+// ============================================
+// PURCHASE DASHBOARD COMPONENT
+// ============================================
+const PurchaseDashboard = ({ stats, purchaseOrders, vendors, onReceive, onPrePrint, lang }) => {
+  const pendingOrders = purchaseOrders.filter(p => p.status !== 'received').slice(0, 5)
+
+  return (
+    <div className="space-y-6">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Card className="p-4">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบสั่งซื้อทั้งหมด' : 'Total POs'}</div>
+          <div className="text-2xl font-bold text-gray-800">{stats.totalPOs}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-yellow-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รอดำเนินการ' : 'Pending'}</div>
+          <div className="text-2xl font-bold text-yellow-600">{stats.pendingPOs}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-orange-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รับบางส่วน' : 'Partial'}</div>
+          <div className="text-2xl font-bold text-orange-600">{stats.partialPOs || 0}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-green-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่ารวม' : 'Total Value'}</div>
+          <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.totalValue)}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-blue-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รอรับ' : 'Pending Value'}</div>
+          <div className="text-2xl font-bold text-blue-600">{formatCurrency(stats.pendingValue)}</div>
+        </Card>
+      </div>
+
+      {/* Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Pending Orders */}
+        <Card className="p-5">
+          <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'รอรับสินค้า' : 'Pending Receipt'}</h3>
+          <div className="space-y-3">
+            {pendingOrders.map(po => {
+              const vendor = vendors.find(v => v.id === po.vendorId)
+              return (
+                <div key={po.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[#1A5276]">{po.id}</span>
+                      <Badge variant={po.type === 'import' ? 'info' : 'success'}>
+                        {po.type === 'import' ? '🚢' : '🏠'}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-gray-500">{vendor?.name}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" icon={Printer} onClick={() => onPrePrint(po)}>
+                      {lang === 'th' ? 'ฉลาก' : 'Labels'}
+                    </Button>
+                    <Button size="sm" icon={Package} onClick={() => onReceive(po)}>
+                      {lang === 'th' ? 'รับ' : 'Receive'}
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
+            {pendingOrders.length === 0 && (
+              <p className="text-gray-400 text-center py-4">{lang === 'th' ? 'ไม่มีรายการรอรับ' : 'No pending orders'}</p>
+            )}
+          </div>
+        </Card>
+
+        {/* Import Summary */}
+        <Card className="p-5">
+          <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'สรุปการนำเข้า' : 'Import Summary'}</h3>
+          <div className="space-y-4">
+            {purchaseOrders.filter(po => po.type === 'import').slice(0, 3).map(po => {
+              const vendor = vendors.find(v => v.id === po.vendorId)
+              return (
+                <div key={po.id} className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-[#1A5276]">{po.id}</span>
+                    <Badge variant={po.status === 'received' ? 'success' : 'warning'}>{po.status}</Badge>
+                  </div>
+                  <div className="text-sm text-gray-600">{vendor?.name}</div>
+                  <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                    <div>
+                      <span className="text-gray-500">{lang === 'th' ? 'วัสดุ:' : 'Materials:'}</span>
+                      <span className="ml-1 font-medium">{formatCurrency(po.subtotal || 0)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">{lang === 'th' ? 'นำเข้า:' : 'Import:'}</span>
+                      <span className="ml-1 font-medium text-orange-600">{formatCurrency(po.totalImportCosts || 0)}</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// PURCHASE ORDER LIST
+// ============================================
+const PurchaseOrderList = ({ purchaseOrders, vendors, onEdit, onReceive, onPrintLabels, lang }) => {
+  const [filter, setFilter] = useState('all')
+  const [search, setSearch] = useState('')
+
+  const filteredPOs = purchaseOrders.filter(po => {
+    const matchFilter = filter === 'all' || po.status === filter || po.type === filter
+    const matchSearch = !search || 
+      po.id.toLowerCase().includes(search.toLowerCase()) ||
+      vendors.find(v => v.id === po.vendorId)?.name.toLowerCase().includes(search.toLowerCase())
+    return matchFilter && matchSearch
+  })
+
+  return (
+    <div className="space-y-4">
+      {/* Filters */}
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder={lang === 'th' ? 'ค้นหา PO หรือผู้ขาย...' : 'Search PO or vendor...'}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border rounded-lg"
+          />
+        </div>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="px-3 py-2 border rounded-lg"
+        >
+          <option value="all">{lang === 'th' ? 'ทั้งหมด' : 'All'}</option>
+          <option value="pending">{lang === 'th' ? 'รอดำเนินการ' : 'Pending'}</option>
+          <option value="partial">{lang === 'th' ? 'รับบางส่วน' : 'Partial'}</option>
+          <option value="received">{lang === 'th' ? 'รับแล้ว' : 'Received'}</option>
+          <option value="local">{lang === 'th' ? 'ในประเทศ' : 'Local'}</option>
+          <option value="import">{lang === 'th' ? 'นำเข้า' : 'Import'}</option>
+        </select>
+      </div>
+
+      {/* Table */}
+      <Card className="overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'PO #'}</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ผู้ขาย' : 'Vendor'}</th>
+              <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'วัสดุ' : 'Materials'}</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ค่านำเข้า' : 'Import'}</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'รวม' : 'Total'}</th>
+              <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+              <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {filteredPOs.map(po => {
+              const vendor = vendors.find(v => v.id === po.vendorId)
+              return (
+                <tr key={po.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <div className="font-mono text-[#1A5276] font-medium">{po.id}</div>
+                    {po.vendorInvoice && <div className="text-xs text-gray-400">{po.vendorInvoice}</div>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium">{vendor?.name}</div>
+                    <div className="text-xs text-gray-400">{vendor?.country}</div>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <Badge variant={po.type === 'import' ? 'info' : 'success'}>
+                      {po.type === 'import' ? '🚢 Import' : '🏠 Local'}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-sm">{formatDate(po.poDate)}</td>
+                  <td className="px-4 py-3 text-right">{formatCurrency(po.subtotal || 0)}</td>
+                  <td className="px-4 py-3 text-right text-orange-600">
+                    {po.type === 'import' ? formatCurrency(po.totalImportCosts || 0) : '-'}
+                  </td>
+                  <td className="px-4 py-3 text-right font-bold text-[#2ECC40]">
+                    {formatCurrency(po.total || po.grandTotal || 0)}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <Badge variant={
+                      po.status === 'received' ? 'success' :
+                      po.status === 'partial' ? 'warning' :
+                      po.status === 'in_transit' ? 'info' :
+                      'default'
+                    }>
+                      {po.status}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <button 
+                        className="p-1 hover:bg-gray-100 rounded" 
+                        title={lang === 'th' ? 'แก้ไข' : 'Edit'}
+                        onClick={() => onEdit(po)}
+                      >
+                        <Edit3 className="w-4 h-4 text-gray-500" />
+                      </button>
+                      {po.status !== 'received' && (
+                        <>
+                          <button 
+                            className="p-1 hover:bg-gray-100 rounded" 
+                            title={lang === 'th' ? 'พิมพ์ฉลาก' : 'Print Labels'}
+                            onClick={() => onPrintLabels(po)}
+                          >
+                            <Printer className="w-4 h-4 text-blue-500" />
+                          </button>
+                          <button 
+                            className="p-1 hover:bg-gray-100 rounded" 
+                            title={lang === 'th' ? 'รับสินค้า' : 'Receive'}
+                            onClick={() => onReceive(po)}
+                          >
+                            <Package className="w-4 h-4 text-green-500" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  )
+}
+
+// ============================================
+// GOODS RECEIPT LIST
+// ============================================
+const GoodsReceiptList = ({ purchaseOrders, vendors, onReceive, lang }) => {
+  const pendingPOs = purchaseOrders.filter(po => po.status !== 'received')
+
+  return (
+    <div className="space-y-4">
+      <Card className="p-4 bg-green-50 border-green-100">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+            <Package className="w-5 h-5 text-green-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-green-800">{lang === 'th' ? 'รายการรอรับสินค้า' : 'Goods Receipt Queue'}</h3>
+            <p className="text-sm text-green-600">
+              {pendingPOs.length} {lang === 'th' ? 'รายการรอรับ' : 'items pending receipt'}
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {pendingPOs.map(po => {
+          const vendor = vendors.find(v => v.id === po.vendorId)
+          return (
+            <Card key={po.id} className="p-4 hover:shadow-md transition-all">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <div className="font-mono text-[#1A5276] font-bold">{po.id}</div>
+                  <Badge variant={po.type === 'import' ? 'info' : 'success'} className="mt-1">
+                    {po.type === 'import' ? '🚢 Import' : '🏠 Local'}
+                  </Badge>
+                </div>
+                <Badge variant={po.status === 'partial' ? 'warning' : 'default'}>{po.status}</Badge>
+              </div>
+              <div className="text-sm text-gray-600 mb-2">{vendor?.name}</div>
+              <div className="text-xs text-gray-400 mb-3">
+                {lang === 'th' ? 'กำหนดส่ง:' : 'Due:'} {formatDate(po.deliveryDate || po.expectedDelivery)}
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="font-bold text-[#2ECC40]">{formatCurrency(po.total || po.grandTotal || 0)}</div>
+                <Button size="sm" icon={Package} onClick={() => onReceive(po)}>
+                  {lang === 'th' ? 'รับสินค้า' : 'Receive'}
+                </Button>
+              </div>
+            </Card>
+          )
+        })}
+      </div>
+
+      {pendingPOs.length === 0 && (
+        <Card className="p-8 text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Check className="w-8 h-8 text-green-500" />
+          </div>
+          <h3 className="font-bold text-gray-800 mb-2">{lang === 'th' ? 'ไม่มีรายการรอรับ' : 'All Caught Up!'}</h3>
+          <p className="text-gray-500">{lang === 'th' ? 'ใบสั่งซื้อทั้งหมดได้รับสินค้าแล้ว' : 'All purchase orders have been received'}</p>
+        </Card>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// VENDOR LIST
+// ============================================
+const VendorList = ({ vendors, lang }) => {
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState('all')
+
+  const filteredVendors = vendors.filter(v => {
+    const matchFilter = filter === 'all' || v.type === filter
+    const matchSearch = !search || 
+      v.name.toLowerCase().includes(search.toLowerCase()) ||
+      v.code.toLowerCase().includes(search.toLowerCase())
+    return matchFilter && matchSearch
+  })
+
+  return (
+    <div className="space-y-4">
+      {/* Filters */}
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder={lang === 'th' ? 'ค้นหาผู้ขาย...' : 'Search vendors...'}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border rounded-lg"
+          />
+        </div>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="px-3 py-2 border rounded-lg"
+        >
+          <option value="all">{lang === 'th' ? 'ทั้งหมด' : 'All'}</option>
+          <option value="local">{lang === 'th' ? 'ในประเทศ' : 'Local'}</option>
+          <option value="import">{lang === 'th' ? 'นำเข้า' : 'Import'}</option>
+        </select>
+        <Button icon={Plus}>{lang === 'th' ? 'เพิ่มผู้ขาย' : 'Add Vendor'}</Button>
+      </div>
+
+      {/* Vendor Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredVendors.map(v => (
+          <Card key={v.id} className="p-4">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <div className="font-bold text-gray-800">{v.name}</div>
+                <div className="text-sm text-gray-500">{v.nameTh}</div>
+              </div>
+              <Badge variant={v.type === 'import' ? 'info' : 'success'}>{v.type}</Badge>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">{lang === 'th' ? 'รหัส' : 'Code'}</span>
+                <span className="font-mono">{v.code}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">{lang === 'th' ? 'หมวดหมู่' : 'Category'}</span>
+                <span>{v.category}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">{lang === 'th' ? 'ประเทศ' : 'Country'}</span>
+                <span>{v.country}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">{lang === 'th' ? 'เครดิต' : 'Terms'}</span>
+                <span>{v.paymentTerms} {lang === 'th' ? 'วัน' : 'days'}</span>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t">
+              <div className="text-sm">
+                <div className="text-gray-500">{lang === 'th' ? 'ติดต่อ' : 'Contact'}</div>
+                <div className="font-medium">{v.contact}</div>
+                <div className="text-gray-500">{v.phone}</div>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// DELIVERY ORDER LIST (For Sales)
+// ============================================
+const DeliveryOrderList = ({ deliveryOrders, salesOrders, customers, trucks, lang }) => {
+  return (
+    <Card className="overflow-hidden">
+      <div className="p-4 bg-cyan-50 border-b border-cyan-100">
+        <h3 className="font-bold text-cyan-800">{lang === 'th' ? 'ใบส่งสินค้า' : 'Delivery Orders'}</h3>
+      </div>
+      <table className="w-full">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'DO #'}</th>
+            <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+            <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+            <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รถ' : 'Vehicle'}</th>
+            <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {deliveryOrders.map(d => {
+            const so = salesOrders.find(s => s.id === d.soId)
+            const customer = customers.find(c => c.id === (d.customerId || so?.customerId))
+            const truck = trucks.find(t => t.id === d.vehicleId)
+            return (
+              <tr key={d.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3 font-mono text-[#1A5276]">{d.id}</td>
+                <td className="px-4 py-3">{customer?.name}</td>
+                <td className="px-4 py-3">{formatDate(d.deliveryDate || d.date)}</td>
+                <td className="px-4 py-3">
+                  {truck ? `${truck.licensePlate} - ${truck.driver}` : '-'}
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <Badge variant={
+                    d.status === 'delivered' ? 'success' :
+                    d.status === 'in_transit' ? 'info' :
+                    'warning'
+                  }>
+                    {d.status}
+                  </Badge>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </Card>
+  )
+}
+
+// ============================================
+// ACCOUNTING MODULE
+// ============================================
+const AccountingModule = ({ invoices, purchaseOrders, vendors, customers, lang }) => {
+  const [activeTab, setActiveTab] = useState('dashboard')
+
+  const tabs = [
+    { id: 'dashboard', label: lang === 'th' ? 'ภาพรวม' : 'Dashboard', icon: BarChart3 },
+    { id: 'payables', label: lang === 'th' ? 'เจ้าหนี้' : 'Payables (AP)', icon: FileText },
+    { id: 'receivables', label: lang === 'th' ? 'ลูกหนี้' : 'Receivables (AR)', icon: Receipt },
+    { id: 'journal', label: lang === 'th' ? 'สมุดรายวัน' : 'Journal', icon: BookOpen },
+    { id: 'cashflow', label: lang === 'th' ? 'กระแสเงินสด' : 'Cash Flow', icon: DollarSign },
+  ]
+
+  // Calculate AP (Accounts Payable)
+  const apData = purchaseOrders.map(po => {
+    const vendor = vendors.find(v => v.id === po.vendorId)
+    const paid = po.paidAmount || 0
+    const balance = (po.total || po.grandTotal || 0) - paid
+    const dueDate = new Date(po.poDate)
+    dueDate.setDate(dueDate.getDate() + (vendor?.paymentTerms || 30))
+    const today = new Date()
+    const daysOverdue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24))
+    
+    return {
+      ...po,
+      vendorName: vendor?.name || 'Unknown',
+      total: po.total || po.grandTotal || 0,
+      paid,
+      balance,
+      dueDate: dueDate.toISOString().split('T')[0],
+      daysOverdue: balance > 0 ? Math.max(0, daysOverdue) : 0,
+      status: balance === 0 ? 'paid' : daysOverdue > 0 ? 'overdue' : 'pending',
+    }
+  }).filter(po => po.balance > 0 || po.status === 'paid')
+
+  // Calculate AR (Accounts Receivable)
+  const arData = invoices.map(inv => {
+    const customer = customers.find(c => c.id === inv.customerId)
+    const paid = inv.paidAmount || 0
+    const balance = (inv.grandTotal || 0) - paid
+    const dueDate = new Date(inv.invoiceDate)
+    dueDate.setDate(dueDate.getDate() + (customer?.paymentTerms || 30))
+    const today = new Date()
+    const daysOverdue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24))
+    
+    return {
+      ...inv,
+      customerName: customer?.name || 'Unknown',
+      total: inv.grandTotal || 0,
+      paid,
+      balance,
+      dueDate: dueDate.toISOString().split('T')[0],
+      daysOverdue: balance > 0 ? Math.max(0, daysOverdue) : 0,
+      status: balance === 0 ? 'paid' : daysOverdue > 0 ? 'overdue' : 'pending',
+    }
+  })
+
+  // Stats
+  const stats = {
+    totalAP: apData.reduce((sum, po) => sum + po.balance, 0),
+    totalAR: arData.reduce((sum, inv) => sum + inv.balance, 0),
+    overdueAP: apData.filter(po => po.status === 'overdue').reduce((sum, po) => sum + po.balance, 0),
+    overdueAR: arData.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.balance, 0),
+    paidThisMonth: invoices.filter(inv => inv.paidAmount > 0).reduce((sum, inv) => sum + inv.paidAmount, 0),
+    receivedThisMonth: purchaseOrders.filter(po => po.paidAmount > 0).reduce((sum, po) => sum + po.paidAmount, 0),
+  }
+
+  // AP Aging buckets
+  const apAging = {
+    current: apData.filter(po => po.daysOverdue === 0).reduce((sum, po) => sum + po.balance, 0),
+    days30: apData.filter(po => po.daysOverdue > 0 && po.daysOverdue <= 30).reduce((sum, po) => sum + po.balance, 0),
+    days60: apData.filter(po => po.daysOverdue > 30 && po.daysOverdue <= 60).reduce((sum, po) => sum + po.balance, 0),
+    days90: apData.filter(po => po.daysOverdue > 60 && po.daysOverdue <= 90).reduce((sum, po) => sum + po.balance, 0),
+    over90: apData.filter(po => po.daysOverdue > 90).reduce((sum, po) => sum + po.balance, 0),
+  }
+
+  // AR Aging buckets
+  const arAging = {
+    current: arData.filter(inv => inv.daysOverdue === 0).reduce((sum, inv) => sum + inv.balance, 0),
+    days30: arData.filter(inv => inv.daysOverdue > 0 && inv.daysOverdue <= 30).reduce((sum, inv) => sum + inv.balance, 0),
+    days60: arData.filter(inv => inv.daysOverdue > 30 && inv.daysOverdue <= 60).reduce((sum, inv) => sum + inv.balance, 0),
+    days90: arData.filter(inv => inv.daysOverdue > 60 && inv.daysOverdue <= 90).reduce((sum, inv) => sum + inv.balance, 0),
+    over90: arData.filter(inv => inv.daysOverdue > 90).reduce((sum, inv) => sum + inv.balance, 0),
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">{lang === 'th' ? 'บัญชี' : 'Accounting'}</h1>
+          <p className="text-gray-500">{lang === 'th' ? 'จัดการเจ้าหนี้ ลูกหนี้ และกระแสเงินสด' : 'Manage AP, AR, and cash flow'}</p>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="p-4 border-l-4 border-l-red-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'เจ้าหนี้ค้างชำระ' : 'Total AP'}</div>
+          <div className="text-2xl font-bold text-red-600">{formatCurrency(stats.totalAP)}</div>
+          <div className="text-xs text-red-400 mt-1">
+            {lang === 'th' ? 'เกินกำหนด:' : 'Overdue:'} {formatCurrency(stats.overdueAP)}
+          </div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-green-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ลูกหนี้ค้างรับ' : 'Total AR'}</div>
+          <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.totalAR)}</div>
+          <div className="text-xs text-green-400 mt-1">
+            {lang === 'th' ? 'เกินกำหนด:' : 'Overdue:'} {formatCurrency(stats.overdueAR)}
+          </div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-blue-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'เงินสดสุทธิ' : 'Net Cash Position'}</div>
+          <div className={`text-2xl font-bold ${stats.totalAR - stats.totalAP >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+            {formatCurrency(stats.totalAR - stats.totalAP)}
+          </div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-purple-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รับชำระเดือนนี้' : 'Received This Month'}</div>
+          <div className="text-2xl font-bold text-purple-600">{formatCurrency(stats.paidThisMonth)}</div>
+        </Card>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
+              activeTab === tab.id 
+                ? 'border-[#1A5276] text-[#1A5276]' 
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Dashboard */}
+      {activeTab === 'dashboard' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* AP Aging */}
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'อายุเจ้าหนี้' : 'AP Aging'}</h3>
+            <div className="space-y-3">
+              {[
+                { label: lang === 'th' ? 'ยังไม่ครบกำหนด' : 'Current', value: apAging.current, color: 'bg-green-500' },
+                { label: '1-30 ' + (lang === 'th' ? 'วัน' : 'days'), value: apAging.days30, color: 'bg-yellow-500' },
+                { label: '31-60 ' + (lang === 'th' ? 'วัน' : 'days'), value: apAging.days60, color: 'bg-orange-500' },
+                { label: '61-90 ' + (lang === 'th' ? 'วัน' : 'days'), value: apAging.days90, color: 'bg-red-400' },
+                { label: '90+ ' + (lang === 'th' ? 'วัน' : 'days'), value: apAging.over90, color: 'bg-red-600' },
+              ].map(item => {
+                const maxVal = Math.max(apAging.current, apAging.days30, apAging.days60, apAging.days90, apAging.over90, 1)
+                const percent = (item.value / maxVal) * 100
+                return (
+                  <div key={item.label} className="flex items-center gap-3">
+                    <div className="w-24 text-sm text-gray-600">{item.label}</div>
+                    <div className="flex-1">
+                      <div className="h-6 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={`h-full ${item.color} rounded-full`} style={{ width: `${percent}%` }} />
+                      </div>
+                    </div>
+                    <div className="w-28 text-right text-sm font-medium">{formatCurrency(item.value)}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+
+          {/* AR Aging */}
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'อายุลูกหนี้' : 'AR Aging'}</h3>
+            <div className="space-y-3">
+              {[
+                { label: lang === 'th' ? 'ยังไม่ครบกำหนด' : 'Current', value: arAging.current, color: 'bg-green-500' },
+                { label: '1-30 ' + (lang === 'th' ? 'วัน' : 'days'), value: arAging.days30, color: 'bg-yellow-500' },
+                { label: '31-60 ' + (lang === 'th' ? 'วัน' : 'days'), value: arAging.days60, color: 'bg-orange-500' },
+                { label: '61-90 ' + (lang === 'th' ? 'วัน' : 'days'), value: arAging.days90, color: 'bg-red-400' },
+                { label: '90+ ' + (lang === 'th' ? 'วัน' : 'days'), value: arAging.over90, color: 'bg-red-600' },
+              ].map(item => {
+                const maxVal = Math.max(arAging.current, arAging.days30, arAging.days60, arAging.days90, arAging.over90, 1)
+                const percent = (item.value / maxVal) * 100
+                return (
+                  <div key={item.label} className="flex items-center gap-3">
+                    <div className="w-24 text-sm text-gray-600">{item.label}</div>
+                    <div className="flex-1">
+                      <div className="h-6 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={`h-full ${item.color} rounded-full`} style={{ width: `${percent}%` }} />
+                      </div>
+                    </div>
+                    <div className="w-28 text-right text-sm font-medium">{formatCurrency(item.value)}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Payables (AP) */}
+      {activeTab === 'payables' && (
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่ PO' : 'PO #'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ผู้ขาย' : 'Vendor'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันครบกำหนด' : 'Due Date'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Total'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ชำระแล้ว' : 'Paid'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Balance'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {apData.filter(po => po.balance > 0).map(po => (
+                  <tr key={po.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-mono text-[#1A5276]">{po.id}</td>
+                    <td className="px-4 py-3">{po.vendorName}</td>
+                    <td className="px-4 py-3">
+                      {formatDate(po.dueDate)}
+                      {po.daysOverdue > 0 && (
+                        <span className="ml-2 text-xs text-red-500">({po.daysOverdue}d)</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">{formatCurrency(po.total)}</td>
+                    <td className="px-4 py-3 text-right text-green-600">{formatCurrency(po.paid)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-red-600">{formatCurrency(po.balance)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <Badge variant={po.status === 'overdue' ? 'danger' : po.status === 'paid' ? 'success' : 'warning'}>
+                        {po.status}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Button size="sm" variant="outline">
+                        {lang === 'th' ? 'ชำระ' : 'Pay'}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Receivables (AR) */}
+      {activeTab === 'receivables' && (
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่ใบแจ้งหนี้' : 'Invoice #'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันครบกำหนด' : 'Due Date'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Total'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'รับแล้ว' : 'Received'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Balance'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {arData.filter(inv => inv.balance > 0).map(inv => (
+                  <tr key={inv.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-mono text-[#1A5276]">{inv.id}</td>
+                    <td className="px-4 py-3">{inv.customerName}</td>
+                    <td className="px-4 py-3">
+                      {formatDate(inv.dueDate)}
+                      {inv.daysOverdue > 0 && (
+                        <span className="ml-2 text-xs text-red-500">({inv.daysOverdue}d)</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">{formatCurrency(inv.total)}</td>
+                    <td className="px-4 py-3 text-right text-green-600">{formatCurrency(inv.paid)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-green-600">{formatCurrency(inv.balance)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <Badge variant={inv.status === 'overdue' ? 'danger' : inv.status === 'paid' ? 'success' : 'warning'}>
+                        {inv.status}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Button size="sm" variant="outline">
+                        {lang === 'th' ? 'รับชำระ' : 'Receive'}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Journal */}
+      {activeTab === 'journal' && (
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-800">{lang === 'th' ? 'รายการบันทึกบัญชี' : 'Journal Entries'}</h3>
+            <Button icon={Plus} size="sm">{lang === 'th' ? 'เพิ่มรายการ' : 'New Entry'}</Button>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-left">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                <th className="px-3 py-2 text-left">{lang === 'th' ? 'รายการ' : 'Description'}</th>
+                <th className="px-3 py-2 text-left">{lang === 'th' ? 'อ้างอิง' : 'Reference'}</th>
+                <th className="px-3 py-2 text-right">{lang === 'th' ? 'เดบิต' : 'Debit'}</th>
+                <th className="px-3 py-2 text-right">{lang === 'th' ? 'เครดิต' : 'Credit'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              <tr className="hover:bg-gray-50">
+                <td className="px-3 py-2">{formatDate(new Date().toISOString().split('T')[0])}</td>
+                <td className="px-3 py-2">{lang === 'th' ? 'รับชำระจากลูกค้า' : 'Customer Payment Received'}</td>
+                <td className="px-3 py-2 font-mono text-[#1A5276]">INV-2501-001</td>
+                <td className="px-3 py-2 text-right">{formatCurrency(150000)}</td>
+                <td className="px-3 py-2 text-right">-</td>
+              </tr>
+              <tr className="hover:bg-gray-50">
+                <td className="px-3 py-2">{formatDate(new Date().toISOString().split('T')[0])}</td>
+                <td className="px-3 py-2">{lang === 'th' ? 'ชำระค่าสินค้า' : 'Vendor Payment'}</td>
+                <td className="px-3 py-2 font-mono text-[#1A5276]">PO-2501-001</td>
+                <td className="px-3 py-2 text-right">-</td>
+                <td className="px-3 py-2 text-right">{formatCurrency(85000)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {/* Cash Flow */}
+      {activeTab === 'cashflow' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="p-5">
+            <h3 className="font-bold text-green-700 mb-4">{lang === 'th' ? 'เงินเข้า' : 'Cash In'}</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between p-3 bg-green-50 rounded-lg">
+                <span className="text-gray-600">{lang === 'th' ? 'รับชำระจากลูกค้า' : 'Customer Receipts'}</span>
+                <span className="font-bold text-green-600">{formatCurrency(stats.paidThisMonth)}</span>
+              </div>
+              <div className="flex justify-between p-3 bg-green-50 rounded-lg">
+                <span className="text-gray-600">{lang === 'th' ? 'รายได้อื่น' : 'Other Income'}</span>
+                <span className="font-bold text-green-600">{formatCurrency(0)}</span>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex justify-between">
+                <span className="font-medium">{lang === 'th' ? 'รวมเงินเข้า' : 'Total In'}</span>
+                <span className="font-bold text-green-600">{formatCurrency(stats.paidThisMonth)}</span>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <h3 className="font-bold text-red-700 mb-4">{lang === 'th' ? 'เงินออก' : 'Cash Out'}</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between p-3 bg-red-50 rounded-lg">
+                <span className="text-gray-600">{lang === 'th' ? 'ชำระค่าสินค้า' : 'Vendor Payments'}</span>
+                <span className="font-bold text-red-600">{formatCurrency(stats.receivedThisMonth)}</span>
+              </div>
+              <div className="flex justify-between p-3 bg-red-50 rounded-lg">
+                <span className="text-gray-600">{lang === 'th' ? 'ค่าใช้จ่ายอื่น' : 'Other Expenses'}</span>
+                <span className="font-bold text-red-600">{formatCurrency(0)}</span>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex justify-between">
+                <span className="font-medium">{lang === 'th' ? 'รวมเงินออก' : 'Total Out'}</span>
+                <span className="font-bold text-red-600">{formatCurrency(stats.receivedThisMonth)}</span>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <h3 className="font-bold text-blue-700 mb-4">{lang === 'th' ? 'สรุป' : 'Summary'}</h3>
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 rounded-lg text-center">
+                <div className="text-sm text-blue-600">{lang === 'th' ? 'กระแสเงินสดสุทธิ' : 'Net Cash Flow'}</div>
+                <div className={`text-3xl font-bold ${stats.paidThisMonth - stats.receivedThisMonth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatCurrency(stats.paidThisMonth - stats.receivedThisMonth)}
+                </div>
+              </div>
+              <div className="text-sm text-gray-500 text-center">
+                {lang === 'th' ? 'ข้อมูลเดือนปัจจุบัน' : 'Current month data'}
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// PRODUCTION FLOOR VIEW (Detailed)
+// ============================================
+const ProductionFloorView = ({ workOrders, departments, onComplete, lang }) => {
+  const activeWOs = workOrders.filter(wo => wo.status === 'in_progress')
+  
+  const getWOsByDepartment = (deptId) => {
+    return activeWOs.filter(wo => wo.currentDepartment === deptId || wo.department === deptId)
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card className="p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+          <div className="text-blue-100">{lang === 'th' ? 'กำลังผลิต' : 'In Production'}</div>
+          <div className="text-3xl font-bold">{activeWOs.length}</div>
+        </Card>
+        <Card className="p-4 bg-gradient-to-r from-green-500 to-green-600 text-white">
+          <div className="text-green-100">{lang === 'th' ? 'เสร็จวันนี้' : 'Completed Today'}</div>
+          <div className="text-3xl font-bold">{workOrders.filter(wo => wo.status === 'completed' && wo.completedDate === new Date().toISOString().split('T')[0]).length}</div>
+        </Card>
+        <Card className="p-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+          <div className="text-orange-100">{lang === 'th' ? 'รอวัสดุ' : 'Waiting Material'}</div>
+          <div className="text-3xl font-bold">{workOrders.filter(wo => wo.status === 'waiting_material').length}</div>
+        </Card>
+        <Card className="p-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+          <div className="text-purple-100">{lang === 'th' ? 'ล่าช้า' : 'Delayed'}</div>
+          <div className="text-3xl font-bold">{workOrders.filter(wo => wo.status === 'delayed').length}</div>
+        </Card>
+      </div>
+
+      {/* Department Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {departments.map(dept => {
+          const deptWOs = getWOsByDepartment(dept.id)
+          const typeInfo = DEPARTMENT_TYPES.find(t => t.id === dept.type)
+          return (
+            <Card key={dept.id} className="overflow-hidden">
+              <div 
+                className="p-3 text-white flex items-center justify-between"
+                style={{ backgroundColor: typeInfo?.color || '#6B7280' }}
+              >
+                <div>
+                  <div className="font-bold">{dept.code}</div>
+                  <div className="text-sm opacity-80">{lang === 'th' ? dept.nameTh : dept.nameEn}</div>
+                </div>
+                <div className="text-2xl font-bold">{deptWOs.length}</div>
+              </div>
+              <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
+                {deptWOs.length > 0 ? deptWOs.map(wo => (
+                  <div key={wo.id} className="p-2 bg-gray-50 rounded-lg text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[#1A5276] font-medium">{wo.id}</span>
+                      <Badge variant={wo.priority === 'high' ? 'danger' : wo.priority === 'medium' ? 'warning' : 'default'}>
+                        {wo.priority}
+                      </Badge>
+                    </div>
+                    <div className="text-gray-600 truncate">{wo.productName}</div>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-gray-400">{wo.quantity} pcs</span>
+                      {wo.progress !== undefined && (
+                        <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-green-500 rounded-full" 
+                            style={{ width: `${wo.progress || 0}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )) : (
+                  <p className="text-gray-400 text-center py-4">{lang === 'th' ? 'ไม่มีงาน' : 'No jobs'}</p>
+                )}
+              </div>
+            </Card>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// EMPLOYEE FORM
+// ============================================
+const EmployeeForm = ({ employee, departments, onSave, onCancel, lang }) => {
+  const [formData, setFormData] = useState({
+    nameEn: employee?.nameEn || '',
+    nameTh: employee?.nameTh || '',
+    department: employee?.department || '',
+    position: employee?.position || '',
+    type: employee?.type || 'FT',
+    salary: employee?.salary || 0,
+    positionInc: employee?.positionInc || 0,
+    diligenceInc: employee?.diligenceInc || 0,
+    phoneAllowance: employee?.phoneAllowance || 0,
+    entity: employee?.entity || 'IND',
+    startDate: employee?.startDate || new Date().toISOString().split('T')[0],
+    status: employee?.status || 'active',
+    bankAccount: employee?.bankAccount || '',
+    taxId: employee?.taxId || '',
+  })
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave(formData)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Basic Info */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'ชื่อ (EN) *' : 'Name (EN) *'}
+          </label>
+          <input
+            type="text"
+            required
+            value={formData.nameEn}
+            onChange={(e) => setFormData({ ...formData, nameEn: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'ชื่อ (TH) *' : 'Name (TH) *'}
+          </label>
+          <input
+            type="text"
+            required
+            value={formData.nameTh}
+            onChange={(e) => setFormData({ ...formData, nameTh: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+      </div>
+
+      {/* Department & Position */}
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'แผนก *' : 'Department *'}
+          </label>
+          <select
+            required
+            value={formData.department}
+            onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            <option value="">{lang === 'th' ? 'เลือกแผนก' : 'Select Department'}</option>
+            {departments.map(d => (
+              <option key={d.id} value={d.code}>{d.code} - {lang === 'th' ? d.nameTh : d.nameEn}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'ตำแหน่ง *' : 'Position *'}
+          </label>
+          <input
+            type="text"
+            required
+            value={formData.position}
+            onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'ประเภท' : 'Type'}
+          </label>
+          <select
+            value={formData.type}
+            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            <option value="FT">{lang === 'th' ? 'ประจำ (FT)' : 'Full-time (FT)'}</option>
+            <option value="PT">{lang === 'th' ? 'พาร์ทไทม์ (PT)' : 'Part-time (PT)'}</option>
+            <option value="CT">{lang === 'th' ? 'สัญญาจ้าง (CT)' : 'Contract (CT)'}</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Salary Info */}
+      <div className="p-4 bg-gray-50 rounded-lg">
+        <h4 className="font-medium text-gray-800 mb-3">{lang === 'th' ? 'ข้อมูลเงินเดือน' : 'Salary Information'}</h4>
+        <div className="grid grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {lang === 'th' ? 'เงินเดือน' : 'Base Salary'}
+            </label>
+            <input
+              type="number"
+              value={formData.salary || ''}
+              onChange={(e) => setFormData({ ...formData, salary: parseFloat(e.target.value) || 0 })}
+              className="w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {lang === 'th' ? 'ค่าตำแหน่ง' : 'Position Inc'}
+            </label>
+            <input
+              type="number"
+              value={formData.positionInc || ''}
+              onChange={(e) => setFormData({ ...formData, positionInc: parseFloat(e.target.value) || 0 })}
+              className="w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {lang === 'th' ? 'ค่าขยัน' : 'Diligence Inc'}
+            </label>
+            <input
+              type="number"
+              value={formData.diligenceInc || ''}
+              onChange={(e) => setFormData({ ...formData, diligenceInc: parseFloat(e.target.value) || 0 })}
+              className="w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {lang === 'th' ? 'ค่าโทรศัพท์' : 'Phone Allow'}
+            </label>
+            <input
+              type="number"
+              value={formData.phoneAllowance || ''}
+              onChange={(e) => setFormData({ ...formData, phoneAllowance: parseFloat(e.target.value) || 0 })}
+              className="w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Entity & Start Date */}
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'นิติบุคคล' : 'Entity'}
+          </label>
+          <select
+            value={formData.entity}
+            onChange={(e) => setFormData({ ...formData, entity: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            <option value="IND">IND</option>
+            <option value="IND2">IND-2</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'วันเริ่มงาน' : 'Start Date'}
+          </label>
+          <input
+            type="date"
+            value={formData.startDate}
+            onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'สถานะ' : 'Status'}
+          </label>
+          <select
+            value={formData.status}
+            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            <option value="active">{lang === 'th' ? 'ทำงานอยู่' : 'Active'}</option>
+            <option value="inactive">{lang === 'th' ? 'ลาออก' : 'Inactive'}</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="secondary" onClick={onCancel}>
+          {t('action.cancel', lang)}
+        </Button>
+        <Button type="submit" icon={Save}>
+          {t('action.save', lang)}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+// ============================================
+// PARTIAL DELIVERY MODAL
+// ============================================
+const PartialDeliveryModal = ({ so, customers, onClose, onCreateInvoice, lang }) => {
+  const [deliveryItems, setDeliveryItems] = useState(
+    (so.items || []).map(item => ({
+      ...item,
+      qtyToDeliver: Math.min(item.qtyRemaining || (item.qty - (item.qtyDelivered || 0)), item.qty),
+      maxQty: item.qtyRemaining || (item.qty - (item.qtyDelivered || 0)),
+    })).filter(item => item.maxQty > 0)
+  )
+
+  const customer = customers.find(c => c.id === so.customerId)
+
+  const updateDeliveryQty = (idx, qty) => {
+    const items = [...deliveryItems]
+    items[idx].qtyToDeliver = Math.min(Math.max(0, qty), items[idx].maxQty)
+    setDeliveryItems(items)
+  }
+
+  const totalToDeliver = deliveryItems.reduce((sum, item) => sum + item.qtyToDeliver, 0)
+  const totalAmount = deliveryItems.reduce((sum, item) => sum + (item.qtyToDeliver * item.unitPrice), 0)
+
+  // Determine entity based on material
+  const hasPlyMaterial = deliveryItems.filter(i => i.qtyToDeliver > 0).some(item => 
+    ['PLYRW', 'PLYRR', 'PLYWW', 'PRTB'].includes(item.materialType)
+  )
+  const entity = hasPlyMaterial ? 'IND2' : 'IND'
+
+  const handleCreate = () => {
+    const itemsToInvoice = deliveryItems.filter(item => item.qtyToDeliver > 0)
+    if (itemsToInvoice.length > 0) {
+      onCreateInvoice(itemsToInvoice, entity)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* SO Info */}
+      <div className="bg-gray-50 rounded-lg p-4">
+        <div className="grid grid-cols-3 gap-4 text-sm">
+          <div>
+            <span className="text-gray-500">{lang === 'th' ? 'ใบสั่งขาย:' : 'Sales Order:'}</span>
+            <span className="ml-2 font-mono font-medium text-[#1A5276]">{so.id}</span>
+          </div>
+          <div>
+            <span className="text-gray-500">{lang === 'th' ? 'PO ลูกค้า:' : 'Customer PO:'}</span>
+            <span className="ml-2 font-medium">{so.customerPO || '-'}</span>
+          </div>
+          <div>
+            <span className="text-gray-500">{lang === 'th' ? 'ลูกค้า:' : 'Customer:'}</span>
+            <span className="ml-2 font-medium">{customer?.name}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Entity Badge */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-500">
+          {lang === 'th' ? 'ใบแจ้งหนี้จะออกในนาม:' : 'Invoice will be issued under:'}
+        </div>
+        <Badge variant={entity === 'IND2' ? 'info' : 'success'}>{entity}</Badge>
+      </div>
+
+      {/* Items Table */}
+      <div className="border rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="px-4 py-2 text-left font-medium text-gray-600">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
+              <th className="px-4 py-2 text-center font-medium text-gray-600">{lang === 'th' ? 'วัสดุ' : 'Material'}</th>
+              <th className="px-4 py-2 text-right font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Remaining'}</th>
+              <th className="px-4 py-2 text-center font-medium text-gray-600">{lang === 'th' ? 'จำนวนส่ง' : 'Qty to Deliver'}</th>
+              <th className="px-4 py-2 text-right font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Amount'}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {deliveryItems.map((item, idx) => (
+              <tr key={idx} className="hover:bg-gray-50">
+                <td className="px-4 py-3">
+                  <div className="font-medium">{item.productName}</div>
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <Badge variant={['PLYRW', 'PLYRR', 'PLYWW', 'PRTB'].includes(item.materialType) ? 'info' : 'default'}>
+                    {item.materialType || '-'}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3 text-right text-amber-600 font-medium">
+                  {item.maxQty} {item.unit}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-center gap-2">
+                    <button 
+                      onClick={() => updateDeliveryQty(idx, item.qtyToDeliver - 1)}
+                      className="p-1 bg-gray-100 hover:bg-gray-200 rounded"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="number"
+                      value={item.qtyToDeliver}
+                      onChange={(e) => updateDeliveryQty(idx, parseInt(e.target.value) || 0)}
+                      className="w-16 px-2 py-1 border rounded text-center"
+                      min={0}
+                      max={item.maxQty}
+                    />
+                    <button 
+                      onClick={() => updateDeliveryQty(idx, item.qtyToDeliver + 1)}
+                      className="p-1 bg-gray-100 hover:bg-gray-200 rounded"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-right font-medium">
+                  {formatCurrency(item.qtyToDeliver * item.unitPrice)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Totals */}
+      <div className="bg-gray-50 rounded-lg p-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <span className="text-gray-600">{lang === 'th' ? 'รวมจำนวนส่ง:' : 'Total Qty:'}</span>
+            <span className="ml-2 font-bold text-lg">{totalToDeliver}</span>
+          </div>
+          <div>
+            <span className="text-gray-600">{lang === 'th' ? 'มูลค่ารวม:' : 'Total Amount:'}</span>
+            <span className="ml-2 font-bold text-lg text-[#2ECC40]">{formatCurrency(totalAmount)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-3">
+        <Button variant="secondary" onClick={onClose}>
+          {t('action.cancel', lang)}
+        </Button>
+        <Button icon={Receipt} onClick={handleCreate} disabled={totalToDeliver === 0}>
+          {lang === 'th' ? 'สร้างใบแจ้งหนี้' : 'Create Invoice'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// COST METHOD SELECTOR
+// ============================================
+const CostMethodSelector = ({ currentMethod, onSelect, lang }) => {
+  const methods = [
+    { id: 'FIFO', name: 'FIFO', desc: lang === 'th' ? 'เข้าก่อนออกก่อน' : 'First In First Out' },
+    { id: 'AVG', name: 'Average', desc: lang === 'th' ? 'ถัวเฉลี่ย' : 'Weighted Average' },
+    { id: 'STD', name: 'Standard', desc: lang === 'th' ? 'ต้นทุนมาตรฐาน' : 'Standard Cost' },
+  ]
+
+  return (
+    <div className="flex gap-2">
+      {methods.map(method => (
+        <button
+          key={method.id}
+          onClick={() => onSelect(method.id)}
+          className={`px-3 py-2 rounded-lg border-2 transition-all ${
+            currentMethod === method.id 
+              ? 'border-[#1A5276] bg-[#1A5276]/5 text-[#1A5276]' 
+              : 'border-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <div className="font-medium text-sm">{method.name}</div>
+          <div className="text-xs text-gray-500">{method.desc}</div>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ============================================
+// CBM CALCULATOR
+// ============================================
+const CBMCalculator = ({ items, lang }) => {
+  const totalCBM = items.reduce((sum, item) => {
+    const cbm = (item.thickness * item.width * item.length * item.qty) / 1000000000
+    return sum + cbm
+  }, 0)
+
+  const totalCost = items.reduce((sum, item) => sum + (item.cost || 0), 0)
+  const costPerCBM = totalCBM > 0 ? totalCost / totalCBM : 0
+
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <h4 className="font-bold text-blue-800 mb-3">{lang === 'th' ? 'สรุป CBM' : 'CBM Summary'}</h4>
+      <div className="grid grid-cols-3 gap-4 text-sm">
+        <div>
+          <div className="text-blue-600">{lang === 'th' ? 'ปริมาตรรวม' : 'Total Volume'}</div>
+          <div className="text-2xl font-bold text-blue-800">{totalCBM.toFixed(4)} m³</div>
+        </div>
+        <div>
+          <div className="text-blue-600">{lang === 'th' ? 'ต้นทุนรวม' : 'Total Cost'}</div>
+          <div className="text-2xl font-bold text-blue-800">{formatCurrency(totalCost)}</div>
+        </div>
+        <div>
+          <div className="text-blue-600">{lang === 'th' ? 'ต้นทุน/CBM' : 'Cost per CBM'}</div>
+          <div className="text-2xl font-bold text-blue-800">{formatCurrency(costPerCBM)}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// IMPORT COST BREAKDOWN
+// ============================================
+const ImportCostBreakdown = ({ importCosts, total, lang }) => {
+  if (!importCosts || Object.keys(importCosts).length === 0) return null
+
+  const costItems = IMPORT_COST_TYPES.map(type => ({
+    ...type,
+    amount: importCosts[type.id] || 0
+  })).filter(c => c.amount > 0)
+
+  const totalImportCost = costItems.reduce((sum, c) => sum + c.amount, 0)
+  const percentOfTotal = total > 0 ? (totalImportCost / total * 100) : 0
+
+  return (
+    <Card className="p-4 border-orange-200 bg-orange-50">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-bold text-orange-800">{lang === 'th' ? 'รายละเอียดค่านำเข้า' : 'Import Cost Breakdown'}</h4>
+        <Badge variant="warning">{percentOfTotal.toFixed(1)}% {lang === 'th' ? 'ของยอดรวม' : 'of total'}</Badge>
+      </div>
+      <div className="space-y-2">
+        {costItems.map(cost => (
+          <div key={cost.id} className="flex justify-between text-sm">
+            <span className="text-gray-600">{lang === 'th' ? cost.nameTh : cost.nameEn}</span>
+            <span className="font-medium">{formatCurrency(cost.amount)}</span>
+          </div>
+        ))}
+        <div className="pt-2 mt-2 border-t border-orange-200 flex justify-between font-bold">
+          <span>{lang === 'th' ? 'รวมค่านำเข้า' : 'Total Import Cost'}</span>
+          <span className="text-orange-700">{formatCurrency(totalImportCost)}</span>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+// ============================================
+// QUICK ACTIONS WIDGET
+// ============================================
+const QuickActions = ({ onAction, userRole, lang }) => {
+  const actions = [
+    { id: 'newPO', label: lang === 'th' ? 'สร้าง PO' : 'New PO', icon: ShoppingCart, color: 'bg-yellow-500', module: 'purchase' },
+    { id: 'newWO', label: lang === 'th' ? 'สร้าง WO' : 'New WO', icon: Factory, color: 'bg-orange-500', module: 'production' },
+    { id: 'newSO', label: lang === 'th' ? 'สร้างใบขาย' : 'New SO', icon: Receipt, color: 'bg-pink-500', module: 'sales' },
+    { id: 'receive', label: lang === 'th' ? 'รับสินค้า' : 'Receive', icon: Package, color: 'bg-green-500', module: 'purchase' },
+    { id: 'schedule', label: lang === 'th' ? 'จัดส่ง' : 'Schedule', icon: Truck, color: 'bg-cyan-500', module: 'transport' },
+    { id: 'report', label: lang === 'th' ? 'รายงาน' : 'Reports', icon: BarChart3, color: 'bg-purple-500', module: 'reports' },
+  ]
+
+  const role = ROLES[userRole]
+  const availableActions = actions.filter(a => role?.modules.includes(a.module) || role?.permissions.includes('all'))
+
+  return (
+    <Card className="p-4">
+      <h3 className="font-bold text-gray-800 mb-3">{lang === 'th' ? 'การดำเนินการด่วน' : 'Quick Actions'}</h3>
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+        {availableActions.map(action => (
+          <button
+            key={action.id}
+            onClick={() => onAction(action.id)}
+            className={`${action.color} text-white p-3 rounded-lg hover:opacity-90 transition-all flex flex-col items-center justify-center gap-1`}
+          >
+            <action.icon className="w-5 h-5" />
+            <span className="text-xs font-medium">{action.label}</span>
+          </button>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+// ============================================
+// NOTIFICATION BADGE
+// ============================================
+const NotificationBadge = ({ count, onClick }) => {
+  if (!count || count === 0) return null
+  return (
+    <button 
+      onClick={onClick}
+      className="relative p-2 hover:bg-gray-100 rounded-lg"
+    >
+      <Bell className="w-5 h-5 text-gray-500" />
+      <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+        {count > 9 ? '9+' : count}
+      </span>
+    </button>
+  )
+}
+
+// ============================================
+// LOW STOCK ALERT
+// ============================================
+const LowStockAlert = ({ inventory, threshold = 100, lang }) => {
+  const lowStockItems = inventory.filter(item => item.qty < threshold && item.qty > 0)
+  
+  if (lowStockItems.length === 0) return null
+
+  return (
+    <Card className="p-4 border-red-200 bg-red-50">
+      <div className="flex items-center gap-2 mb-3">
+        <AlertTriangle className="w-5 h-5 text-red-500" />
+        <h4 className="font-bold text-red-800">{lang === 'th' ? 'สินค้าใกล้หมด' : 'Low Stock Alert'}</h4>
+        <Badge variant="danger">{lowStockItems.length}</Badge>
+      </div>
+      <div className="space-y-2 max-h-40 overflow-y-auto">
+        {lowStockItems.slice(0, 5).map(item => (
+          <div key={item.id} className="flex justify-between text-sm p-2 bg-white rounded">
+            <span className="font-mono text-red-700">{item.code}</span>
+            <span className="text-red-600 font-medium">{item.qty} {lang === 'th' ? 'ชิ้น' : 'pcs'}</span>
+          </div>
+        ))}
+        {lowStockItems.length > 5 && (
+          <p className="text-sm text-red-500 text-center">
+            +{lowStockItems.length - 5} {lang === 'th' ? 'รายการเพิ่มเติม' : 'more items'}
+          </p>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+// ============================================
+// CURRENCY DISPLAY
+// ============================================
+const CurrencyDisplay = ({ amount, currency = 'THB', showSymbol = true }) => {
+  const symbols = { THB: '฿', USD: '$', EUR: '€', MYR: 'RM' }
+  const formatted = formatCurrency(amount)
+  
+  if (currency === 'THB') return <span>{formatted}</span>
+  return <span>{showSymbol && symbols[currency]}{amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+}
+
+// ============================================
+// DATE RANGE PICKER
+// ============================================
+const DateRangePicker = ({ from, to, onChange, lang }) => {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2">
+        <label className="text-sm text-gray-500">{lang === 'th' ? 'จาก' : 'From'}</label>
+        <input
+          type="date"
+          value={from}
+          onChange={(e) => onChange({ from: e.target.value, to })}
+          className="px-3 py-2 border rounded-lg text-sm"
+        />
+      </div>
+      <span className="text-gray-400">→</span>
+      <div className="flex items-center gap-2">
+        <label className="text-sm text-gray-500">{lang === 'th' ? 'ถึง' : 'To'}</label>
+        <input
+          type="date"
+          value={to}
+          onChange={(e) => onChange({ from, to: e.target.value })}
+          className="px-3 py-2 border rounded-lg text-sm"
+        />
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// EXPORT BUTTON
+// ============================================
+const ExportButton = ({ data, filename, format = 'xlsx', lang }) => {
+  const handleExport = () => {
+    // In a real app, this would use xlsx library
+    console.log('Exporting:', { data, filename, format })
+    alert(`${lang === 'th' ? 'ส่งออกข้อมูลเป็น' : 'Exporting as'} ${filename}.${format}`)
+  }
+
+  return (
+    <Button variant="outline" icon={Download} onClick={handleExport}>
+      {lang === 'th' ? 'ส่งออก' : 'Export'} {format.toUpperCase()}
+    </Button>
+  )
+}
+
+// ============================================
+// SEARCH INPUT
+// ============================================
+const SearchInput = ({ value, onChange, placeholder, lang }) => {
+  return (
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder || (lang === 'th' ? 'ค้นหา...' : 'Search...')}
+        className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A5276] focus:border-transparent"
+      />
+      {value && (
+        <button 
+          onClick={() => onChange('')}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// LOADING SPINNER
+// ============================================
+const LoadingSpinner = ({ size = 'md', text }) => {
+  const sizes = { sm: 'w-4 h-4', md: 'w-8 h-8', lg: 'w-12 h-12' }
+  return (
+    <div className="flex flex-col items-center justify-center p-8">
+      <div className={`${sizes[size]} border-4 border-gray-200 border-t-[#1A5276] rounded-full animate-spin`} />
+      {text && <p className="mt-4 text-gray-500">{text}</p>}
+    </div>
+  )
+}
+
+// ============================================
+// EMPTY STATE
+// ============================================
+const EmptyState = ({ icon: Icon, title, description, action, lang }) => {
+  return (
+    <div className="flex flex-col items-center justify-center p-12 text-center">
+      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+        <Icon className="w-8 h-8 text-gray-400" />
+      </div>
+      <h3 className="font-bold text-gray-800 mb-2">{title}</h3>
+      {description && <p className="text-gray-500 mb-4 max-w-md">{description}</p>}
+      {action && action}
+    </div>
+  )
+}
+
+// ============================================
+// CONFIRMATION DIALOG
+// ============================================
+const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, confirmText, cancelText, variant = 'danger' }) => {
+  if (!isOpen) return null
+
+  const variants = {
+    danger: 'bg-red-500 hover:bg-red-600',
+    warning: 'bg-yellow-500 hover:bg-yellow-600',
+    info: 'bg-blue-500 hover:bg-blue-600',
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <h3 className="text-lg font-bold text-gray-800 mb-2">{title}</h3>
+        <p className="text-gray-600 mb-6">{message}</p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            {cancelText || 'Cancel'}
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`px-4 py-2 text-white rounded-lg transition-colors ${variants[variant]}`}
+          >
+            {confirmText || 'Confirm'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// PROGRESS BAR
+// ============================================
+const ProgressBar = ({ value, max = 100, color = 'green', showLabel = true, size = 'md' }) => {
+  const percent = Math.min((value / max) * 100, 100)
+  const colors = {
+    green: 'bg-green-500',
+    blue: 'bg-blue-500',
+    yellow: 'bg-yellow-500',
+    red: 'bg-red-500',
+    purple: 'bg-purple-500',
+  }
+  const sizes = { sm: 'h-1', md: 'h-2', lg: 'h-3' }
+
+  return (
+    <div className="w-full">
+      <div className={`w-full bg-gray-200 rounded-full overflow-hidden ${sizes[size]}`}>
+        <div 
+          className={`h-full ${colors[color]} rounded-full transition-all duration-300`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      {showLabel && (
+        <div className="text-xs text-gray-500 mt-1 text-right">{percent.toFixed(0)}%</div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// TOOLTIP
+// ============================================
+const Tooltip = ({ children, content, position = 'top' }) => {
+  const [show, setShow] = useState(false)
+  
+  const positions = {
+    top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',
+    bottom: 'top-full left-1/2 -translate-x-1/2 mt-2',
+    left: 'right-full top-1/2 -translate-y-1/2 mr-2',
+    right: 'left-full top-1/2 -translate-y-1/2 ml-2',
+  }
+
+  return (
+    <div 
+      className="relative inline-block"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      {children}
+      {show && (
+        <div className={`absolute z-50 px-2 py-1 text-xs text-white bg-gray-800 rounded whitespace-nowrap ${positions[position]}`}>
+          {content}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// TABS COMPONENT
+// ============================================
+const Tabs = ({ tabs, activeTab, onChange, variant = 'underline' }) => {
+  const variants = {
+    underline: 'border-b',
+    pills: 'bg-gray-100 p-1 rounded-lg',
+  }
+
+  return (
+    <div className={`flex gap-1 ${variants[variant]}`}>
+      {tabs.map(tab => (
+        <button
+          key={tab.id}
+          onClick={() => onChange(tab.id)}
+          className={`flex items-center gap-2 px-4 py-2 transition-all ${
+            variant === 'underline'
+              ? `border-b-2 ${activeTab === tab.id ? 'border-[#1A5276] text-[#1A5276]' : 'border-transparent text-gray-500 hover:text-gray-700'}`
+              : `rounded-md ${activeTab === tab.id ? 'bg-white shadow text-[#1A5276]' : 'text-gray-500 hover:text-gray-700'}`
+          }`}
+        >
+          {tab.icon && <tab.icon className="w-4 h-4" />}
+          {tab.label}
+          {tab.count !== undefined && (
+            <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-[#1A5276] text-white' : 'bg-gray-200'}`}>
+              {tab.count}
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ============================================
+// AVATAR
+// ============================================
+const Avatar = ({ name, size = 'md', color }) => {
+  const sizes = { sm: 'w-8 h-8 text-sm', md: 'w-10 h-10 text-base', lg: 'w-12 h-12 text-lg' }
+  const initial = name ? name.charAt(0).toUpperCase() : '?'
+  
+  return (
+    <div className={`${sizes[size]} ${color || 'bg-[#1A5276]'} rounded-full flex items-center justify-center text-white font-bold`}>
+      {initial}
+    </div>
+  )
+}
+
+// ============================================
+// DROPDOWN MENU
+// ============================================
+const DropdownMenu = ({ trigger, items }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div className="relative" ref={ref}>
+      <div onClick={() => setIsOpen(!isOpen)}>{trigger}</div>
+      {isOpen && (
+        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-50">
+          {items.map((item, idx) => (
+            <button
+              key={idx}
+              onClick={() => { item.onClick(); setIsOpen(false) }}
+              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg"
+            >
+              {item.icon && <item.icon className="w-4 h-4" />}
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// FINAL VERSION INFO
+// ============================================
+const VersionInfo = ({ lang }) => {
+  return (
+    <div className="text-center text-xs text-gray-400 py-4">
+      <p>IND Thai Packwell ERP v{VERSION}</p>
+      <p>{VERSION_DATE}</p>
+      <p>{lang === 'th' ? 'พัฒนาโดย' : 'Developed by'} Claude AI</p>
+    </div>
+  )
+}
+
+// End of IND ERP v6.0 - Full Build
+// Total Features: 9 Modules, 6 Stores, 12 Categories, 13 Import Cost Types
+// Languages: EN, TH, MY, KH, ZH, JP
+// Roles: Admin, Sales, Production, Warehouse, HR, Accounting, Transport, Maintenance
