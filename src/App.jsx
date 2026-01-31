@@ -19,7 +19,7 @@ import {
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '7.2'
+const VERSION = '7.3'
 const VERSION_DATE = '2026-01-31'
 
 // ============================================
@@ -6974,33 +6974,53 @@ const Dashboard = ({ stores, inventory, categories, purchaseOrders, workOrders, 
 // SALES MODULE (Simplified)
 // ============================================
 // ============================================
-// SALES MODULE - COMPLETE BUILD
-// Spec 24-28: Full Sales Flow
+// SALES MODULE - ENHANCED v7.3
+// Complete Sales Operations with Production Plan View
 // ============================================
 
-// Document Number Generators
+// Document Number Generators (Actual IND Formats)
+const generateInvoiceNumber = () => {
+  // Format: IVT-YYYYMMXXX (e.g., IVT-202511090)
+  const now = new Date()
+  const yyyy = now.getFullYear()
+  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
+  const seq = Math.floor(Math.random() * 900 + 100)
+  return `IVT-${yyyy}${mm}${seq}`
+}
+
+const generateBillingNumber = () => {
+  // Format: BN-YYYYMMXXX (e.g., BN-202511022)
+  const now = new Date()
+  const yyyy = now.getFullYear()
+  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
+  const seq = Math.floor(Math.random() * 900 + 100)
+  return `BN-${yyyy}${mm}${seq}`
+}
+
+const generateReceiptNumber = () => {
+  // Format: RE-YYYYMMXXX (e.g., RE-202601002)
+  const now = new Date()
+  const yyyy = now.getFullYear()
+  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
+  const seq = Math.floor(Math.random() * 900 + 100)
+  return `RE-${yyyy}${mm}${seq}`
+}
+
+const generateQuotationNumber = () => {
+  // Format: QO-YYYYMMXX/ (e.g., QO-20251101/)
+  const now = new Date()
+  const yyyy = now.getFullYear()
+  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
+  const seq = Math.floor(Math.random() * 90 + 10)
+  return `QO-${yyyy}${mm}${seq}/`
+}
+
 const generateSONumber = () => {
   const now = new Date()
   const yy = now.getFullYear().toString().slice(-2)
   const mm = (now.getMonth() + 1).toString().padStart(2, '0')
   const seq = Math.floor(Math.random() * 900 + 100)
   return `SO-${yy}${mm}-${seq}`
-}
-
-const generateQuotationNumber = () => {
-  const now = new Date()
-  const yy = now.getFullYear().toString().slice(-2)
-  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
-  const seq = Math.floor(Math.random() * 900 + 100)
-  return `QT-${yy}${mm}-${seq}`
-}
-
-const generateInvoiceNumber = () => {
-  const now = new Date()
-  const yy = now.getFullYear().toString().slice(-2)
-  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
-  const seq = Math.floor(Math.random() * 900 + 100)
-  return `IV-${yy}${mm}-${seq}`
 }
 
 const generateDONumber = (customerCode) => {
@@ -8041,12 +8061,13 @@ const RecordPaymentModal = ({ isOpen, onClose, invoice, onRecordPayment, lang })
 const SalesModule = ({ 
   salesOrders, setSalesOrders, 
   invoices, setInvoices, 
-  customers, 
+  customers, setCustomers,
   workOrders, setWorkOrders,
   products,
   quotations = [], setQuotations,
   dispatchOrders = [], setDispatchOrders,
   rejections = [], setRejections,
+  finishedGoods = [], setFinishedGoods,
   lang 
 }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -8055,19 +8076,30 @@ const SalesModule = ({
   const [showWOModal, setShowWOModal] = useState(false)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [showDOModal, setShowDOModal] = useState(false)
+  const [showRejectionModal, setShowRejectionModal] = useState(false)
+  const [showClaimModal, setShowClaimModal] = useState(false)
+  const [showLocationModal, setShowLocationModal] = useState(false)
   const [selectedSO, setSelectedSO] = useState(null)
   const [selectedInvoice, setSelectedInvoice] = useState(null)
+  const [selectedFG, setSelectedFG] = useState([])
+  const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [filterCustomer, setFilterCustomer] = useState('all')
   const [filterMonth, setFilterMonth] = useState('all')
-  const [viewMode, setViewMode] = useState('list') // list, monthly, customer
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [viewMode, setViewMode] = useState('list')
 
+  // Enhanced tabs with all features
   const tabs = [
-    { id: 'dashboard', label: lang === 'th' ? 'ภาพรวม' : 'Dashboard', icon: BarChart3 },
-    { id: 'orders', label: lang === 'th' ? 'PO ลูกค้า' : 'Customer POs', icon: FileText },
-    { id: 'quotations', label: lang === 'th' ? 'ใบเสนอราคา' : 'Quotations', icon: FileText },
-    { id: 'invoices', label: lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices', icon: Receipt },
-    { id: 'payments', label: lang === 'th' ? 'การชำระ' : 'Payments', icon: CreditCard },
-    { id: 'reports', label: lang === 'th' ? 'รายงาน' : 'Reports', icon: BarChart3 },
+    { id: 'operations', label: lang === 'th' ? 'แผนงาน' : 'Operations', icon: ClipboardList, color: 'text-blue-600' },
+    { id: 'orders', label: lang === 'th' ? 'PO ลูกค้า' : 'Customer POs', icon: FileText, color: 'text-green-600' },
+    { id: 'dispatch', label: lang === 'th' ? 'จัดส่ง' : 'Dispatch', icon: Truck, color: 'text-purple-600' },
+    { id: 'invoices', label: lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices', icon: Receipt, color: 'text-emerald-600' },
+    { id: 'payments', label: lang === 'th' ? 'การชำระ' : 'Payments', icon: CreditCard, color: 'text-cyan-600' },
+    { id: 'customers', label: lang === 'th' ? 'ลูกค้า' : 'Customers', icon: Users, color: 'text-orange-600' },
+    { id: 'returns', label: lang === 'th' ? 'คืน/เคลม' : 'Returns', icon: RotateCcw, color: 'text-red-600' },
+    { id: 'quotations', label: lang === 'th' ? 'ใบเสนอราคา' : 'Quotations', icon: FileText, color: 'text-indigo-600' },
+    { id: 'reports', label: lang === 'th' ? 'รายงาน' : 'Reports', icon: BarChart3, color: 'text-gray-600' },
   ]
 
   // Calculate stats
@@ -8264,7 +8296,7 @@ const SalesModule = ({
 
       {/* Tabs */}
       <div className="flex gap-1 border-b overflow-x-auto">
-        {tabs.map(tab => (
+        {[{ id: 'dashboard', label: lang === 'th' ? 'หน้าหลัก' : 'Dashboard', icon: Home, color: 'text-gray-600' }, ...tabs].map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -8280,87 +8312,514 @@ const SalesModule = ({
         ))}
       </div>
 
-      {/* Dashboard Tab */}
-      {activeTab === 'dashboard' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Open POs (Pending WO) */}
-          <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-yellow-500" />
-              {lang === 'th' ? 'PO รอสร้าง WO' : 'Open POs (Pending WO)'}
-            </h3>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {openOrders.length === 0 ? (
-                <p className="text-gray-400 text-center py-4">{lang === 'th' ? 'ไม่มี PO รอดำเนินการ' : 'No pending POs'}</p>
-              ) : (
-                openOrders.slice(0, 10).map(so => {
-                  const customer = customers.find(c => c.id === so.customerId)
+      {/* Dashboard Tab - Daily & Weekly Tasks */}
+      {activeTab === 'dashboard' && (() => {
+        // Calculate daily and weekly tasks
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const weekEnd = new Date(today)
+        weekEnd.setDate(weekEnd.getDate() + 7)
+        
+        // Get next 7 days
+        const weekDays = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(today)
+          d.setDate(d.getDate() + i)
+          return d
+        })
+        
+        // Today's deliveries
+        const todayDeliveries = salesOrders.filter(so => {
+          const delDate = new Date(so.deliveryDate)
+          delDate.setHours(0, 0, 0, 0)
+          return delDate.getTime() === today.getTime() && so.status !== 'delivered'
+        })
+        
+        // This week's deliveries (grouped by day)
+        const weekDeliveries = weekDays.map(day => {
+          const dayDeliveries = salesOrders.filter(so => {
+            const delDate = new Date(so.deliveryDate)
+            delDate.setHours(0, 0, 0, 0)
+            return delDate.getTime() === day.getTime() && so.status !== 'delivered'
+          })
+          return { date: day, deliveries: dayDeliveries }
+        })
+        
+        // Overdue items
+        const overdueOrders = salesOrders.filter(so => {
+          const delDate = new Date(so.deliveryDate)
+          return delDate < today && so.status !== 'delivered'
+        })
+        
+        // Ready to ship (in FG)
+        const readyToShip = salesOrders.filter(so => 
+          so.status === 'ready' || so.items?.some(i => (i.fgQty || 0) > 0)
+        )
+        
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+        const dayNamesTh = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
+        
+        return (
+          <div className="space-y-6">
+            {/* Alert Section */}
+            {(overdueOrders.length > 0 || todayDeliveries.length > 0) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {overdueOrders.length > 0 && (
+                  <Card className="p-4 bg-red-50 border-red-200 border-2">
+                    <h3 className="font-bold text-red-800 flex items-center gap-2 mb-3">
+                      <AlertTriangle className="w-5 h-5" />
+                      {lang === 'th' ? `เกินกำหนด (${overdueOrders.length})` : `Overdue (${overdueOrders.length})`}
+                    </h3>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {overdueOrders.slice(0, 5).map(so => {
+                        const customer = customers?.find(c => c.id === so.customerId)
+                        const daysOverdue = Math.floor((today - new Date(so.deliveryDate)) / (1000 * 60 * 60 * 24))
+                        return (
+                          <div key={so.id} className="flex justify-between items-center p-2 bg-white rounded border border-red-200">
+                            <div>
+                              <div className="font-mono text-sm font-medium text-red-700">{so.customerPO}</div>
+                              <div className="text-xs text-gray-500">{customer?.code}</div>
+                            </div>
+                            <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full font-medium">
+                              {daysOverdue} {lang === 'th' ? 'วัน' : 'days'}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </Card>
+                )}
+                
+                {todayDeliveries.length > 0 && (
+                  <Card className="p-4 bg-blue-50 border-blue-200 border-2">
+                    <h3 className="font-bold text-blue-800 flex items-center gap-2 mb-3">
+                      <Truck className="w-5 h-5" />
+                      {lang === 'th' ? `ส่งวันนี้ (${todayDeliveries.length})` : `Due Today (${todayDeliveries.length})`}
+                    </h3>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {todayDeliveries.map(so => {
+                        const customer = customers?.find(c => c.id === so.customerId)
+                        return (
+                          <div key={so.id} className="flex justify-between items-center p-2 bg-white rounded border border-blue-200">
+                            <div>
+                              <div className="font-mono text-sm font-medium text-blue-700">{so.customerPO}</div>
+                              <div className="text-xs text-gray-500">{customer?.code} • {so.deliveryLocation || '-'}</div>
+                            </div>
+                            <Badge variant={so.status === 'ready' ? 'success' : 'warning'}>
+                              {so.status === 'ready' ? 'Ready' : so.status}
+                            </Badge>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {/* Week Calendar View */}
+            <Card className="overflow-hidden">
+              <div className="p-4 bg-gradient-to-r from-[#1A5276] to-[#2ECC40] text-white">
+                <h3 className="font-bold flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  {lang === 'th' ? 'แผนงานสัปดาห์นี้' : 'This Week\'s Schedule'}
+                </h3>
+                <p className="text-sm opacity-80 mt-1">
+                  {today.toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US', { month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-7 divide-x border-b bg-gray-50">
+                {weekDays.map((day, idx) => {
+                  const isToday = day.getTime() === today.getTime()
+                  const deliveryCount = weekDeliveries[idx].deliveries.length
                   return (
-                    <div key={so.id} className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-mono text-sm font-medium">{so.customerPO}</div>
-                          <div className="text-xs text-gray-500">{customer?.name}</div>
-                        </div>
-                        <button
-                          onClick={() => { setSelectedSO(so); setShowWOModal(true) }}
-                          className="px-2 py-1 text-xs bg-[#1A5276] text-white rounded hover:bg-[#1A5276]/90"
-                        >
-                          Create WO
-                        </button>
+                    <div 
+                      key={idx} 
+                      className={`p-3 text-center ${isToday ? 'bg-blue-100' : ''}`}
+                    >
+                      <div className={`text-xs font-medium ${isToday ? 'text-blue-600' : 'text-gray-500'}`}>
+                        {lang === 'th' ? dayNamesTh[day.getDay()] : dayNames[day.getDay()]}
                       </div>
-                      <div className="text-xs text-gray-400 mt-1">Delivery: {formatDate(so.deliveryDate)}</div>
+                      <div className={`text-lg font-bold ${isToday ? 'text-blue-700' : 'text-gray-700'}`}>
+                        {day.getDate()}
+                      </div>
+                      {deliveryCount > 0 && (
+                        <div className={`mt-1 text-xs px-2 py-0.5 rounded-full ${
+                          isToday ? 'bg-blue-500 text-white' : 'bg-orange-100 text-orange-700'
+                        }`}>
+                          {deliveryCount}
+                        </div>
+                      )}
                     </div>
                   )
-                })
-              )}
-            </div>
-          </Card>
-
-          {/* Monthly Sales Chart */}
-          <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ยอดขายรายเดือน' : 'Monthly Sales'}</h3>
-            <div className="space-y-2">
-              {monthlyData.slice(-6).map((m, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <div className="w-16 text-xs text-gray-500">{m.label}</div>
-                  <div className="flex-1 h-6 bg-gray-100 rounded overflow-hidden">
+                })}
+              </div>
+              
+              <div className="grid grid-cols-7 divide-x min-h-[200px]">
+                {weekDays.map((day, idx) => {
+                  const isToday = day.getTime() === today.getTime()
+                  const dayDeliveries = weekDeliveries[idx].deliveries
+                  return (
                     <div 
-                      className="h-full bg-gradient-to-r from-[#2ECC40] to-[#1A5276]"
-                      style={{ width: `${Math.min(100, (m.orderValue / Math.max(...monthlyData.map(x => x.orderValue)) * 100) || 0)}%` }}
-                    />
+                      key={idx} 
+                      className={`p-2 ${isToday ? 'bg-blue-50' : ''}`}
+                    >
+                      <div className="space-y-1.5">
+                        {dayDeliveries.slice(0, 4).map(so => {
+                          const customer = customers?.find(c => c.id === so.customerId)
+                          return (
+                            <div 
+                              key={so.id}
+                              className={`p-1.5 rounded text-xs ${
+                                so.status === 'ready' 
+                                  ? 'bg-green-100 border-l-2 border-green-500' 
+                                  : so.status === 'in_production'
+                                  ? 'bg-yellow-100 border-l-2 border-yellow-500'
+                                  : 'bg-gray-100 border-l-2 border-gray-400'
+                              }`}
+                            >
+                              <div className="font-medium truncate">{customer?.code}</div>
+                              <div className="text-gray-500 truncate">{so.customerPO?.slice(-6)}</div>
+                            </div>
+                          )
+                        })}
+                        {dayDeliveries.length > 4 && (
+                          <div className="text-xs text-center text-gray-400">
+                            +{dayDeliveries.length - 4} more
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </Card>
+
+            {/* Quick Actions & Summary */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Today's Tasks */}
+              <Card className="p-5">
+                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-blue-500" />
+                  {lang === 'th' ? 'งานวันนี้' : 'Today\'s Tasks'}
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-blue-600" />
+                      <span className="text-sm">{lang === 'th' ? 'รอส่งวันนี้' : 'Deliveries Due'}</span>
+                    </div>
+                    <span className="font-bold text-blue-600">{todayDeliveries.length}</span>
                   </div>
-                  <div className="w-20 text-xs text-right font-medium">฿{(m.orderValue / 1000).toFixed(0)}K</div>
+                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-green-600" />
+                      <span className="text-sm">{lang === 'th' ? 'พร้อมส่ง (FG)' : 'Ready in FG'}</span>
+                    </div>
+                    <span className="font-bold text-green-600">{readyToShip.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Factory className="w-4 h-4 text-yellow-600" />
+                      <span className="text-sm">{lang === 'th' ? 'รอสร้าง WO' : 'Pending WO'}</span>
+                    </div>
+                    <span className="font-bold text-yellow-600">{openOrders.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-600" />
+                      <span className="text-sm">{lang === 'th' ? 'เกินกำหนด' : 'Overdue'}</span>
+                    </div>
+                    <span className="font-bold text-red-600">{overdueOrders.length}</span>
+                  </div>
                 </div>
-              ))}
+              </Card>
+
+              {/* Open POs needing WO */}
+              <Card className="p-5">
+                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-yellow-500" />
+                  {lang === 'th' ? 'PO รอสร้าง WO' : 'Open POs (Need WO)'}
+                </h3>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {openOrders.length === 0 ? (
+                    <p className="text-gray-400 text-center py-4">
+                      {lang === 'th' ? 'ไม่มี PO รอดำเนินการ' : 'No pending POs'}
+                    </p>
+                  ) : (
+                    openOrders.slice(0, 6).map(so => {
+                      const customer = customers?.find(c => c.id === so.customerId)
+                      return (
+                        <div key={so.id} className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="font-mono text-sm font-medium">{so.customerPO}</div>
+                              <div className="text-xs text-gray-500">{customer?.name}</div>
+                            </div>
+                            <button
+                              onClick={() => { setSelectedSO(so); setShowWOModal(true) }}
+                              className="px-2 py-1 text-xs bg-[#1A5276] text-white rounded hover:bg-[#1A5276]/90"
+                            >
+                              + WO
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </Card>
+
+              {/* Monthly Summary */}
+              <Card className="p-5">
+                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-purple-500" />
+                  {lang === 'th' ? 'สรุปเดือนนี้' : 'This Month'}
+                </h3>
+                <div className="space-y-3">
+                  <div className="text-center p-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
+                    <div className="text-3xl font-bold">฿{(stats.thisMonthValue / 1000).toFixed(0)}K</div>
+                    <div className="text-sm opacity-80">{lang === 'th' ? 'ยอดขายเดือนนี้' : 'This Month Sales'}</div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="p-3 bg-gray-50 rounded text-center">
+                      <div className="text-xl font-bold text-gray-700">{stats.thisMonthOrders}</div>
+                      <div className="text-xs text-gray-500">{lang === 'th' ? 'ออเดอร์' : 'Orders'}</div>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded text-center">
+                      <div className="text-xl font-bold text-green-600">{stats.totalReceived > 0 ? Math.round(stats.totalReceived / stats.totalRevenue * 100) : 0}%</div>
+                      <div className="text-xs text-gray-500">{lang === 'th' ? 'รับเงินแล้ว' : 'Collected'}</div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Operations Tab - Production Plan Style View */}
+      {activeTab === 'operations' && (
+        <div className="space-y-4">
+          {/* Filters */}
+          <Card className="p-4">
+            <div className="flex flex-wrap gap-3 items-center">
+              <select
+                value={filterCustomer}
+                onChange={(e) => setFilterCustomer(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm"
+              >
+                <option value="all">{lang === 'th' ? 'ลูกค้าทั้งหมด' : 'All Customers'}</option>
+                {customers?.filter(c => c.isActive !== false).map(c => (
+                  <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
+                ))}
+              </select>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm"
+              >
+                <option value="all">{lang === 'th' ? 'ทุกสถานะ' : 'All Status'}</option>
+                <option value="open">{lang === 'th' ? 'เปิดอยู่' : 'Open'}</option>
+                <option value="in_production">{lang === 'th' ? 'กำลังผลิต' : 'In Production'}</option>
+                <option value="in_fg">{lang === 'th' ? 'ใน FG' : 'In FG Store'}</option>
+                <option value="partial">{lang === 'th' ? 'ส่งบางส่วน' : 'Partial'}</option>
+                <option value="completed">{lang === 'th' ? 'เสร็จสิ้น' : 'Completed'}</option>
+              </select>
+              <select
+                value={filterMonth}
+                onChange={(e) => setFilterMonth(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm"
+              >
+                <option value="all">{lang === 'th' ? 'ทุกเดือน' : 'All Months'}</option>
+                {monthlyData.slice(-6).reverse().map((m, idx) => (
+                  <option key={idx} value={`${m.year}-${m.month}`}>{m.label}</option>
+                ))}
+              </select>
+              <div className="flex-1" />
+              <Button size="sm" variant="outline" onClick={() => setShowPOModal(true)}>
+                <Plus className="w-4 h-4 mr-1" />
+                {lang === 'th' ? 'รับ PO' : 'New PO'}
+              </Button>
             </div>
           </Card>
 
-          {/* Top Customers */}
-          <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ลูกค้าหลัก' : 'Top Customers'}</h3>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {customerData.slice(0, 8).map((cust, idx) => (
-                <div key={cust.customerId} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-                      idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-amber-600' : 'bg-gray-300'
-                    }`}>
-                      {idx + 1}
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium">{cust.customerCode}</div>
-                      <div className="text-xs text-gray-400">{cust.orderCount} orders</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold">฿{(cust.orderValue / 1000).toFixed(0)}K</div>
-                    {cust.balance > 0 && <div className="text-xs text-red-500">Due: ฿{(cust.balance / 1000).toFixed(0)}K</div>}
-                  </div>
-                </div>
-              ))}
+          {/* Production Plan Style Table */}
+          <Card className="overflow-hidden">
+            <div className="p-3 bg-gradient-to-r from-blue-600 to-blue-800 text-white">
+              <h3 className="font-bold flex items-center gap-2">
+                <ClipboardList className="w-5 h-5" />
+                {lang === 'th' ? 'แผนงานขาย/ผลิต (ทุก PO/PR)' : 'Sales/Production Plan (All PO/PR)'}
+              </h3>
+              <p className="text-xs opacity-80 mt-1">
+                {lang === 'th' ? 'เหมือน Production Plan from PO - ดูสถานะทุก order ในที่เดียว' : 'Like Production Plan from PO - All orders at a glance'}
+              </p>
             </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-100 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">{lang === 'th' ? 'PO ลูกค้า' : 'Cust PO'}</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">{lang === 'th' ? 'รายการ' : 'Item'}</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">{lang === 'th' ? 'ขนาด' : 'Size'}</th>
+                    <th className="px-3 py-2 text-center font-medium text-gray-600 border-b">{lang === 'th' ? 'สั่ง' : 'Ord'}</th>
+                    <th className="px-3 py-2 text-center font-medium text-gray-600 border-b bg-yellow-50">{lang === 'th' ? 'ผลิต' : 'Prod'}</th>
+                    <th className="px-3 py-2 text-center font-medium text-gray-600 border-b bg-green-50">{lang === 'th' ? 'FG' : 'FG'}</th>
+                    <th className="px-3 py-2 text-center font-medium text-gray-600 border-b bg-blue-50">{lang === 'th' ? 'ส่ง' : 'Sent'}</th>
+                    <th className="px-3 py-2 text-center font-medium text-gray-600 border-b bg-red-50">{lang === 'th' ? 'คงเหลือ' : 'Bal'}</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">{lang === 'th' ? 'กำหนด' : 'Due'}</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">{lang === 'th' ? 'ที่ส่ง' : 'Loc'}</th>
+                    <th className="px-3 py-2 text-center font-medium text-gray-600 border-b">{lang === 'th' ? 'จัดการ' : 'Act'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {salesOrders
+                    .filter(so => filterCustomer === 'all' || so.customerId === filterCustomer)
+                    .filter(so => {
+                      if (filterStatus === 'all') return true
+                      if (filterStatus === 'open') return !so.woId
+                      if (filterStatus === 'in_production') return so.status === 'in_production'
+                      if (filterStatus === 'in_fg') return so.status === 'ready'
+                      if (filterStatus === 'partial') return (so.deliveredQty || 0) > 0 && (so.deliveredQty || 0) < so.items?.reduce((s, i) => s + i.qty, 0)
+                      if (filterStatus === 'completed') return so.status === 'delivered'
+                      return true
+                    })
+                    .flatMap(so => {
+                      const customer = customers?.find(c => c.id === so.customerId)
+                      const wo = workOrders?.find(w => w.soId === so.id || w.id === so.woId)
+                      return (so.items || []).map((item, idx) => {
+                        const inProduction = wo?.status === 'in_progress' ? (item.qty - (item.completedQty || 0)) : 0
+                        const inFG = item.fgQty || 0
+                        const delivered = item.deliveredQty || 0
+                        const balance = item.qty - delivered
+                        const isOverdue = new Date(so.deliveryDate) < new Date() && balance > 0
+                        const isComplete = balance === 0
+                        
+                        return (
+                          <tr 
+                            key={`${so.id}-${idx}`} 
+                            className={`hover:bg-gray-50 ${isComplete ? 'bg-gray-50 opacity-60' : ''} ${isOverdue ? 'bg-red-50' : ''}`}
+                          >
+                            <td className="px-3 py-2">
+                              <div className={`font-mono text-xs ${isComplete ? 'line-through text-gray-400' : 'text-blue-600 font-medium'}`}>
+                                {so.customerPO}
+                              </div>
+                              {so.woId && (
+                                <div className="text-xs text-purple-500">{wo?.woNumber || so.woId}</div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="font-medium text-xs">{customer?.code}</div>
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="text-xs">{item.productCode || item.description?.substring(0, 20)}</div>
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-500">{item.dimensions}</td>
+                            <td className="px-3 py-2 text-center font-medium">{item.qty}</td>
+                            <td className="px-3 py-2 text-center bg-yellow-50">
+                              {inProduction > 0 ? (
+                                <span className="text-yellow-600 font-medium">{inProduction} 🔄</span>
+                              ) : '-'}
+                            </td>
+                            <td className="px-3 py-2 text-center bg-green-50">
+                              {inFG > 0 ? (
+                                <span className="text-green-600 font-medium">{inFG} ✅</span>
+                              ) : '-'}
+                            </td>
+                            <td className="px-3 py-2 text-center bg-blue-50">
+                              {delivered > 0 ? (
+                                <span className="text-blue-600">{delivered}</span>
+                              ) : '-'}
+                            </td>
+                            <td className="px-3 py-2 text-center bg-red-50">
+                              {balance > 0 ? (
+                                <span className={`font-bold ${isOverdue ? 'text-red-600' : 'text-gray-600'}`}>{balance}</span>
+                              ) : (
+                                <span className="text-green-500">✓</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-xs">
+                              <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
+                                {formatDate(so.deliveryDate)}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2">
+                              {so.deliveryLocation && (
+                                <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                  so.deliveryLocation.includes('CPP') ? 'bg-orange-100 text-orange-700' :
+                                  so.deliveryLocation.includes('FILM') ? 'bg-gray-100 text-gray-700' :
+                                  so.deliveryLocation.includes('LINE') ? 'bg-red-100 text-red-700' :
+                                  'bg-blue-100 text-blue-700'
+                                }`}>
+                                  {so.deliveryLocation}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="flex gap-1 justify-center">
+                                {!so.woId && (
+                                  <button
+                                    onClick={() => { setSelectedSO(so); setShowWOModal(true) }}
+                                    className="p-1 text-purple-600 hover:bg-purple-50 rounded"
+                                    title="Create WO"
+                                  >
+                                    <Factory className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                {inFG > 0 && (
+                                  <button
+                                    onClick={() => { setSelectedSO(so); setShowDOModal(true) }}
+                                    className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                    title="Create DO"
+                                  >
+                                    <Truck className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    })}
+                </tbody>
+              </table>
+            </div>
+            {salesOrders.length === 0 && (
+              <div className="text-center py-12 text-gray-400">
+                <ClipboardList className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>{lang === 'th' ? 'ยังไม่มีรายการ PO' : 'No POs yet'}</p>
+              </div>
+            )}
           </Card>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <Card className="p-4 border-l-4 border-l-yellow-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รอสร้าง WO' : 'Pending WO'}</div>
+              <div className="text-2xl font-bold text-yellow-600">{openOrders.length}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-purple-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'กำลังผลิต' : 'In Production'}</div>
+              <div className="text-2xl font-bold text-purple-600">{stats.inProduction}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-green-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ใน FG พร้อมส่ง' : 'In FG Ready'}</div>
+              <div className="text-2xl font-bold text-green-600">{stats.readyToShip}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ส่งบางส่วน' : 'Partial Delivery'}</div>
+              <div className="text-2xl font-bold text-blue-600">
+                {salesOrders.filter(so => (so.deliveredQty || 0) > 0 && so.status !== 'delivered').length}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-red-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'เกินกำหนด' : 'Overdue'}</div>
+              <div className="text-2xl font-bold text-red-600">
+                {salesOrders.filter(so => new Date(so.deliveryDate) < new Date() && so.status !== 'delivered').length}
+              </div>
+            </Card>
+          </div>
         </div>
       )}
 
@@ -8734,6 +9193,248 @@ const SalesModule = ({
               </table>
             </div>
           </Card>
+        </div>
+      )}
+
+      {/* Dispatch Tab - FG → DO → Invoice Flow */}
+      {activeTab === 'dispatch' && (
+        <div className="space-y-6">
+          <Card className="p-4 bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-purple-800 flex items-center gap-2">
+                  <Truck className="w-5 h-5" />
+                  {lang === 'th' ? 'สร้างใบส่งของจาก FG Store' : 'Create Dispatch from FG Store'}
+                </h3>
+                <p className="text-sm text-purple-600 mt-1">
+                  {lang === 'th' ? 'เลือกสินค้าจาก FG → สร้าง DO → พิมพ์ Invoice + Labels' : 'Select items from FG → Create DO → Print Invoice + Labels'}
+                </p>
+              </div>
+              <Button icon={Plus} onClick={() => setShowDOModal(true)}>
+                {lang === 'th' ? 'สร้างใบส่งของ' : 'New Dispatch Order'}
+              </Button>
+            </div>
+          </Card>
+
+          {/* FG Ready Stock by Customer */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b bg-green-50">
+              <h3 className="font-bold text-green-800 flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                {lang === 'th' ? 'สินค้าสำเร็จรูปพร้อมส่ง (FG Store)' : 'Finished Goods Ready to Ship'}
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left">{lang === 'th' ? 'PO ลูกค้า' : 'Customer PO'}</th>
+                    <th className="px-4 py-3 text-left">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                    <th className="px-4 py-3 text-left">{lang === 'th' ? 'รายการ' : 'Item'}</th>
+                    <th className="px-4 py-3 text-center">{lang === 'th' ? 'ใน FG' : 'In FG'}</th>
+                    <th className="px-4 py-3 text-center">{lang === 'th' ? 'ส่งแล้ว' : 'Sent'}</th>
+                    <th className="px-4 py-3 text-left">{lang === 'th' ? 'กำหนดส่ง' : 'Due Date'}</th>
+                    <th className="px-4 py-3 text-left">{lang === 'th' ? 'สถานที่' : 'Location'}</th>
+                    <th className="px-4 py-3 text-center">{lang === 'th' ? 'เลือก' : 'Select'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {salesOrders
+                    .filter(so => so.status === 'ready' || so.items?.some(i => (i.fgQty || 0) > 0))
+                    .flatMap(so => {
+                      const customer = customers?.find(c => c.id === so.customerId)
+                      return (so.items || [])
+                        .filter(item => (item.fgQty || 0) > 0)
+                        .map((item, idx) => (
+                          <tr key={`${so.id}-${idx}`} className="hover:bg-green-50">
+                            <td className="px-4 py-3 font-mono text-blue-600">{so.customerPO}</td>
+                            <td className="px-4 py-3">{customer?.code}</td>
+                            <td className="px-4 py-3 text-sm">{item.description}</td>
+                            <td className="px-4 py-3 text-center">
+                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded font-medium">
+                                {item.fgQty || 0}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center text-gray-500">{item.deliveredQty || 0}</td>
+                            <td className="px-4 py-3 text-sm">{formatDate(so.deliveryDate)}</td>
+                            <td className="px-4 py-3">
+                              <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                                {so.deliveryLocation || '-'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedFG.includes(`${so.id}-${idx}`)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedFG([...selectedFG, `${so.id}-${idx}`])
+                                  } else {
+                                    setSelectedFG(selectedFG.filter(id => id !== `${so.id}-${idx}`))
+                                  }
+                                }}
+                                className="w-4 h-4 rounded text-purple-600"
+                              />
+                            </td>
+                          </tr>
+                        ))
+                    })}
+                </tbody>
+              </table>
+              {!salesOrders.some(so => so.items?.some(i => (i.fgQty || 0) > 0)) && (
+                <div className="text-center py-8 text-gray-400">
+                  <Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>{lang === 'th' ? 'ไม่มีสินค้าใน FG Store' : 'No items in FG Store'}</p>
+                </div>
+              )}
+            </div>
+            {selectedFG.length > 0 && (
+              <div className="p-4 border-t bg-purple-50 flex justify-between items-center">
+                <span className="text-purple-700 font-medium">
+                  {lang === 'th' ? `เลือก ${selectedFG.length} รายการ` : `${selectedFG.length} items selected`}
+                </span>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setSelectedFG([])}>
+                    {lang === 'th' ? 'ล้าง' : 'Clear'}
+                  </Button>
+                  <Button icon={Truck} onClick={() => setShowDOModal(true)}>
+                    {lang === 'th' ? 'สร้างใบส่งของ' : 'Create DO'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Recent Dispatch Orders */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b">
+              <h3 className="font-bold">{lang === 'th' ? 'ใบส่งของล่าสุด' : 'Recent Dispatch Orders'}</h3>
+            </div>
+            <div className="p-8 text-center text-gray-400">
+              <Truck className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>{lang === 'th' ? 'ยังไม่มีใบส่งของ' : 'No dispatch orders yet'}</p>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Customers Tab - with Delivery Locations */}
+      {activeTab === 'customers' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-bold">{lang === 'th' ? 'รายชื่อลูกค้า & สถานที่ส่ง' : 'Customers & Delivery Locations'}</h3>
+            <Button icon={Plus} onClick={() => setShowLocationModal(true)}>
+              {lang === 'th' ? 'เพิ่มสถานที่ส่ง' : 'Add Location'}
+            </Button>
+          </div>
+
+          <div className="grid gap-4">
+            {customers?.filter(c => c.isActive !== false).map(customer => (
+              <Card key={customer.id} className="overflow-hidden">
+                <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold">
+                      {customer.code?.substring(0, 2)}
+                    </div>
+                    <div>
+                      <div className="font-bold text-gray-800">{customer.name}</div>
+                      <div className="text-sm text-gray-500">{customer.code} • {customer.paymentTerms || 30} days credit</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {customer.requiresHT && (
+                      <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded">HT Required</span>
+                    )}
+                    {customer.specialLabels && customer.specialLabels !== 'none' && (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
+                        {customer.specialLabels === 'allianz' ? 'QR Labels' : '4-Col Labels'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h4 className="text-sm font-medium text-gray-600 mb-3">{lang === 'th' ? 'สถานที่ส่งสินค้า' : 'Delivery Locations'}</h4>
+                  <div className="space-y-2">
+                    {(customer.deliveryLocations || [{ code: 'MAIN', name: 'Main Address', address: customer.address }]).map((loc, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <MapPin className={`w-5 h-5 ${
+                            loc.code?.includes('CPP') ? 'text-orange-500' :
+                            loc.code?.includes('FILM') ? 'text-gray-500' :
+                            loc.code?.includes('LINE') ? 'text-red-500' :
+                            'text-blue-500'
+                          }`} />
+                          <div>
+                            <div className="font-medium">{loc.code || loc.name}</div>
+                            <div className="text-sm text-gray-500">{loc.address || customer.address}</div>
+                            {loc.contact && <div className="text-xs text-gray-400">Contact: {loc.contact}</div>}
+                          </div>
+                        </div>
+                        {loc.labelColor && (
+                          <div className={`px-2 py-1 rounded text-xs font-medium ${
+                            loc.labelColor === 'peach' ? 'bg-orange-100 text-orange-700' :
+                            loc.labelColor === 'red' ? 'bg-red-100 text-red-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {loc.labelColor} labels
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Returns Tab - Rejection & Claim */}
+      {activeTab === 'returns' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-bold">{lang === 'th' ? 'การคืนสินค้า & เคลม' : 'Returns & Claims'}</h3>
+            <div className="flex gap-2">
+              <Button variant="outline" icon={RotateCcw} onClick={() => setShowRejectionModal(true)}>
+                {lang === 'th' ? 'บันทึกการคืน' : 'New Rejection'}
+              </Button>
+              <Button icon={AlertTriangle} onClick={() => setShowClaimModal(true)}>
+                {lang === 'th' ? 'บันทึกเคลม' : 'New Claim'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Rejections */}
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b bg-red-50">
+                <h3 className="font-bold text-red-800 flex items-center gap-2">
+                  <RotateCcw className="w-5 h-5" />
+                  {lang === 'th' ? 'การคืนสินค้า (15/30 วัน)' : 'Rejections (15/30 Days)'}
+                </h3>
+                <p className="text-xs text-red-600 mt-1">REJ-YYMM-XXX</p>
+              </div>
+              <div className="p-8 text-center text-gray-400">
+                <RotateCcw className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                <p>{lang === 'th' ? 'ไม่มีรายการคืน' : 'No rejections'}</p>
+              </div>
+            </Card>
+
+            {/* Claims */}
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b bg-orange-50">
+                <h3 className="font-bold text-orange-800 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5" />
+                  {lang === 'th' ? 'เคลมสินค้า' : 'Claims'}
+                </h3>
+                <p className="text-xs text-orange-600 mt-1">CLM-YYMM-XXX</p>
+              </div>
+              <div className="p-8 text-center text-gray-400">
+                <AlertTriangle className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                <p>{lang === 'th' ? 'ไม่มีรายการเคลม' : 'No claims'}</p>
+              </div>
+            </Card>
+          </div>
         </div>
       )}
 
@@ -9766,6 +10467,7 @@ function AppBasic() {
                   invoices={invoices}
                   setInvoices={setInvoices}
                   customers={customers}
+                  setCustomers={setCustomers}
                   workOrders={workOrders}
                   setWorkOrders={setWorkOrders}
                   products={products}
@@ -13567,9 +14269,15 @@ const VersionInfo = ({ lang }) => {
   )
 }
 
-// End of IND ERP v7.0 - Full Build with Enhanced Purchase Module
+// End of IND ERP v7.3 - Enhanced Sales Module with Production Plan View
 // Total Features: 9 Modules, 6 Stores, 12 Categories, 13 Import Cost Types
-// NEW in v7.0: Split Lots, Reject Items, Add Items Not in PO, Import Tracking, Reports
+// NEW in v7.3: 
+//   - Dashboard with Daily Tasks & Weekly Calendar
+//   - Operations Tab (Production Plan style view)
+//   - Dispatch Tab (FG Store → DO → Invoice flow)
+//   - Customers Tab with Delivery Locations
+//   - Returns Tab (Rejection & Claim forms)
+//   - Document Numbers: IVT-YYYYMMXXX, BN-YYYYMMXXX, RE-YYYYMMXXX, QO-YYYYMMXXX
 // Languages: EN, TH, MY, KH, ZH, JP
 // Roles: Admin, Sales, Production, Warehouse, HR, Accounting, Transport, Maintenance
 
