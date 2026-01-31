@@ -19,7 +19,7 @@ import {
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '7.1'
+const VERSION = '7.2'
 const VERSION_DATE = '2026-01-31'
 
 // ============================================
@@ -6973,75 +6973,1304 @@ const Dashboard = ({ stores, inventory, categories, purchaseOrders, workOrders, 
 // ============================================
 // SALES MODULE (Simplified)
 // ============================================
-const SalesModule = ({ salesOrders, setSalesOrders, invoices, setInvoices, customers, workOrders, lang }) => {
+// ============================================
+// SALES MODULE - COMPLETE BUILD
+// Spec 24-28: Full Sales Flow
+// ============================================
+
+// Document Number Generators
+const generateSONumber = () => {
+  const now = new Date()
+  const yy = now.getFullYear().toString().slice(-2)
+  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
+  const seq = Math.floor(Math.random() * 900 + 100)
+  return `SO-${yy}${mm}-${seq}`
+}
+
+const generateQuotationNumber = () => {
+  const now = new Date()
+  const yy = now.getFullYear().toString().slice(-2)
+  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
+  const seq = Math.floor(Math.random() * 900 + 100)
+  return `QT-${yy}${mm}-${seq}`
+}
+
+const generateInvoiceNumber = () => {
+  const now = new Date()
+  const yy = now.getFullYear().toString().slice(-2)
+  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
+  const seq = Math.floor(Math.random() * 900 + 100)
+  return `IV-${yy}${mm}-${seq}`
+}
+
+const generateDONumber = (customerCode) => {
+  const now = new Date()
+  const yy = now.getFullYear().toString().slice(-2)
+  const seq = Math.floor(Math.random() * 900 + 100)
+  return `${customerCode}-${yy}-${seq}`
+}
+
+const generateWONumber = () => {
+  const now = new Date()
+  const yy = now.getFullYear().toString().slice(-2)
+  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
+  const dd = now.getDate().toString().padStart(2, '0')
+  const seq = Math.floor(Math.random() * 900 + 100)
+  return `WO-${yy}${mm}${dd}-${seq}`
+}
+
+const generateRejectionNumber = () => {
+  const now = new Date()
+  const yy = now.getFullYear().toString().slice(-2)
+  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
+  const seq = Math.floor(Math.random() * 900 + 100)
+  return `REJ-${yy}${mm}-${seq}`
+}
+
+const generateClaimNumber = () => {
+  const now = new Date()
+  const yy = now.getFullYear().toString().slice(-2)
+  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
+  const seq = Math.floor(Math.random() * 900 + 100)
+  return `CLM-${yy}${mm}-${seq}`
+}
+
+const generateCreditNoteNumber = () => {
+  const now = new Date()
+  const yy = now.getFullYear().toString().slice(-2)
+  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
+  const seq = Math.floor(Math.random() * 900 + 100)
+  return `CN-${yy}${mm}-${seq}`
+}
+
+// Customer PO Entry Modal (Spec 24, 28: Customer PO = SO)
+const CustomerPOEntryModal = ({ isOpen, onClose, customers, products, onSave, lang }) => {
+  const [formData, setFormData] = useState({
+    customerPO: '',
+    customerId: '',
+    poDate: new Date().toISOString().split('T')[0],
+    deliveryDate: '',
+    deliveryLocation: '',
+    paymentTerms: '30',
+    items: [],
+    notes: '',
+    requiresHT: false,
+    specialLabels: 'none',
+  })
+  const [newItem, setNewItem] = useState({ productId: '', description: '', dimensions: '', qty: 0, unit: 'SET', unitPrice: 0 })
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        customerPO: '',
+        customerId: '',
+        poDate: new Date().toISOString().split('T')[0],
+        deliveryDate: '',
+        deliveryLocation: '',
+        paymentTerms: '30',
+        items: [],
+        notes: '',
+        requiresHT: false,
+        specialLabels: 'none',
+      })
+    }
+  }, [isOpen])
+
+  if (!isOpen) return null
+
+  const selectedCustomer = customers?.find(c => c.id === formData.customerId)
+
+  // Auto-detect special customer requirements
+  const handleCustomerChange = (customerId) => {
+    const customer = customers?.find(c => c.id === customerId)
+    let specialLabels = 'none'
+    let requiresHT = false
+    
+    if (customer) {
+      // Allianz detection
+      if (customer.code === 'ALL-013' || customer.name?.toLowerCase().includes('alliance') || customer.name?.toLowerCase().includes('allianz')) {
+        specialLabels = 'allianz'
+        requiresHT = true
+      }
+      // Polyplex detection
+      else if (customer.code === 'PLX-002' || customer.name?.toLowerCase().includes('polyplex')) {
+        specialLabels = 'polyplex'
+      }
+    }
+    
+    setFormData(prev => ({ ...prev, customerId, specialLabels, requiresHT }))
+  }
+
+  const addItem = () => {
+    if (newItem.qty <= 0) return
+    const product = products?.find(p => p.id === newItem.productId)
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, {
+        id: `ITEM-${Date.now()}`,
+        productId: newItem.productId,
+        productCode: product?.code || '',
+        productName: product?.name || newItem.description,
+        description: newItem.description || product?.name,
+        dimensions: newItem.dimensions,
+        qty: newItem.qty,
+        unit: newItem.unit,
+        unitPrice: newItem.unitPrice || product?.price || 0,
+        lineTotal: newItem.qty * (newItem.unitPrice || product?.price || 0),
+      }]
+    }))
+    setNewItem({ productId: '', description: '', dimensions: '', qty: 0, unit: 'SET', unitPrice: 0 })
+  }
+
+  const removeItem = (idx) => {
+    setFormData(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }))
+  }
+
+  const subtotal = formData.items.reduce((sum, item) => sum + item.lineTotal, 0)
+  const vat = selectedCustomer?.isExport ? 0 : subtotal * 0.07
+  const grandTotal = subtotal + vat
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!formData.customerPO || !formData.customerId || formData.items.length === 0) return
+    
+    const soNumber = generateSONumber()
+    onSave({
+      id: soNumber,
+      soNumber,
+      customerPO: formData.customerPO,
+      customerId: formData.customerId,
+      customer: selectedCustomer,
+      poDate: formData.poDate,
+      orderDate: new Date().toISOString(),
+      deliveryDate: formData.deliveryDate,
+      deliveryLocation: formData.deliveryLocation,
+      paymentTerms: formData.paymentTerms,
+      items: formData.items,
+      subtotal,
+      vat,
+      grandTotal,
+      notes: formData.notes,
+      requiresHT: formData.requiresHT,
+      specialLabels: formData.specialLabels,
+      status: 'confirmed',
+      woId: null,
+      invoiceId: null,
+      doId: null,
+      createdAt: new Date().toISOString(),
+    })
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="p-4 border-b bg-gradient-to-r from-[#2ECC40] to-[#1A5276] text-white rounded-t-xl sticky top-0 z-10">
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            {lang === 'th' ? 'รับ PO ลูกค้า (= ใบสั่งขาย)' : 'Enter Customer PO (= Sales Order)'}
+          </h3>
+          <p className="text-sm opacity-80">
+            {lang === 'th' ? 'PO ลูกค้าจะถูกใช้เป็นใบสั่งขายโดยตรง ไม่ต้องสร้าง SO แยก' : 'Customer PO is treated as Sales Order directly'}
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Header Info */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'th' ? 'เลข PO ลูกค้า *' : 'Customer PO # *'}
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.customerPO}
+                onChange={(e) => setFormData({ ...formData, customerPO: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A5276]"
+                placeholder="e.g., 5100026898"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'th' ? 'ลูกค้า *' : 'Customer *'}
+              </label>
+              <select
+                required
+                value={formData.customerId}
+                onChange={(e) => handleCustomerChange(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A5276]"
+              >
+                <option value="">{lang === 'th' ? '-- เลือกลูกค้า --' : '-- Select Customer --'}</option>
+                {customers?.filter(c => c.isActive !== false).map(c => (
+                  <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'th' ? 'วันที่ PO' : 'PO Date'}
+              </label>
+              <input
+                type="date"
+                value={formData.poDate}
+                onChange={(e) => setFormData({ ...formData, poDate: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'th' ? 'กำหนดส่ง *' : 'Delivery Date *'}
+              </label>
+              <input
+                type="date"
+                required
+                value={formData.deliveryDate}
+                onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'th' ? 'สถานที่ส่ง' : 'Delivery Location'}
+              </label>
+              <input
+                type="text"
+                value={formData.deliveryLocation}
+                onChange={(e) => setFormData({ ...formData, deliveryLocation: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+                placeholder="e.g., PLOT 1, Factory Gate"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'th' ? 'เงื่อนไขชำระ' : 'Payment Terms'}
+              </label>
+              <select
+                value={formData.paymentTerms}
+                onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="0">Cash / COD</option>
+                <option value="15">Net 15 Days</option>
+                <option value="30">Net 30 Days</option>
+                <option value="45">Net 45 Days</option>
+                <option value="60">Net 60 Days</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Special Customer Alert */}
+          {formData.specialLabels !== 'none' && (
+            <div className={`p-4 rounded-lg border-2 ${
+              formData.specialLabels === 'allianz' 
+                ? 'bg-blue-50 border-blue-300' 
+                : 'bg-orange-50 border-orange-300'
+            }`}>
+              <div className="flex items-center gap-3">
+                <AlertTriangle className={`w-6 h-6 ${
+                  formData.specialLabels === 'allianz' ? 'text-blue-600' : 'text-orange-600'
+                }`} />
+                <div>
+                  <div className="font-bold">
+                    {formData.specialLabels === 'allianz' 
+                      ? 'ALLIANZ Customer - Special Requirements'
+                      : 'POLYPLEX Customer - Special Requirements'
+                    }
+                  </div>
+                  <div className="text-sm">
+                    {formData.specialLabels === 'allianz' 
+                      ? '• QR Code Labels (Part# format) • Heat Treatment Certificate (TH-0950) Required'
+                      : '• 4-Column Color-Coded Labels (FILM=white, CPP=peach, Line10=red)'
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Line Items */}
+          <div className="border rounded-lg p-4">
+            <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              {lang === 'th' ? 'รายการสินค้า' : 'Line Items'}
+            </h4>
+            
+            {/* Add Item Row */}
+            <div className="grid grid-cols-12 gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
+              <div className="col-span-3">
+                <input
+                  type="text"
+                  value={newItem.description}
+                  onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                  className="w-full px-2 py-2 border rounded text-sm"
+                  placeholder={lang === 'th' ? 'รายละเอียด' : 'Description'}
+                />
+              </div>
+              <div className="col-span-2">
+                <input
+                  type="text"
+                  value={newItem.dimensions}
+                  onChange={(e) => setNewItem({ ...newItem, dimensions: e.target.value })}
+                  className="w-full px-2 py-2 border rounded text-sm"
+                  placeholder="H×W×L"
+                />
+              </div>
+              <div className="col-span-2">
+                <input
+                  type="number"
+                  min="1"
+                  value={newItem.qty || ''}
+                  onChange={(e) => setNewItem({ ...newItem, qty: parseInt(e.target.value) || 0 })}
+                  className="w-full px-2 py-2 border rounded text-sm"
+                  placeholder={lang === 'th' ? 'จำนวน' : 'Qty'}
+                />
+              </div>
+              <div className="col-span-1">
+                <select
+                  value={newItem.unit}
+                  onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
+                  className="w-full px-2 py-2 border rounded text-sm"
+                >
+                  <option value="SET">SET</option>
+                  <option value="PC">PC</option>
+                  <option value="M3">M³</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newItem.unitPrice || ''}
+                  onChange={(e) => setNewItem({ ...newItem, unitPrice: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-2 py-2 border rounded text-sm"
+                  placeholder={lang === 'th' ? 'ราคา/หน่วย' : 'Unit Price'}
+                />
+              </div>
+              <div className="col-span-2">
+                <button
+                  type="button"
+                  onClick={addItem}
+                  disabled={newItem.qty <= 0}
+                  className="w-full py-2 bg-[#2ECC40] text-white rounded hover:bg-[#2ECC40]/90 disabled:opacity-50 text-sm font-medium"
+                >
+                  + {lang === 'th' ? 'เพิ่ม' : 'Add'}
+                </button>
+              </div>
+            </div>
+
+            {/* Items Table */}
+            {formData.items.length > 0 && (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-3 py-2 text-left">#</th>
+                    <th className="px-3 py-2 text-left">{lang === 'th' ? 'รายละเอียด' : 'Description'}</th>
+                    <th className="px-3 py-2 text-left">{lang === 'th' ? 'ขนาด' : 'Dimensions'}</th>
+                    <th className="px-3 py-2 text-right">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+                    <th className="px-3 py-2 text-right">{lang === 'th' ? 'ราคา' : 'Price'}</th>
+                    <th className="px-3 py-2 text-right">{lang === 'th' ? 'รวม' : 'Total'}</th>
+                    <th className="px-3 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {formData.items.map((item, idx) => (
+                    <tr key={item.id}>
+                      <td className="px-3 py-2">{idx + 1}</td>
+                      <td className="px-3 py-2">{item.description || item.productName}</td>
+                      <td className="px-3 py-2 text-gray-500">{item.dimensions}</td>
+                      <td className="px-3 py-2 text-right">{item.qty} {item.unit}</td>
+                      <td className="px-3 py-2 text-right">฿{item.unitPrice.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right font-medium">฿{item.lineTotal.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">
+                        <button type="button" onClick={() => removeItem(idx)} className="text-red-500 hover:text-red-700">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="border-t-2 bg-gray-50">
+                  <tr>
+                    <td colSpan="5" className="px-3 py-2 text-right font-medium">{lang === 'th' ? 'ยอดรวมก่อน VAT' : 'Subtotal'}:</td>
+                    <td className="px-3 py-2 text-right font-bold">฿{subtotal.toLocaleString()}</td>
+                    <td></td>
+                  </tr>
+                  {vat > 0 && (
+                    <tr>
+                      <td colSpan="5" className="px-3 py-2 text-right font-medium">VAT 7%:</td>
+                      <td className="px-3 py-2 text-right">฿{vat.toLocaleString()}</td>
+                      <td></td>
+                    </tr>
+                  )}
+                  <tr className="text-lg">
+                    <td colSpan="5" className="px-3 py-3 text-right font-bold">{lang === 'th' ? 'ยอดรวมทั้งสิ้น' : 'Grand Total'}:</td>
+                    <td className="px-3 py-3 text-right font-bold text-[#2ECC40]">฿{grandTotal.toLocaleString()}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+
+            {formData.items.length === 0 && (
+              <div className="text-center py-8 text-gray-400">
+                <Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>{lang === 'th' ? 'ยังไม่มีรายการสินค้า' : 'No items added yet'}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Options */}
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.requiresHT}
+                onChange={(e) => setFormData({ ...formData, requiresHT: e.target.checked })}
+                className="w-4 h-4 rounded text-[#1A5276]"
+              />
+              <span className="text-sm">
+                {lang === 'th' ? 'ต้องการใบรับรองอบความร้อน (ISPM15 - TH-0950)' : 'Heat Treatment Certificate Required (ISPM15 - TH-0950)'}
+              </span>
+            </label>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {lang === 'th' ? 'หมายเหตุ' : 'Notes'}
+            </label>
+            <textarea
+              rows={2}
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg"
+              placeholder={lang === 'th' ? 'หมายเหตุเพิ่มเติม...' : 'Additional notes...'}
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+              {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+            </button>
+            <button
+              type="submit"
+              disabled={!formData.customerPO || !formData.customerId || formData.items.length === 0}
+              className="px-6 py-2 bg-gradient-to-r from-[#2ECC40] to-[#1A5276] text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" />
+              {lang === 'th' ? 'บันทึก PO' : 'Save Customer PO'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// Quotation Modal (Spec 25: For new products)
+const QuotationModal = ({ isOpen, onClose, customers, products, onSave, lang }) => {
+  const [formData, setFormData] = useState({
+    customerId: '',
+    validDays: 30,
+    items: [],
+    terms: 'Standard payment terms apply. Prices valid for quoted period only.',
+    discount: 0,
+    discountApproval: '',
+    notes: '',
+  })
+  const [newItem, setNewItem] = useState({ description: '', dimensions: '', qty: 0, unit: 'SET', unitPrice: 0 })
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        customerId: '',
+        validDays: 30,
+        items: [],
+        terms: 'Standard payment terms apply. Prices valid for quoted period only.',
+        discount: 0,
+        discountApproval: '',
+        notes: '',
+      })
+    }
+  }, [isOpen])
+
+  if (!isOpen) return null
+
+  const addItem = () => {
+    if (newItem.qty <= 0 || !newItem.description) return
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, {
+        id: `QI-${Date.now()}`,
+        ...newItem,
+        lineTotal: newItem.qty * newItem.unitPrice,
+      }]
+    }))
+    setNewItem({ description: '', dimensions: '', qty: 0, unit: 'SET', unitPrice: 0 })
+  }
+
+  const subtotal = formData.items.reduce((sum, item) => sum + item.lineTotal, 0)
+  const discountAmount = subtotal * (formData.discount / 100)
+  const afterDiscount = subtotal - discountAmount
+  const selectedCustomer = customers?.find(c => c.id === formData.customerId)
+  const vat = selectedCustomer?.isExport ? 0 : afterDiscount * 0.07
+  const grandTotal = afterDiscount + vat
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    const qtNumber = generateQuotationNumber()
+    const validUntil = new Date()
+    validUntil.setDate(validUntil.getDate() + formData.validDays)
+    
+    onSave({
+      id: qtNumber,
+      quotationNumber: qtNumber,
+      customerId: formData.customerId,
+      customer: selectedCustomer,
+      date: new Date().toISOString(),
+      validUntil: validUntil.toISOString(),
+      items: formData.items,
+      subtotal,
+      discount: formData.discount,
+      discountAmount,
+      vat,
+      grandTotal,
+      terms: formData.terms,
+      notes: formData.notes,
+      discountApproval: formData.discountApproval,
+      status: formData.discount > 0 && !formData.discountApproval ? 'pending_approval' : 'sent',
+      createdAt: new Date().toISOString(),
+    })
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div className="p-4 border-b bg-purple-600 text-white rounded-t-xl sticky top-0 z-10">
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            {lang === 'th' ? 'สร้างใบเสนอราคา' : 'Create Quotation'}
+          </h3>
+          <p className="text-sm opacity-80">{lang === 'th' ? 'สำหรับสินค้าใหม่หรือเปลี่ยนราคา' : 'For new products or price changes'}</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ลูกค้า *' : 'Customer *'}</label>
+              <select
+                required
+                value={formData.customerId}
+                onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="">-- Select --</option>
+                {customers?.filter(c => c.isActive !== false).map(c => (
+                  <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ใช้ได้ถึง' : 'Valid For (Days)'}</label>
+              <select
+                value={formData.validDays}
+                onChange={(e) => setFormData({ ...formData, validDays: parseInt(e.target.value) })}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value={7}>7 Days</option>
+                <option value={14}>14 Days</option>
+                <option value={30}>30 Days</option>
+                <option value={60}>60 Days</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Items */}
+          <div className="border rounded-lg p-4">
+            <h4 className="font-medium mb-3">{lang === 'th' ? 'รายการ' : 'Items'}</h4>
+            <div className="grid grid-cols-6 gap-2 mb-3">
+              <input
+                className="col-span-2 px-2 py-2 border rounded text-sm"
+                placeholder="Description"
+                value={newItem.description}
+                onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+              />
+              <input
+                className="px-2 py-2 border rounded text-sm"
+                placeholder="Dimensions"
+                value={newItem.dimensions}
+                onChange={(e) => setNewItem({ ...newItem, dimensions: e.target.value })}
+              />
+              <input
+                className="px-2 py-2 border rounded text-sm"
+                type="number"
+                placeholder="Qty"
+                value={newItem.qty || ''}
+                onChange={(e) => setNewItem({ ...newItem, qty: parseInt(e.target.value) || 0 })}
+              />
+              <input
+                className="px-2 py-2 border rounded text-sm"
+                type="number"
+                placeholder="Price"
+                value={newItem.unitPrice || ''}
+                onChange={(e) => setNewItem({ ...newItem, unitPrice: parseFloat(e.target.value) || 0 })}
+              />
+              <button type="button" onClick={addItem} className="bg-purple-600 text-white rounded hover:bg-purple-700">+</button>
+            </div>
+            
+            {formData.items.length > 0 && (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-2 py-1 text-left">Description</th>
+                    <th className="px-2 py-1 text-right">Qty</th>
+                    <th className="px-2 py-1 text-right">Price</th>
+                    <th className="px-2 py-1 text-right">Total</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formData.items.map((item, idx) => (
+                    <tr key={item.id}>
+                      <td className="px-2 py-1">{item.description}</td>
+                      <td className="px-2 py-1 text-right">{item.qty}</td>
+                      <td className="px-2 py-1 text-right">฿{item.unitPrice.toLocaleString()}</td>
+                      <td className="px-2 py-1 text-right font-medium">฿{item.lineTotal.toLocaleString()}</td>
+                      <td className="px-2 py-1">
+                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }))} className="text-red-500">×</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Discount */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ส่วนลด %' : 'Discount %'}</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={formData.discount || ''}
+                onChange={(e) => setFormData({ ...formData, discount: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+            {formData.discount > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'อนุมัติโดย (CEO) *' : 'Approved By (CEO) *'}</label>
+                <input
+                  type="text"
+                  value={formData.discountApproval}
+                  onChange={(e) => setFormData({ ...formData, discountApproval: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg border-red-300"
+                  placeholder="CEO approval required for ALL discounts"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Totals */}
+          <div className="bg-gray-50 p-4 rounded-lg text-right space-y-1">
+            <div>Subtotal: ฿{subtotal.toLocaleString()}</div>
+            {discountAmount > 0 && <div className="text-red-600">Discount ({formData.discount}%): -฿{discountAmount.toLocaleString()}</div>}
+            {vat > 0 && <div>VAT 7%: ฿{vat.toLocaleString()}</div>}
+            <div className="text-xl font-bold text-purple-600">Total: ฿{grandTotal.toLocaleString()}</div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+            <button type="submit" className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Create Quotation</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// Create WO from SO Modal
+const CreateWOModal = ({ isOpen, onClose, salesOrder, onCreateWO, lang }) => {
+  const [woData, setWoData] = useState({
+    priority: 'normal',
+    targetDate: '',
+    notes: '',
+  })
+
+  if (!isOpen || !salesOrder) return null
+
+  const woNumber = generateWONumber()
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onCreateWO({
+      id: woNumber,
+      woNumber,
+      soId: salesOrder.id,
+      soNumber: salesOrder.soNumber,
+      customerPO: salesOrder.customerPO,
+      customerId: salesOrder.customerId,
+      customerName: salesOrder.customer?.name,
+      items: salesOrder.items,
+      priority: woData.priority,
+      targetDate: woData.targetDate || salesOrder.deliveryDate,
+      requiresHT: salesOrder.requiresHT,
+      specialLabels: salesOrder.specialLabels,
+      status: 'pending',
+      department: 'C1', // Starts at Cutting
+      currentDept: 'C1',
+      completedQty: 0,
+      quantity: salesOrder.items.reduce((sum, i) => sum + i.qty, 0),
+      materialsIssued: [],
+      operations: [],
+      qcChecklist: [],
+      costs: { material: 0, labor: 0, overhead: 0, total: 0 },
+      createdAt: new Date().toISOString(),
+      notes: woData.notes,
+    })
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+        <div className="p-4 border-b bg-[#1A5276] text-white rounded-t-xl">
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <Factory className="w-5 h-5" />
+            {lang === 'th' ? 'สร้างใบสั่งผลิต' : 'Create Work Order'}
+          </h3>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="p-4 bg-blue-50 rounded-lg text-center">
+            <div className="text-sm text-gray-500">WO Number</div>
+            <div className="text-2xl font-bold text-[#1A5276] font-mono">{woNumber}</div>
+          </div>
+
+          <div className="p-3 bg-gray-50 rounded-lg text-sm space-y-1">
+            <div><span className="text-gray-500">Customer PO:</span> <strong>{salesOrder.customerPO}</strong></div>
+            <div><span className="text-gray-500">Customer:</span> <strong>{salesOrder.customer?.name}</strong></div>
+            <div><span className="text-gray-500">Items:</span> <strong>{salesOrder.items?.length}</strong></div>
+            <div><span className="text-gray-500">Delivery:</span> <strong>{formatDate(salesOrder.deliveryDate)}</strong></div>
+          </div>
+
+          {(salesOrder.requiresHT || salesOrder.specialLabels !== 'none') && (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm">
+              <div className="font-medium text-yellow-800 mb-1">Special Requirements:</div>
+              <ul className="list-disc list-inside text-yellow-700">
+                {salesOrder.requiresHT && <li>Heat Treatment Certificate (TH-0950)</li>}
+                {salesOrder.specialLabels === 'allianz' && <li>Allianz QR Labels</li>}
+                {salesOrder.specialLabels === 'polyplex' && <li>Polyplex Color-Coded Labels</li>}
+              </ul>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+            <select
+              value={woData.priority}
+              onChange={(e) => setWoData({ ...woData, priority: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg"
+            >
+              <option value="low">Low</option>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Target Date</label>
+            <input
+              type="date"
+              value={woData.targetDate || salesOrder.deliveryDate}
+              onChange={(e) => setWoData({ ...woData, targetDate: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+            <button type="submit" className="px-6 py-2 bg-[#1A5276] text-white rounded-lg hover:bg-[#1A5276]/90">
+              Create WO
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// Invoice Modal
+const CreateInvoiceModal = ({ isOpen, onClose, salesOrder, onCreateInvoice, lang }) => {
+  const [invoiceData, setInvoiceData] = useState({
+    invoiceDate: new Date().toISOString().split('T')[0],
+    dueDate: '',
+    isExport: false,
+  })
+
+  useEffect(() => {
+    if (salesOrder) {
+      const due = new Date()
+      due.setDate(due.getDate() + parseInt(salesOrder.paymentTerms || 30))
+      setInvoiceData(prev => ({
+        ...prev,
+        dueDate: due.toISOString().split('T')[0],
+        isExport: salesOrder.customer?.isExport || false,
+      }))
+    }
+  }, [salesOrder])
+
+  if (!isOpen || !salesOrder) return null
+
+  const invoiceNumber = generateInvoiceNumber()
+  const subtotal = salesOrder.subtotal || salesOrder.items?.reduce((sum, i) => sum + i.lineTotal, 0) || 0
+  const vat = invoiceData.isExport ? 0 : subtotal * 0.07
+  const grandTotal = subtotal + vat
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onCreateInvoice({
+      id: invoiceNumber,
+      invoiceNumber,
+      soId: salesOrder.id,
+      customerPO: salesOrder.customerPO,
+      customerId: salesOrder.customerId,
+      invoiceDate: invoiceData.invoiceDate,
+      dueDate: invoiceData.dueDate,
+      isExport: invoiceData.isExport,
+      items: salesOrder.items,
+      subtotal,
+      vat,
+      grandTotal,
+      paidAmount: 0,
+      balance: grandTotal,
+      status: 'unpaid',
+      payments: [],
+      createdAt: new Date().toISOString(),
+    })
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+        <div className="p-4 border-b bg-green-600 text-white rounded-t-xl">
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <Receipt className="w-5 h-5" />
+            {lang === 'th' ? 'สร้างใบแจ้งหนี้' : 'Create Invoice'}
+          </h3>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="p-4 bg-green-50 rounded-lg text-center">
+            <div className="text-sm text-gray-500">Invoice Number</div>
+            <div className="text-2xl font-bold text-green-600 font-mono">{invoiceNumber}</div>
+          </div>
+
+          <div className="p-3 bg-gray-50 rounded-lg text-sm">
+            <div><span className="text-gray-500">SO:</span> <strong>{salesOrder.soNumber}</strong></div>
+            <div><span className="text-gray-500">Customer PO:</span> <strong>{salesOrder.customerPO}</strong></div>
+            <div><span className="text-gray-500">Customer:</span> <strong>{salesOrder.customer?.name}</strong></div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Date</label>
+              <input
+                type="date"
+                value={invoiceData.invoiceDate}
+                onChange={(e) => setInvoiceData({ ...invoiceData, invoiceDate: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+              <input
+                type="date"
+                value={invoiceData.dueDate}
+                onChange={(e) => setInvoiceData({ ...invoiceData, dueDate: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={invoiceData.isExport}
+              onChange={(e) => setInvoiceData({ ...invoiceData, isExport: e.target.checked })}
+              className="w-4 h-4 rounded"
+            />
+            <span className="text-sm">Export Invoice (No VAT)</span>
+          </label>
+
+          <div className="bg-gray-50 p-4 rounded-lg text-right space-y-1">
+            <div>Subtotal: ฿{subtotal.toLocaleString()}</div>
+            {!invoiceData.isExport && <div>VAT 7%: ฿{vat.toLocaleString()}</div>}
+            <div className="text-xl font-bold text-green-600">Total: ฿{grandTotal.toLocaleString()}</div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+            <button type="submit" className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Create Invoice</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// Record Payment Modal
+const RecordPaymentModal = ({ isOpen, onClose, invoice, onRecordPayment, lang }) => {
+  const [payment, setPayment] = useState({
+    amount: 0,
+    method: 'transfer',
+    reference: '',
+    date: new Date().toISOString().split('T')[0],
+    notes: '',
+  })
+
+  useEffect(() => {
+    if (invoice) {
+      setPayment(prev => ({ ...prev, amount: invoice.balance || 0 }))
+    }
+  }, [invoice])
+
+  if (!isOpen || !invoice) return null
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onRecordPayment({
+      invoiceId: invoice.id,
+      payment: {
+        id: `PAY-${Date.now()}`,
+        ...payment,
+        recordedAt: new Date().toISOString(),
+      }
+    })
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+        <div className="p-4 border-b bg-blue-600 text-white rounded-t-xl">
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <CreditCard className="w-5 h-5" />
+            {lang === 'th' ? 'บันทึกการชำระเงิน' : 'Record Payment'}
+          </h3>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="p-3 bg-gray-50 rounded-lg text-sm">
+            <div><span className="text-gray-500">Invoice:</span> <strong>{invoice.invoiceNumber || invoice.id}</strong></div>
+            <div><span className="text-gray-500">Total:</span> <strong>฿{invoice.grandTotal?.toLocaleString()}</strong></div>
+            <div><span className="text-gray-500">Paid:</span> <strong className="text-green-600">฿{invoice.paidAmount?.toLocaleString()}</strong></div>
+            <div><span className="text-gray-500">Balance:</span> <strong className="text-red-600">฿{invoice.balance?.toLocaleString()}</strong></div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
+            <input
+              type="number"
+              required
+              min="0.01"
+              max={invoice.balance}
+              step="0.01"
+              value={payment.amount || ''}
+              onChange={(e) => setPayment({ ...payment, amount: parseFloat(e.target.value) || 0 })}
+              className="w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Method</label>
+            <select
+              value={payment.method}
+              onChange={(e) => setPayment({ ...payment, method: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg"
+            >
+              <option value="transfer">Bank Transfer</option>
+              <option value="cheque">Cheque</option>
+              <option value="cash">Cash</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Reference</label>
+            <input
+              type="text"
+              value={payment.reference}
+              onChange={(e) => setPayment({ ...payment, reference: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg"
+              placeholder="Cheque #, Transfer Ref, etc."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+            <input
+              type="date"
+              value={payment.date}
+              onChange={(e) => setPayment({ ...payment, date: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+            <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Record Payment</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// Main Sales Module
+const SalesModule = ({ 
+  salesOrders, setSalesOrders, 
+  invoices, setInvoices, 
+  customers, 
+  workOrders, setWorkOrders,
+  products,
+  quotations = [], setQuotations,
+  dispatchOrders = [], setDispatchOrders,
+  rejections = [], setRejections,
+  lang 
+}) => {
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [showPOModal, setShowPOModal] = useState(false)
+  const [showQuotationModal, setShowQuotationModal] = useState(false)
+  const [showWOModal, setShowWOModal] = useState(false)
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedSO, setSelectedSO] = useState(null)
+  const [selectedInvoice, setSelectedInvoice] = useState(null)
+  const [filterCustomer, setFilterCustomer] = useState('all')
+  const [filterMonth, setFilterMonth] = useState('all')
+  const [viewMode, setViewMode] = useState('list') // list, monthly, customer
 
   const tabs = [
     { id: 'dashboard', label: lang === 'th' ? 'ภาพรวม' : 'Dashboard', icon: BarChart3 },
-    { id: 'orders', label: lang === 'th' ? 'ใบสั่งขาย' : 'Sales Orders', icon: ClipboardList },
+    { id: 'orders', label: lang === 'th' ? 'PO ลูกค้า' : 'Customer POs', icon: FileText },
+    { id: 'quotations', label: lang === 'th' ? 'ใบเสนอราคา' : 'Quotations', icon: FileText },
     { id: 'invoices', label: lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices', icon: Receipt },
     { id: 'payments', label: lang === 'th' ? 'การชำระ' : 'Payments', icon: CreditCard },
+    { id: 'reports', label: lang === 'th' ? 'รายงาน' : 'Reports', icon: BarChart3 },
   ]
+
+  // Calculate stats
+  const currentMonth = new Date().getMonth()
+  const currentYear = new Date().getFullYear()
+  
+  const thisMonthOrders = salesOrders.filter(so => {
+    const d = new Date(so.orderDate || so.createdAt)
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear
+  })
 
   const stats = {
     totalOrders: salesOrders.length,
-    pendingOrders: salesOrders.filter(so => so.status === 'confirmed').length,
+    thisMonthOrders: thisMonthOrders.length,
+    thisMonthValue: thisMonthOrders.reduce((sum, so) => sum + (so.grandTotal || 0), 0),
+    pendingWO: salesOrders.filter(so => so.status === 'confirmed' && !so.woId).length,
+    inProduction: salesOrders.filter(so => so.status === 'in_production').length,
+    readyToShip: salesOrders.filter(so => so.status === 'ready').length,
     totalInvoices: invoices.length,
     unpaidInvoices: invoices.filter(inv => inv.balance > 0).length,
     totalRevenue: invoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0),
     totalReceived: invoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0),
+    overdueInvoices: invoices.filter(inv => inv.balance > 0 && new Date(inv.dueDate) < new Date()).length,
   }
+
+  // Monthly Sales Data
+  const getMonthlyData = () => {
+    const months = []
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date()
+      d.setMonth(d.getMonth() - i)
+      const month = d.getMonth()
+      const year = d.getFullYear()
+      const monthOrders = salesOrders.filter(so => {
+        const od = new Date(so.orderDate || so.createdAt)
+        return od.getMonth() === month && od.getFullYear() === year
+      })
+      const monthInvoices = invoices.filter(inv => {
+        const id = new Date(inv.invoiceDate || inv.createdAt)
+        return id.getMonth() === month && id.getFullYear() === year
+      })
+      months.push({
+        label: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+        month,
+        year,
+        orders: monthOrders.length,
+        orderValue: monthOrders.reduce((sum, so) => sum + (so.grandTotal || 0), 0),
+        invoices: monthInvoices.length,
+        invoiceValue: monthInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0),
+        received: monthInvoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0),
+      })
+    }
+    return months
+  }
+
+  // Customer-wise Sales Data
+  const getCustomerData = () => {
+    const customerMap = {}
+    salesOrders.forEach(so => {
+      const custId = so.customerId
+      if (!customerMap[custId]) {
+        const cust = customers.find(c => c.id === custId)
+        customerMap[custId] = {
+          customerId: custId,
+          customerCode: cust?.code || custId,
+          customerName: cust?.name || custId,
+          orderCount: 0,
+          orderValue: 0,
+          invoiceCount: 0,
+          invoiceValue: 0,
+          paidAmount: 0,
+          balance: 0,
+        }
+      }
+      customerMap[custId].orderCount++
+      customerMap[custId].orderValue += so.grandTotal || 0
+    })
+    invoices.forEach(inv => {
+      const custId = inv.customerId
+      if (customerMap[custId]) {
+        customerMap[custId].invoiceCount++
+        customerMap[custId].invoiceValue += inv.grandTotal || 0
+        customerMap[custId].paidAmount += inv.paidAmount || 0
+        customerMap[custId].balance += inv.balance || 0
+      }
+    })
+    return Object.values(customerMap).sort((a, b) => b.orderValue - a.orderValue)
+  }
+
+  // Open PO/PR (Orders without WO)
+  const openOrders = salesOrders.filter(so => so.status === 'confirmed' && !so.woId)
+
+  // Handlers
+  const handleSavePO = (poData) => {
+    setSalesOrders([...salesOrders, poData])
+  }
+
+  const handleSaveQuotation = (qtData) => {
+    if (setQuotations) setQuotations(prev => [...(prev || []), qtData])
+  }
+
+  const handleCreateWO = (woData) => {
+    if (setWorkOrders) {
+      setWorkOrders(prev => [...prev, woData])
+    }
+    // Update SO with WO reference
+    setSalesOrders(salesOrders.map(so => 
+      so.id === selectedSO.id ? { ...so, woId: woData.id, status: 'in_production' } : so
+    ))
+    setSelectedSO(null)
+  }
+
+  const handleCreateInvoice = (invData) => {
+    setInvoices([...invoices, invData])
+    // Update SO status
+    setSalesOrders(salesOrders.map(so => 
+      so.id === selectedSO.id ? { ...so, invoiceId: invData.id } : so
+    ))
+    setSelectedSO(null)
+  }
+
+  const handleRecordPayment = ({ invoiceId, payment }) => {
+    setInvoices(invoices.map(inv => {
+      if (inv.id !== invoiceId) return inv
+      const newPaidAmount = (inv.paidAmount || 0) + payment.amount
+      const newBalance = inv.grandTotal - newPaidAmount
+      return {
+        ...inv,
+        paidAmount: newPaidAmount,
+        balance: newBalance,
+        status: newBalance <= 0 ? 'paid' : newPaidAmount > 0 ? 'partial' : 'unpaid',
+        payments: [...(inv.payments || []), payment],
+      }
+    }))
+    setSelectedInvoice(null)
+  }
+
+  const monthlyData = getMonthlyData()
+  const customerData = getCustomerData()
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{t('nav.sales', lang)}</h1>
-          <p className="text-gray-500">{lang === 'th' ? 'จัดการการขายและใบแจ้งหนี้' : 'Manage sales and invoices'}</p>
+          <p className="text-gray-500">{lang === 'th' ? 'จัดการการขาย PO ลูกค้า ใบแจ้งหนี้ และการชำระเงิน' : 'Manage Customer POs, Invoices & Payments'}</p>
         </div>
-        <Button icon={Plus}>
-          {lang === 'th' ? 'สร้างใบสั่งขาย' : 'New Sales Order'}
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" icon={FileText} onClick={() => setShowQuotationModal(true)}>
+            {lang === 'th' ? 'ใบเสนอราคา' : 'Quotation'}
+          </Button>
+          <Button icon={Plus} onClick={() => setShowPOModal(true)}>
+            {lang === 'th' ? 'รับ PO ลูกค้า' : 'Enter Customer PO'}
+          </Button>
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <Card className="p-4">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบสั่งขาย' : 'Orders'}</div>
-          <div className="text-2xl font-bold text-gray-800">{stats.totalOrders}</div>
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        <Card className="p-3 border-l-4 border-l-blue-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'PO ทั้งหมด' : 'Total POs'}</div>
+          <div className="text-xl font-bold text-blue-600">{stats.totalOrders}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-yellow-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'รอผลิต' : 'Pending'}</div>
-          <div className="text-2xl font-bold text-yellow-600">{stats.pendingOrders}</div>
+        <Card className="p-3 border-l-4 border-l-green-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'เดือนนี้' : 'This Month'}</div>
+          <div className="text-xl font-bold text-green-600">{stats.thisMonthOrders}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-blue-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices'}</div>
-          <div className="text-2xl font-bold text-blue-600">{stats.totalInvoices}</div>
+        <Card className="p-3 border-l-4 border-l-yellow-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'รอสร้าง WO' : 'Pending WO'}</div>
+          <div className="text-xl font-bold text-yellow-600">{stats.pendingWO}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-red-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'ยังไม่ชำระ' : 'Unpaid'}</div>
-          <div className="text-2xl font-bold text-red-600">{stats.unpaidInvoices}</div>
+        <Card className="p-3 border-l-4 border-l-purple-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'กำลังผลิต' : 'In Production'}</div>
+          <div className="text-xl font-bold text-purple-600">{stats.inProduction}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-purple-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'รายได้รวม' : 'Revenue'}</div>
-          <div className="text-2xl font-bold text-purple-600">{formatCurrency(stats.totalRevenue)}</div>
+        <Card className="p-3 border-l-4 border-l-cyan-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'พร้อมส่ง' : 'Ready to Ship'}</div>
+          <div className="text-xl font-bold text-cyan-600">{stats.readyToShip}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-green-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'รับแล้ว' : 'Received'}</div>
-          <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.totalReceived)}</div>
+        <Card className="p-3 border-l-4 border-l-emerald-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'รายได้' : 'Revenue'}</div>
+          <div className="text-lg font-bold text-emerald-600">฿{(stats.totalRevenue / 1000).toFixed(0)}K</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-red-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'ค้างชำระ' : 'Outstanding'}</div>
+          <div className="text-lg font-bold text-red-600">฿{((stats.totalRevenue - stats.totalReceived) / 1000).toFixed(0)}K</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-orange-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'เกินกำหนด' : 'Overdue'}</div>
+          <div className="text-xl font-bold text-orange-600">{stats.overdueInvoices}</div>
         </Card>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b">
+      <div className="flex gap-1 border-b overflow-x-auto">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap ${
               activeTab === tab.id 
-                ? 'border-[#1A5276] text-[#1A5276]' 
+                ? 'border-[#1A5276] text-[#1A5276] bg-blue-50' 
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -7051,84 +8280,318 @@ const SalesModule = ({ salesOrders, setSalesOrders, invoices, setInvoices, custo
         ))}
       </div>
 
-      {/* Sales Orders */}
+      {/* Dashboard Tab */}
+      {activeTab === 'dashboard' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Open POs (Pending WO) */}
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+              {lang === 'th' ? 'PO รอสร้าง WO' : 'Open POs (Pending WO)'}
+            </h3>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {openOrders.length === 0 ? (
+                <p className="text-gray-400 text-center py-4">{lang === 'th' ? 'ไม่มี PO รอดำเนินการ' : 'No pending POs'}</p>
+              ) : (
+                openOrders.slice(0, 10).map(so => {
+                  const customer = customers.find(c => c.id === so.customerId)
+                  return (
+                    <div key={so.id} className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-mono text-sm font-medium">{so.customerPO}</div>
+                          <div className="text-xs text-gray-500">{customer?.name}</div>
+                        </div>
+                        <button
+                          onClick={() => { setSelectedSO(so); setShowWOModal(true) }}
+                          className="px-2 py-1 text-xs bg-[#1A5276] text-white rounded hover:bg-[#1A5276]/90"
+                        >
+                          Create WO
+                        </button>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">Delivery: {formatDate(so.deliveryDate)}</div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </Card>
+
+          {/* Monthly Sales Chart */}
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ยอดขายรายเดือน' : 'Monthly Sales'}</h3>
+            <div className="space-y-2">
+              {monthlyData.slice(-6).map((m, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <div className="w-16 text-xs text-gray-500">{m.label}</div>
+                  <div className="flex-1 h-6 bg-gray-100 rounded overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-[#2ECC40] to-[#1A5276]"
+                      style={{ width: `${Math.min(100, (m.orderValue / Math.max(...monthlyData.map(x => x.orderValue)) * 100) || 0)}%` }}
+                    />
+                  </div>
+                  <div className="w-20 text-xs text-right font-medium">฿{(m.orderValue / 1000).toFixed(0)}K</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Top Customers */}
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ลูกค้าหลัก' : 'Top Customers'}</h3>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {customerData.slice(0, 8).map((cust, idx) => (
+                <div key={cust.customerId} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                      idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-amber-600' : 'bg-gray-300'
+                    }`}>
+                      {idx + 1}
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium">{cust.customerCode}</div>
+                      <div className="text-xs text-gray-400">{cust.orderCount} orders</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-bold">฿{(cust.orderValue / 1000).toFixed(0)}K</div>
+                    {cust.balance > 0 && <div className="text-xs text-red-500">Due: ฿{(cust.balance / 1000).toFixed(0)}K</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Customer POs Tab */}
       {activeTab === 'orders' && (
+        <div className="space-y-4">
+          {/* Filters */}
+          <div className="flex gap-3 flex-wrap">
+            <select
+              value={filterCustomer}
+              onChange={(e) => setFilterCustomer(e.target.value)}
+              className="px-3 py-2 border rounded-lg text-sm"
+            >
+              <option value="all">{lang === 'th' ? 'ลูกค้าทั้งหมด' : 'All Customers'}</option>
+              {customers.filter(c => c.isActive !== false).map(c => (
+                <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
+              ))}
+            </select>
+            <select
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              className="px-3 py-2 border rounded-lg text-sm"
+            >
+              <option value="all">{lang === 'th' ? 'ทุกเดือน' : 'All Months'}</option>
+              {monthlyData.slice(-6).reverse().map((m, idx) => (
+                <option key={idx} value={`${m.year}-${m.month}`}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Customer PO</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'กำหนดส่ง' : 'Delivery'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">WO</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {salesOrders
+                    .filter(so => filterCustomer === 'all' || so.customerId === filterCustomer)
+                    .filter(so => {
+                      if (filterMonth === 'all') return true
+                      const [year, month] = filterMonth.split('-')
+                      const d = new Date(so.orderDate || so.createdAt)
+                      return d.getFullYear() === parseInt(year) && d.getMonth() === parseInt(month)
+                    })
+                    .map(so => {
+                      const customer = customers.find(c => c.id === so.customerId)
+                      const wo = workOrders?.find(w => w.soId === so.id || w.id === so.woId)
+                      const isOverdue = new Date(so.deliveryDate) < new Date() && so.status !== 'delivered'
+                      return (
+                        <tr key={so.id} className={`hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''}`}>
+                          <td className="px-4 py-3">
+                            <div className="font-mono text-[#1A5276] font-medium">{so.customerPO}</div>
+                            <div className="text-xs text-gray-400">{so.soNumber || so.id}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-medium">{customer?.name}</div>
+                            <div className="text-xs text-gray-400">{customer?.code}</div>
+                          </td>
+                          <td className="px-4 py-3 text-sm">{formatDate(so.poDate || so.orderDate)}</td>
+                          <td className="px-4 py-3 text-sm">
+                            <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
+                              {formatDate(so.deliveryDate)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium">฿{(so.grandTotal || 0).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-center">
+                            {wo ? (
+                              <span className="font-mono text-xs text-[#1A5276]">{wo.woNumber || wo.id}</span>
+                            ) : (
+                              <button
+                                onClick={() => { setSelectedSO(so); setShowWOModal(true) }}
+                                className="px-2 py-1 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                              >
+                                + WO
+                              </button>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Badge variant={
+                              so.status === 'delivered' ? 'success' :
+                              so.status === 'ready' ? 'info' :
+                              so.status === 'in_production' ? 'warning' :
+                              'default'
+                            }>
+                              {so.status}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex justify-center gap-1">
+                              {!so.invoiceId && wo && (
+                                <button
+                                  onClick={() => { setSelectedSO(so); setShowInvoiceModal(true) }}
+                                  className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                  title="Create Invoice"
+                                >
+                                  <Receipt className="w-4 h-4" />
+                                </button>
+                              )}
+                              <button className="p-1 text-gray-400 hover:bg-gray-100 rounded" title="View">
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Quotations Tab */}
+      {activeTab === 'quotations' && (
         <Card className="overflow-hidden">
+          <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+            <h3 className="font-bold">{lang === 'th' ? 'ใบเสนอราคา' : 'Quotations'}</h3>
+            <Button size="sm" onClick={() => setShowQuotationModal(true)}>+ New</Button>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'SO #'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'PO ลูกค้า' : 'Customer PO'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">QT #</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Customer</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Date</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Valid Until</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Value</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {salesOrders.map(so => {
-                  const customer = customers.find(c => c.id === so.customerId)
-                  return (
-                    <tr key={so.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-mono text-[#1A5276]">{so.id}</td>
-                      <td className="px-4 py-3">{customer?.name}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{so.customerPO}</td>
-                      <td className="px-4 py-3">{formatDate(so.orderDate)}</td>
-                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(so.grandTotal)}</td>
-                      <td className="px-4 py-3 text-center">
-                        <Badge variant={
-                          so.status === 'delivered' ? 'success' :
-                          so.status === 'in_production' ? 'info' :
-                          'warning'
-                        }>
-                          {so.status}
-                        </Badge>
-                      </td>
-                    </tr>
-                  )
-                })}
+                {(quotations || []).length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-4 py-8 text-center text-gray-400">
+                      {lang === 'th' ? 'ยังไม่มีใบเสนอราคา' : 'No quotations yet'}
+                    </td>
+                  </tr>
+                ) : (
+                  quotations.map(qt => {
+                    const customer = customers.find(c => c.id === qt.customerId)
+                    return (
+                      <tr key={qt.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-mono text-purple-600">{qt.quotationNumber || qt.id}</td>
+                        <td className="px-4 py-3">{customer?.name}</td>
+                        <td className="px-4 py-3 text-sm">{formatDate(qt.date)}</td>
+                        <td className="px-4 py-3 text-sm">{formatDate(qt.validUntil)}</td>
+                        <td className="px-4 py-3 text-right font-medium">฿{(qt.grandTotal || 0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-center">
+                          <Badge variant={qt.status === 'accepted' ? 'success' : qt.status === 'expired' ? 'danger' : 'warning'}>
+                            {qt.status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
               </tbody>
             </table>
           </div>
         </Card>
       )}
 
-      {/* Invoices */}
+      {/* Invoices Tab */}
       {activeTab === 'invoices' && (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'Invoice #'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Total'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ชำระแล้ว' : 'Paid'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Balance'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Invoice #</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Customer</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Date</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Due</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Total</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Paid</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Balance</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Status</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {invoices.map(inv => {
                   const customer = customers.find(c => c.id === inv.customerId)
+                  const isOverdue = inv.balance > 0 && new Date(inv.dueDate) < new Date()
                   return (
-                    <tr key={inv.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-mono text-[#1A5276]">{inv.id}</td>
+                    <tr key={inv.id} className={`hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''}`}>
+                      <td className="px-4 py-3">
+                        <div className="font-mono text-green-600 font-medium">{inv.invoiceNumber || inv.id}</div>
+                        {inv.isExport && <span className="text-xs bg-blue-100 text-blue-600 px-1 rounded">Export</span>}
+                      </td>
                       <td className="px-4 py-3">{customer?.name}</td>
-                      <td className="px-4 py-3">{formatDate(inv.invoiceDate)}</td>
-                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(inv.grandTotal)}</td>
-                      <td className="px-4 py-3 text-right text-green-600">{formatCurrency(inv.paidAmount)}</td>
-                      <td className="px-4 py-3 text-right text-red-600">{formatCurrency(inv.balance)}</td>
+                      <td className="px-4 py-3 text-sm">{formatDate(inv.invoiceDate)}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
+                          {formatDate(inv.dueDate)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium">฿{(inv.grandTotal || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-green-600">฿{(inv.paidAmount || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-red-600 font-medium">฿{(inv.balance || 0).toLocaleString()}</td>
                       <td className="px-4 py-3 text-center">
                         <Badge variant={
                           inv.status === 'paid' ? 'success' :
+                          isOverdue ? 'danger' :
                           inv.status === 'partial' ? 'warning' :
                           'info'
                         }>
-                          {inv.status}
+                          {isOverdue ? 'OVERDUE' : inv.status}
                         </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {inv.balance > 0 && (
+                          <button
+                            onClick={() => { setSelectedInvoice(inv); setShowPaymentModal(true) }}
+                            className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                          >
+                            + Payment
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )
@@ -7139,52 +8602,183 @@ const SalesModule = ({ salesOrders, setSalesOrders, invoices, setInvoices, custo
         </Card>
       )}
 
-      {/* Dashboard / Payments placeholder */}
-      {(activeTab === 'dashboard' || activeTab === 'payments') && (
+      {/* Payments Tab */}
+      {activeTab === 'payments' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ใบแจ้งหนี้ล่าสุด' : 'Recent Invoices'}</h3>
-            <div className="space-y-3">
-              {invoices.slice(0, 5).map(inv => {
-                const customer = customers.find(c => c.id === inv.customerId)
-                return (
-                  <div key={inv.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <div className="font-mono text-[#1A5276] font-medium">{inv.id}</div>
-                      <div className="text-sm text-gray-500">{customer?.name}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-medium">{formatCurrency(inv.grandTotal)}</div>
-                      <Badge variant={inv.balance > 0 ? 'warning' : 'success'}>
-                        {inv.balance > 0 ? (lang === 'th' ? 'ค้างชำระ' : 'Outstanding') : (lang === 'th' ? 'ชำระแล้ว' : 'Paid')}
-                      </Badge>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </Card>
-          <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'สรุปรายได้' : 'Revenue Summary'}</h3>
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'สรุปการชำระ' : 'Payment Summary'}</h3>
             <div className="space-y-4">
               <div className="p-4 bg-green-50 rounded-lg">
                 <div className="text-sm text-green-600">{lang === 'th' ? 'รายได้รวม' : 'Total Revenue'}</div>
-                <div className="text-3xl font-bold text-green-700">{formatCurrency(stats.totalRevenue)}</div>
+                <div className="text-3xl font-bold text-green-700">฿{stats.totalRevenue.toLocaleString()}</div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-blue-50 rounded-lg">
                   <div className="text-sm text-blue-600">{lang === 'th' ? 'ได้รับแล้ว' : 'Received'}</div>
-                  <div className="text-xl font-bold text-blue-700">{formatCurrency(stats.totalReceived)}</div>
+                  <div className="text-xl font-bold text-blue-700">฿{stats.totalReceived.toLocaleString()}</div>
                 </div>
                 <div className="p-4 bg-red-50 rounded-lg">
                   <div className="text-sm text-red-600">{lang === 'th' ? 'ค้างชำระ' : 'Outstanding'}</div>
-                  <div className="text-xl font-bold text-red-700">{formatCurrency(stats.totalRevenue - stats.totalReceived)}</div>
+                  <div className="text-xl font-bold text-red-700">฿{(stats.totalRevenue - stats.totalReceived).toLocaleString()}</div>
                 </div>
               </div>
             </div>
           </Card>
+
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ใบแจ้งหนี้เกินกำหนด' : 'Overdue Invoices'}</h3>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {invoices.filter(inv => inv.balance > 0 && new Date(inv.dueDate) < new Date()).length === 0 ? (
+                <p className="text-gray-400 text-center py-4">{lang === 'th' ? 'ไม่มีใบแจ้งหนี้เกินกำหนด' : 'No overdue invoices'}</p>
+              ) : (
+                invoices
+                  .filter(inv => inv.balance > 0 && new Date(inv.dueDate) < new Date())
+                  .map(inv => {
+                    const customer = customers.find(c => c.id === inv.customerId)
+                    const daysOverdue = Math.floor((new Date() - new Date(inv.dueDate)) / (1000 * 60 * 60 * 24))
+                    return (
+                      <div key={inv.id} className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex justify-between">
+                          <div>
+                            <div className="font-mono text-sm font-medium">{inv.invoiceNumber || inv.id}</div>
+                            <div className="text-xs text-gray-500">{customer?.name}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold text-red-600">฿{inv.balance.toLocaleString()}</div>
+                            <div className="text-xs text-red-500">{daysOverdue} days overdue</div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+              )}
+            </div>
+          </Card>
         </div>
       )}
+
+      {/* Reports Tab */}
+      {activeTab === 'reports' && (
+        <div className="space-y-6">
+          {/* Monthly Sales Report */}
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'รายงานยอดขายรายเดือน' : 'Monthly Sales Report'}</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Month</th>
+                    <th className="px-4 py-2 text-right">Orders</th>
+                    <th className="px-4 py-2 text-right">Order Value</th>
+                    <th className="px-4 py-2 text-right">Invoices</th>
+                    <th className="px-4 py-2 text-right">Invoice Value</th>
+                    <th className="px-4 py-2 text-right">Received</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {monthlyData.slice(-12).reverse().map((m, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 font-medium">{m.label}</td>
+                      <td className="px-4 py-2 text-right">{m.orders}</td>
+                      <td className="px-4 py-2 text-right">฿{m.orderValue.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right">{m.invoices}</td>
+                      <td className="px-4 py-2 text-right">฿{m.invoiceValue.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-green-600">฿{m.received.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-100 font-bold">
+                  <tr>
+                    <td className="px-4 py-2">Total</td>
+                    <td className="px-4 py-2 text-right">{monthlyData.reduce((sum, m) => sum + m.orders, 0)}</td>
+                    <td className="px-4 py-2 text-right">฿{monthlyData.reduce((sum, m) => sum + m.orderValue, 0).toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right">{monthlyData.reduce((sum, m) => sum + m.invoices, 0)}</td>
+                    <td className="px-4 py-2 text-right">฿{monthlyData.reduce((sum, m) => sum + m.invoiceValue, 0).toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right text-green-600">฿{monthlyData.reduce((sum, m) => sum + m.received, 0).toLocaleString()}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </Card>
+
+          {/* Customer-wise Sales Report */}
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'รายงานยอดขายตามลูกค้า' : 'Customer-wise Sales Report'}</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Customer</th>
+                    <th className="px-4 py-2 text-right">Orders</th>
+                    <th className="px-4 py-2 text-right">Order Value</th>
+                    <th className="px-4 py-2 text-right">Invoices</th>
+                    <th className="px-4 py-2 text-right">Paid</th>
+                    <th className="px-4 py-2 text-right">Balance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {customerData.map((cust, idx) => (
+                    <tr key={cust.customerId} className="hover:bg-gray-50">
+                      <td className="px-4 py-2">
+                        <div className="font-medium">{cust.customerCode}</div>
+                        <div className="text-xs text-gray-400">{cust.customerName}</div>
+                      </td>
+                      <td className="px-4 py-2 text-right">{cust.orderCount}</td>
+                      <td className="px-4 py-2 text-right">฿{cust.orderValue.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right">{cust.invoiceCount}</td>
+                      <td className="px-4 py-2 text-right text-green-600">฿{cust.paidAmount.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-red-600">฿{cust.balance.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Modals */}
+      <CustomerPOEntryModal
+        isOpen={showPOModal}
+        onClose={() => setShowPOModal(false)}
+        customers={customers}
+        products={products}
+        onSave={handleSavePO}
+        lang={lang}
+      />
+
+      <QuotationModal
+        isOpen={showQuotationModal}
+        onClose={() => setShowQuotationModal(false)}
+        customers={customers}
+        products={products}
+        onSave={handleSaveQuotation}
+        lang={lang}
+      />
+
+      <CreateWOModal
+        isOpen={showWOModal}
+        onClose={() => { setShowWOModal(false); setSelectedSO(null) }}
+        salesOrder={selectedSO}
+        onCreateWO={handleCreateWO}
+        lang={lang}
+      />
+
+      <CreateInvoiceModal
+        isOpen={showInvoiceModal}
+        onClose={() => { setShowInvoiceModal(false); setSelectedSO(null) }}
+        salesOrder={selectedSO}
+        onCreateInvoice={handleCreateInvoice}
+        lang={lang}
+      />
+
+      <RecordPaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => { setShowPaymentModal(false); setSelectedInvoice(null) }}
+        invoice={selectedInvoice}
+        onRecordPayment={handleRecordPayment}
+        lang={lang}
+      />
     </div>
   )
 }
@@ -7966,6 +9560,7 @@ function AppBasic() {
   const [scheduledDeliveries, setScheduledDeliveries] = useState(INITIAL_SCHEDULED_DELIVERIES)
   const [maintenanceTasks, setMaintenanceTasks] = useState(INITIAL_MAINTENANCE_TASKS)
 
+  const [quotations, setQuotations] = useState([]) // Sales quotations
   // UI State
   const [activeModule, setActiveModule] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -8165,14 +9760,17 @@ function AppBasic() {
                 />
               )}
               {activeModule === 'sales' && (
-                <SalesModuleFull
+                <SalesModule
                   salesOrders={salesOrders}
                   setSalesOrders={setSalesOrders}
                   invoices={invoices}
                   setInvoices={setInvoices}
                   customers={customers}
                   workOrders={workOrders}
+                  setWorkOrders={setWorkOrders}
                   products={products}
+                  quotations={quotations}
+                  setQuotations={setQuotations}
                   lang={lang}
                 />
               )}
@@ -10333,6 +11931,7 @@ const AppFull = () => {
   const [scheduledDeliveries, setScheduledDeliveries] = useState(INITIAL_SCHEDULED_DELIVERIES)
   const [maintenanceTasks, setMaintenanceTasks] = useState(INITIAL_MAINTENANCE_TASKS)
 
+  const [quotations, setQuotations] = useState([]) // Sales quotations
   // UI State
   const [activeModule, setActiveModule] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -10530,14 +12129,17 @@ const AppFull = () => {
                 />
               )}
               {activeModule === 'sales' && (
-                <SalesModuleFull
+                <SalesModule
                   salesOrders={salesOrders}
                   setSalesOrders={setSalesOrders}
                   invoices={invoices}
                   setInvoices={setInvoices}
                   customers={customers}
                   workOrders={workOrders}
+                  setWorkOrders={setWorkOrders}
                   products={products}
+                  quotations={quotations}
+                  setQuotations={setQuotations}
                   lang={lang}
                 />
               )}
