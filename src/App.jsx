@@ -19,7 +19,7 @@ import {
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '7.3'
+const VERSION = '7.4'
 const VERSION_DATE = '2026-01-31'
 
 // ============================================
@@ -5332,75 +5332,197 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
   )
 }
 // ============================================
-// PRODUCTION MODULE (With Costing Analysis)
+// PRODUCTION MODULE - ENHANCED v7.3
+// Full WO Flow: C1/C2 → P1/P2/P3 → ASM1/ASM2 → OVN → QC → FG
 // ============================================
-const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, inventory, setInventory, categories, stores, lang }) => {
+const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, inventory, setInventory, categories, stores, salesOrders, setSalesOrders, lang }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [showWOModal, setShowWOModal] = useState(false)
   const [showIssueModal, setShowIssueModal] = useState(false)
+  const [showQCModal, setShowQCModal] = useState(false)
+  const [showHTModal, setShowHTModal] = useState(false)
+  const [showFGTransferModal, setShowFGTransferModal] = useState(false)
   const [selectedWO, setSelectedWO] = useState(null)
   const [filterDept, setFilterDept] = useState('all')
+  const [selectedDate, setSelectedDate] = useState(new Date())
+
+  // Department flow order
+  const DEPT_FLOW = ['C1', 'C2', 'P1', 'P2', 'P3', 'ASM1', 'ASM2', 'OVN', 'QC', 'FG']
+  
+  // Department colors
+  const DEPT_COLORS = {
+    C1: 'bg-red-100 text-red-700 border-red-300',
+    C2: 'bg-orange-100 text-orange-700 border-orange-300',
+    P1: 'bg-yellow-100 text-yellow-700 border-yellow-300',
+    P2: 'bg-lime-100 text-lime-700 border-lime-300',
+    P3: 'bg-green-100 text-green-700 border-green-300',
+    ASM1: 'bg-teal-100 text-teal-700 border-teal-300',
+    ASM2: 'bg-cyan-100 text-cyan-700 border-cyan-300',
+    OVN: 'bg-blue-100 text-blue-700 border-blue-300',
+    QC: 'bg-purple-100 text-purple-700 border-purple-300',
+    FG: 'bg-emerald-100 text-emerald-700 border-emerald-300',
+  }
 
   const tabs = [
-    { id: 'dashboard', label: lang === 'th' ? 'ภาพรวม' : 'Dashboard', icon: BarChart3 },
+    { id: 'dashboard', label: lang === 'th' ? 'หน้าหลัก' : 'Dashboard', icon: Home },
+    { id: 'schedule', label: lang === 'th' ? 'ตารางงาน' : 'Schedule', icon: Calendar },
     { id: 'orders', label: lang === 'th' ? 'ใบสั่งผลิต' : 'Work Orders', icon: ClipboardList },
     { id: 'floor', label: lang === 'th' ? 'หน้างาน' : 'Floor View', icon: Factory },
+    { id: 'qc', label: lang === 'th' ? 'QC' : 'QC Check', icon: CheckCircle },
+    { id: 'ht', label: lang === 'th' ? 'ใบ HT' : 'HT Certs', icon: FileText },
     { id: 'costing', label: lang === 'th' ? 'ต้นทุน' : 'Costing', icon: Calculator },
   ]
 
   // Stats
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  
   const stats = {
     total: workOrders.length,
     pending: workOrders.filter(wo => wo.status === 'pending').length,
     inProgress: workOrders.filter(wo => wo.status === 'in_progress').length,
+    atQC: workOrders.filter(wo => wo.currentDept === 'QC').length,
     completed: workOrders.filter(wo => wo.status === 'completed').length,
-    totalRevenue: workOrders.reduce((sum, wo) => sum + (wo.totalRevenue || 0), 0),
-    totalCost: workOrders.reduce((sum, wo) => sum + (wo.costs?.total || 0), 0),
+    todayDue: workOrders.filter(wo => {
+      const dueDate = new Date(wo.targetDate)
+      dueDate.setHours(0, 0, 0, 0)
+      return dueDate.getTime() === today.getTime() && wo.status !== 'completed'
+    }).length,
+    overdue: workOrders.filter(wo => {
+      const dueDate = new Date(wo.targetDate)
+      return dueDate < today && wo.status !== 'completed'
+    }).length,
   }
 
-  const handleStartOperation = (woId, dept) => {
-    setWorkOrders(workOrders.map(wo => {
-      if (wo.id !== woId) return wo
-      const newOps = [...(wo.operations || []), {
-        dept,
-        status: 'in_progress',
-        startTime: new Date().toISOString(),
-        endTime: null,
-        hours: 0,
-        operator: 'Current User',
+  // Get next 7 days for schedule
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(selectedDate)
+    d.setDate(d.getDate() + i)
+    return d
+  })
+
+  // Get WOs for a specific department and date
+  const getWOsForDeptDate = (deptCode, date) => {
+    const dateStr = date.toISOString().split('T')[0]
+    return workOrders.filter(wo => {
+      const woDate = wo.scheduledDate || wo.targetDate
+      if (!woDate) return false
+      const woDateStr = new Date(woDate).toISOString().split('T')[0]
+      return woDateStr === dateStr && (wo.currentDept === deptCode || wo.department === deptCode)
+    })
+  }
+
+  // Move WO to next department
+  const moveToNextDept = (wo) => {
+    const currentIdx = DEPT_FLOW.indexOf(wo.currentDept || wo.department)
+    if (currentIdx === -1 || currentIdx >= DEPT_FLOW.length - 1) return
+
+    const nextDept = DEPT_FLOW[currentIdx + 1]
+    const now = new Date().toISOString()
+
+    setWorkOrders(workOrders.map(w => {
+      if (w.id !== wo.id) return w
+      const deptLog = [...(w.deptLog || []), {
+        dept: w.currentDept || w.department,
+        completedAt: now,
+        completedBy: 'Current User',
       }]
-      return { ...wo, status: 'in_progress', operations: newOps }
+      return {
+        ...w,
+        currentDept: nextDept,
+        deptLog,
+        status: nextDept === 'FG' ? 'completed' : 'in_progress',
+      }
     }))
   }
 
-  const handleCompleteOperation = (woId, dept) => {
-    setWorkOrders(workOrders.map(wo => {
-      if (wo.id !== woId) return wo
-      const newOps = wo.operations.map(op => {
-        if (op.dept !== dept || op.status !== 'in_progress') return op
-        const endTime = new Date()
-        const startTime = new Date(op.startTime)
-        const hours = (endTime - startTime) / (1000 * 60 * 60)
-        return { ...op, status: 'completed', endTime: endTime.toISOString(), hours }
-      })
-      return { ...wo, operations: newOps }
+  // Start WO in department
+  const startInDept = (wo, deptCode) => {
+    setWorkOrders(workOrders.map(w => {
+      if (w.id !== wo.id) return w
+      return {
+        ...w,
+        currentDept: deptCode,
+        status: 'in_progress',
+        startedAt: w.startedAt || new Date().toISOString(),
+      }
     }))
   }
 
+  // QC Pass
+  const handleQCPass = (wo, checklist) => {
+    const now = new Date().toISOString()
+    setWorkOrders(workOrders.map(w => {
+      if (w.id !== wo.id) return w
+      return {
+        ...w,
+        currentDept: 'FG',
+        status: 'completed',
+        qcPassedAt: now,
+        qcPassedBy: 'Current User',
+        qcChecklist: checklist,
+        deptLog: [...(w.deptLog || []), { dept: 'QC', completedAt: now, completedBy: 'Current User', result: 'PASS' }],
+      }
+    }))
+    // Update sales order if linked
+    if (wo.soId && setSalesOrders) {
+      setSalesOrders(prev => prev.map(so => {
+        if (so.id !== wo.soId) return so
+        const updatedItems = (so.items || []).map(item => ({
+          ...item,
+          fgQty: (item.fgQty || 0) + (wo.quantity || 0),
+        }))
+        return { ...so, items: updatedItems, status: 'ready' }
+      }))
+    }
+    setShowQCModal(false)
+  }
+
+  // QC Fail
+  const handleQCFail = (wo, reason) => {
+    setWorkOrders(workOrders.map(w => {
+      if (w.id !== wo.id) return w
+      return {
+        ...w,
+        qcFailed: true,
+        qcFailReason: reason,
+        deptLog: [...(w.deptLog || []), { dept: 'QC', completedAt: new Date().toISOString(), result: 'FAIL', reason }],
+      }
+    }))
+    setShowQCModal(false)
+  }
+
+  // Generate HT Certificate
+  const generateHTCert = (wo) => {
+    const now = new Date()
+    const certNo = `${now.getFullYear().toString().slice(-2)}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}${Math.floor(Math.random()*100).toString().padStart(2,'0')}`
+    
+    setWorkOrders(workOrders.map(w => {
+      if (w.id !== wo.id) return w
+      return {
+        ...w,
+        htCertNo: certNo,
+        htDate: now.toISOString(),
+        htTemp: '56°C',
+        htDuration: '30 min',
+      }
+    }))
+    setShowHTModal(false)
+  }
+
+  // Handle Material Issue
   const handleIssue = (wo) => {
     setSelectedWO(wo)
     setShowIssueModal(true)
   }
 
   const handleMaterialIssue = (issueData) => {
-    // Deduct from inventory
     issueData.items.forEach(item => {
       setInventory(inv => inv.map(i => 
         i.lotNo === item.lotNo ? { ...i, qty: i.qty - item.qty } : i
       ))
     })
 
-    // Update WO with issued materials
     setWorkOrders(workOrders.map(wo => {
       if (wo.id !== selectedWO.id) return wo
       const newIssued = [...(wo.materialsIssued || []), ...issueData.items]
@@ -5420,73 +5542,69 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
     setSelectedWO(null)
   }
 
-  // Filter WOs by department
   const filteredWOs = filterDept === 'all' 
     ? workOrders 
-    : workOrders.filter(wo => wo.department === filterDept)
+    : workOrders.filter(wo => wo.currentDept === filterDept || wo.department === filterDept)
+
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const dayNamesTh = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{t('nav.production', lang)}</h1>
-          <p className="text-gray-500">{lang === 'th' ? 'จัดการการผลิตและต้นทุน' : 'Manage production and costing'}</p>
+          <p className="text-gray-500">{lang === 'th' ? 'จัดการการผลิต WO และติดตามงาน' : 'Manage Work Orders & Track Production'}</p>
         </div>
         <div className="flex gap-2">
-          <select
-            value={filterDept}
-            onChange={(e) => setFilterDept(e.target.value)}
-            className="px-3 py-2 border rounded-lg"
-          >
-            <option value="all">{lang === 'th' ? 'ทุกแผนก' : 'All Depts'}</option>
-            {departments.filter(d => d.isActive).map(d => (
-              <option key={d.id} value={d.id}>{d.code} - {d.nameEn}</option>
-            ))}
-          </select>
-          <Button icon={Plus} onClick={() => setShowWOModal(true)}>
-            {lang === 'th' ? 'สร้างใบสั่งผลิต' : 'New WO'}
+          <Button variant="outline" icon={Printer}>
+            {lang === 'th' ? 'พิมพ์ตาราง' : 'Print Schedule'}
           </Button>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <Card className="p-4">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'ทั้งหมด' : 'Total'}</div>
-          <div className="text-2xl font-bold text-gray-800">{stats.total}</div>
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <Card className="p-3 border-l-4 border-l-blue-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'ทั้งหมด' : 'Total'}</div>
+          <div className="text-xl font-bold text-blue-600">{stats.total}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-yellow-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'รอ' : 'Pending'}</div>
-          <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+        <Card className="p-3 border-l-4 border-l-yellow-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'รอเริ่ม' : 'Pending'}</div>
+          <div className="text-xl font-bold text-yellow-600">{stats.pending}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-blue-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'ผลิต' : 'In Progress'}</div>
-          <div className="text-2xl font-bold text-blue-600">{stats.inProgress}</div>
+        <Card className="p-3 border-l-4 border-l-purple-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'กำลังผลิต' : 'In Progress'}</div>
+          <div className="text-xl font-bold text-purple-600">{stats.inProgress}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-green-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'เสร็จ' : 'Completed'}</div>
-          <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
+        <Card className="p-3 border-l-4 border-l-indigo-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'ที่ QC' : 'At QC'}</div>
+          <div className="text-xl font-bold text-indigo-600">{stats.atQC}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-purple-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'รายได้' : 'Revenue'}</div>
-          <div className="text-2xl font-bold text-purple-600">{formatCurrency(stats.totalRevenue)}</div>
+        <Card className="p-3 border-l-4 border-l-green-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'เสร็จ' : 'Completed'}</div>
+          <div className="text-xl font-bold text-green-600">{stats.completed}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-red-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'ต้นทุน' : 'Cost'}</div>
-          <div className="text-2xl font-bold text-red-600">{formatCurrency(stats.totalCost)}</div>
+        <Card className="p-3 border-l-4 border-l-orange-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'ครบวันนี้' : 'Due Today'}</div>
+          <div className="text-xl font-bold text-orange-600">{stats.todayDue}</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-red-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'เกินกำหนด' : 'Overdue'}</div>
+          <div className="text-xl font-bold text-red-600">{stats.overdue}</div>
         </Card>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b">
+      <div className="flex gap-1 border-b overflow-x-auto">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap ${
               activeTab === tab.id 
-                ? 'border-[#1A5276] text-[#1A5276]' 
+                ? 'border-[#1A5276] text-[#1A5276] bg-blue-50' 
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -5496,132 +5614,333 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
         ))}
       </div>
 
-      {/* Dashboard */}
+      {/* Dashboard Tab */}
       {activeTab === 'dashboard' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Active WOs */}
-          <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'งานที่กำลังผลิต' : 'Active Work Orders'}</h3>
-            <div className="space-y-3">
-              {workOrders.filter(wo => wo.status === 'in_progress').slice(0, 5).map(wo => {
-                const customer = customers.find(c => c.id === wo.customerId)
-                const progress = wo.quantity > 0 ? ((wo.completedQty || 0) / wo.quantity * 100) : 0
-                return (
-                  <div key={wo.id} className="p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-mono text-[#1A5276] font-medium">{wo.id}</div>
-                      <Badge variant={wo.department === 'C1' ? 'danger' : wo.department === 'C2' ? 'orange' : 'info'}>
-                        {wo.department}
-                      </Badge>
-                    </div>
-                    <div className="text-sm text-gray-600">{wo.productName}</div>
-                    <div className="text-xs text-gray-400">{customer?.name}</div>
-                    <div className="mt-2">
-                      <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>{wo.completedQty || 0} / {wo.quantity}</span>
-                        <span>{progress.toFixed(0)}%</span>
+        <div className="space-y-6">
+          {/* Alerts */}
+          {(stats.overdue > 0 || stats.todayDue > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {stats.overdue > 0 && (
+                <Card className="p-4 bg-red-50 border-red-200 border-2">
+                  <h3 className="font-bold text-red-800 flex items-center gap-2 mb-3">
+                    <AlertTriangle className="w-5 h-5" />
+                    {lang === 'th' ? `เกินกำหนด (${stats.overdue})` : `Overdue (${stats.overdue})`}
+                  </h3>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {workOrders.filter(wo => new Date(wo.targetDate) < today && wo.status !== 'completed').slice(0, 3).map(wo => (
+                      <div key={wo.id} className="flex justify-between items-center p-2 bg-white rounded">
+                        <div>
+                          <div className="font-mono text-sm">{wo.woNumber || wo.id}</div>
+                          <div className="text-xs text-gray-500">{wo.productName}</div>
+                        </div>
+                        <Badge variant="danger">{wo.currentDept || wo.department}</Badge>
                       </div>
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-[#1A5276] to-[#2ECC40]"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                )
-              })}
+                </Card>
+              )}
+              {stats.todayDue > 0 && (
+                <Card className="p-4 bg-orange-50 border-orange-200 border-2">
+                  <h3 className="font-bold text-orange-800 flex items-center gap-2 mb-3">
+                    <Clock className="w-5 h-5" />
+                    {lang === 'th' ? `ครบกำหนดวันนี้ (${stats.todayDue})` : `Due Today (${stats.todayDue})`}
+                  </h3>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {workOrders.filter(wo => {
+                      const dueDate = new Date(wo.targetDate)
+                      dueDate.setHours(0, 0, 0, 0)
+                      return dueDate.getTime() === today.getTime() && wo.status !== 'completed'
+                    }).slice(0, 3).map(wo => (
+                      <div key={wo.id} className="flex justify-between items-center p-2 bg-white rounded">
+                        <div>
+                          <div className="font-mono text-sm">{wo.woNumber || wo.id}</div>
+                          <div className="text-xs text-gray-500">{wo.productName}</div>
+                        </div>
+                        <Badge variant="warning">{wo.currentDept || wo.department}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* Department Status Grid */}
+          <Card className="overflow-hidden">
+            <div className="p-4 bg-gradient-to-r from-[#1A5276] to-purple-600 text-white">
+              <h3 className="font-bold flex items-center gap-2">
+                <Factory className="w-5 h-5" />
+                {lang === 'th' ? 'สถานะแผนก' : 'Department Status'}
+              </h3>
+            </div>
+            <div className="p-4">
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {DEPT_FLOW.slice(0, -1).map((dept, idx) => {
+                  const deptWOs = workOrders.filter(wo => (wo.currentDept === dept || (!wo.currentDept && wo.department === dept)) && wo.status !== 'completed')
+                  return (
+                    <div key={dept} className="flex items-center">
+                      <div className={`min-w-[100px] p-3 rounded-lg border-2 ${DEPT_COLORS[dept]}`}>
+                        <div className="font-bold text-center">{dept}</div>
+                        <div className="text-2xl font-bold text-center">{deptWOs.length}</div>
+                        <div className="text-xs text-center">{lang === 'th' ? 'งาน' : 'jobs'}</div>
+                      </div>
+                      {idx < DEPT_FLOW.length - 2 && (
+                        <ChevronRight className="w-6 h-6 text-gray-400 mx-1" />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </Card>
 
-          {/* Department Status */}
-          <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'สถานะแผนก' : 'Department Status'}</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {departments.filter(d => d.isActive).slice(0, 6).map(dept => {
-                const deptWOs = workOrders.filter(wo => wo.department === dept.id && wo.status === 'in_progress')
-                const typeColor = DEPARTMENT_TYPES.find(t => t.id === dept.type)?.color || '#gray'
-                return (
-                  <div key={dept.id} className="p-3 rounded-lg border" style={{ borderLeftWidth: 4, borderLeftColor: typeColor }}>
-                    <div className="flex items-center justify-between">
-                      <div className="font-medium">{dept.code}</div>
-                      <Badge variant={deptWOs.length > 0 ? 'success' : 'default'}>
-                        {deptWOs.length} {lang === 'th' ? 'งาน' : 'jobs'}
-                      </Badge>
+          {/* Active WOs and WOs at QC */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Active WOs */}
+            <Card className="p-5">
+              <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'งานที่กำลังผลิต' : 'Active Work Orders'}</h3>
+              <div className="space-y-3 max-h-80 overflow-y-auto">
+                {workOrders.filter(wo => wo.status === 'in_progress').slice(0, 6).map(wo => {
+                  const customer = customers?.find(c => c.id === wo.customerId)
+                  const progress = wo.quantity > 0 ? ((wo.completedQty || 0) / wo.quantity * 100) : 0
+                  return (
+                    <div key={wo.id} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="font-mono text-[#1A5276] font-medium">{wo.woNumber || wo.id}</div>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${DEPT_COLORS[wo.currentDept || wo.department]}`}>
+                          {wo.currentDept || wo.department}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-600">{wo.productName}</div>
+                      <div className="text-xs text-gray-400">{customer?.name}</div>
+                      <div className="mt-2">
+                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                          <span>{wo.completedQty || 0} / {wo.quantity}</span>
+                          <span>{progress.toFixed(0)}%</span>
+                        </div>
+                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-[#1A5276] to-[#2ECC40]"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">{dept.nameEn}</div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+                {workOrders.filter(wo => wo.status === 'in_progress').length === 0 && (
+                  <p className="text-gray-400 text-center py-4">{lang === 'th' ? 'ไม่มีงานกำลังผลิต' : 'No active jobs'}</p>
+                )}
+              </div>
+            </Card>
+
+            {/* WOs at QC */}
+            <Card className="p-5">
+              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-purple-500" />
+                {lang === 'th' ? 'รอตรวจ QC' : 'Awaiting QC'}
+              </h3>
+              <div className="space-y-3 max-h-80 overflow-y-auto">
+                {workOrders.filter(wo => wo.currentDept === 'QC' && wo.status !== 'completed').map(wo => {
+                  const customer = customers?.find(c => c.id === wo.customerId)
+                  return (
+                    <div key={wo.id} className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="font-mono text-purple-700 font-medium">{wo.woNumber || wo.id}</div>
+                        <button
+                          onClick={() => { setSelectedWO(wo); setShowQCModal(true) }}
+                          className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700"
+                        >
+                          {lang === 'th' ? 'ตรวจ QC' : 'QC Check'}
+                        </button>
+                      </div>
+                      <div className="text-sm text-gray-600">{wo.productName}</div>
+                      <div className="text-xs text-gray-400">{customer?.name} • {wo.quantity} pcs</div>
+                      {wo.requiresHT && (
+                        <div className="mt-2">
+                          <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">HT Required</span>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+                {workOrders.filter(wo => wo.currentDept === 'QC' && wo.status !== 'completed').length === 0 && (
+                  <p className="text-gray-400 text-center py-4">{lang === 'th' ? 'ไม่มีงานรอ QC' : 'No jobs awaiting QC'}</p>
+                )}
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Tab - Department Calendar */}
+      {activeTab === 'schedule' && (
+        <div className="space-y-4">
+          {/* Date Navigation */}
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <button 
+                onClick={() => setSelectedDate(d => { const nd = new Date(d); nd.setDate(nd.getDate() - 7); return nd })}
+                className="p-2 hover:bg-gray-100 rounded"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <h3 className="font-bold text-lg">
+                {selectedDate.toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US', { month: 'long', year: 'numeric' })}
+              </h3>
+              <button 
+                onClick={() => setSelectedDate(d => { const nd = new Date(d); nd.setDate(nd.getDate() + 7); return nd })}
+                className="p-2 hover:bg-gray-100 rounded"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </Card>
+
+          {/* Schedule Grid */}
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b w-24">
+                      {lang === 'th' ? 'แผนก' : 'Dept'}
+                    </th>
+                    {weekDays.map((day, idx) => {
+                      const isToday = day.toDateString() === new Date().toDateString()
+                      return (
+                        <th key={idx} className={`px-2 py-2 text-center border-b min-w-[120px] ${isToday ? 'bg-blue-100' : ''}`}>
+                          <div className="text-xs text-gray-500">
+                            {lang === 'th' ? dayNamesTh[day.getDay()] : dayNames[day.getDay()]}
+                          </div>
+                          <div className={`text-lg font-bold ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>
+                            {day.getDate()}
+                          </div>
+                        </th>
+                      )
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {DEPT_FLOW.slice(0, -1).map(dept => (
+                    <tr key={dept} className="border-b hover:bg-gray-50">
+                      <td className="px-3 py-2">
+                        <span className={`px-2 py-1 rounded text-sm font-medium ${DEPT_COLORS[dept]}`}>
+                          {dept}
+                        </span>
+                      </td>
+                      {weekDays.map((day, idx) => {
+                        const dayWOs = getWOsForDeptDate(dept, day)
+                        const isToday = day.toDateString() === new Date().toDateString()
+                        return (
+                          <td key={idx} className={`px-2 py-2 align-top ${isToday ? 'bg-blue-50' : ''}`}>
+                            <div className="space-y-1">
+                              {dayWOs.slice(0, 3).map(wo => (
+                                <div 
+                                  key={wo.id}
+                                  className="p-1.5 bg-white border rounded text-xs shadow-sm cursor-pointer hover:shadow"
+                                  onClick={() => setSelectedWO(wo)}
+                                >
+                                  <div className="font-medium truncate">{wo.woNumber?.slice(-6) || wo.id.slice(-6)}</div>
+                                  <div className="text-gray-500 truncate">{wo.quantity} pcs</div>
+                                </div>
+                              ))}
+                              {dayWOs.length > 3 && (
+                                <div className="text-xs text-center text-gray-400">+{dayWOs.length - 3}</div>
+                              )}
+                            </div>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </Card>
         </div>
       )}
 
-      {/* Work Orders List */}
+      {/* Work Orders Tab */}
       {activeTab === 'orders' && (
         <Card className="overflow-hidden">
+          <div className="p-4 border-b flex justify-between items-center">
+            <select
+              value={filterDept}
+              onChange={(e) => setFilterDept(e.target.value)}
+              className="px-3 py-2 border rounded-lg text-sm"
+            >
+              <option value="all">{lang === 'th' ? 'ทุกแผนก' : 'All Departments'}</option>
+              {DEPT_FLOW.map(dept => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'WO #'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'WO #' : 'WO #'}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'แผนก' : 'Dept'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'วัสดุ' : 'Material'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ต้นทุน' : 'Cost'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'แผนกปัจจุบัน' : 'Current Dept'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'กำหนด' : 'Due'}</th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {filteredWOs.map(wo => {
-                  const customer = customers.find(c => c.id === wo.customerId)
+                  const customer = customers?.find(c => c.id === wo.customerId)
+                  const isOverdue = new Date(wo.targetDate) < today && wo.status !== 'completed'
                   return (
-                    <tr key={wo.id} className="hover:bg-gray-50">
+                    <tr key={wo.id} className={`hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''}`}>
+                      <td className="px-4 py-3 font-mono text-[#1A5276]">{wo.woNumber || wo.id}</td>
                       <td className="px-4 py-3">
-                        <div className="font-mono text-[#1A5276] font-medium">{wo.id}</div>
-                        <div className="text-xs text-gray-400">{wo.soId}</div>
+                        <div className="text-sm">{wo.productName}</div>
+                        <div className="text-xs text-gray-400">{wo.customerPO}</div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{wo.productName}</div>
-                        <div className="text-xs text-gray-400">{wo.materialType}</div>
-                      </td>
-                      <td className="px-4 py-3">{customer?.name || wo.customerId}</td>
-                      <td className="px-4 py-3 text-right">
-                        <div>{wo.completedQty || 0} / {wo.quantity}</div>
-                        <div className="text-xs text-gray-400">
-                          {wo.quantity > 0 ? ((wo.completedQty || 0) / wo.quantity * 100).toFixed(0) : 0}%
-                        </div>
-                      </td>
+                      <td className="px-4 py-3 text-sm">{customer?.name || customer?.code}</td>
+                      <td className="px-4 py-3 text-right">{wo.quantity}</td>
                       <td className="px-4 py-3 text-center">
-                        <Badge variant="info">{wo.department}</Badge>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${DEPT_COLORS[wo.currentDept || wo.department]}`}>
+                          {wo.currentDept || wo.department}
+                        </span>
                       </td>
-                      <td className="px-4 py-3 text-right">{formatCurrency(wo.costs?.material || 0)}</td>
-                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(wo.costs?.total || 0)}</td>
+                      <td className="px-4 py-3 text-center text-sm">
+                        <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
+                          {formatDate(wo.targetDate)}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-center">
                         <Badge variant={
                           wo.status === 'completed' ? 'success' :
-                          wo.status === 'in_progress' ? 'info' :
-                          'warning'
+                          wo.status === 'in_progress' ? 'warning' : 'default'
                         }>
                           {wo.status}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button 
-                            className="p-1 hover:bg-gray-100 rounded" 
-                            title="Issue Materials"
-                            onClick={() => handleIssue(wo)}
-                          >
-                            <Package className="w-4 h-4 text-blue-500" />
-                          </button>
-                          <button className="p-1 hover:bg-gray-100 rounded" title="View">
-                            <Eye className="w-4 h-4 text-gray-500" />
-                          </button>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1 justify-center">
+                          {wo.status !== 'completed' && (
+                            <>
+                              <button
+                                onClick={() => handleIssue(wo)}
+                                className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                                title="Issue Materials"
+                              >
+                                <Package className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => moveToNextDept(wo)}
+                                className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                title="Move to Next Dept"
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -5633,49 +5952,43 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
         </Card>
       )}
 
-      {/* Floor View */}
+      {/* Floor View Tab */}
       {activeTab === 'floor' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {departments.filter(d => d.isActive).map(dept => {
-            const deptWOs = workOrders.filter(wo => wo.department === dept.id)
-            const activeWOs = deptWOs.filter(wo => wo.status === 'in_progress')
-            const typeColor = DEPARTMENT_TYPES.find(t => t.id === dept.type)?.color || '#6B7280'
-            
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {DEPT_FLOW.slice(0, -1).map(dept => {
+            const deptWOs = workOrders.filter(wo => (wo.currentDept === dept || (!wo.currentDept && wo.department === dept)) && wo.status !== 'completed')
             return (
-              <Card key={dept.id} className="overflow-hidden">
-                <div className="p-4" style={{ backgroundColor: typeColor + '20' }}>
+              <Card key={dept} className="overflow-hidden">
+                <div className={`p-3 border-b ${DEPT_COLORS[dept]}`}>
                   <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-bold text-gray-800">{dept.code}</div>
-                      <div className="text-sm text-gray-600">{dept.nameEn}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold" style={{ color: typeColor }}>{activeWOs.length}</div>
-                      <div className="text-xs text-gray-500">{lang === 'th' ? 'งานกำลังทำ' : 'active'}</div>
-                    </div>
+                    <span className="font-bold">{dept}</span>
+                    <Badge variant="default">{deptWOs.length}</Badge>
                   </div>
                 </div>
-                <div className="p-4 space-y-2">
-                  {activeWOs.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-4">
-                      {lang === 'th' ? 'ไม่มีงาน' : 'No active jobs'}
-                    </p>
-                  ) : (
-                    activeWOs.map(wo => (
-                      <div key={wo.id} className="p-2 bg-gray-50 rounded flex items-center justify-between">
-                        <div>
-                          <div className="font-mono text-sm text-[#1A5276]">{wo.id}</div>
-                          <div className="text-xs text-gray-500">{wo.productName}</div>
+                <div className="p-3 space-y-2 max-h-80 overflow-y-auto">
+                  {deptWOs.map(wo => {
+                    const customer = customers?.find(c => c.id === wo.customerId)
+                    return (
+                      <div key={wo.id} className="p-2 bg-gray-50 rounded border">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-mono text-sm font-medium">{wo.woNumber?.slice(-8) || wo.id.slice(-8)}</div>
+                            <div className="text-xs text-gray-500">{wo.productName}</div>
+                            <div className="text-xs text-gray-400">{wo.quantity} pcs • {customer?.code}</div>
+                          </div>
+                          <button
+                            onClick={() => moveToNextDept(wo)}
+                            className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
+                            title="Move to Next"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
                         </div>
-                        <Button 
-                          size="sm" 
-                          variant="success"
-                          onClick={() => handleCompleteOperation(wo.id, dept.id)}
-                        >
-                          ✓
-                        </Button>
                       </div>
-                    ))
+                    )
+                  })}
+                  {deptWOs.length === 0 && (
+                    <p className="text-gray-400 text-center py-4 text-sm">{lang === 'th' ? 'ว่าง' : 'Empty'}</p>
                   )}
                 </div>
               </Card>
@@ -5684,37 +5997,236 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
         </div>
       )}
 
-      {/* Costing Tab - THE FEATURE USER LOVES */}
+      {/* QC Tab */}
+      {activeTab === 'qc' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Pending QC */}
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b bg-purple-50">
+                <h3 className="font-bold text-purple-800 flex items-center gap-2">
+                  <Clock className="w-5 h-5" />
+                  {lang === 'th' ? 'รอตรวจ QC' : 'Pending QC'}
+                </h3>
+              </div>
+              <div className="divide-y max-h-96 overflow-y-auto">
+                {workOrders.filter(wo => wo.currentDept === 'QC' && wo.status !== 'completed' && !wo.qcFailed).map(wo => {
+                  const customer = customers?.find(c => c.id === wo.customerId)
+                  return (
+                    <div key={wo.id} className="p-4 hover:bg-gray-50">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-mono text-purple-700 font-medium">{wo.woNumber || wo.id}</div>
+                          <div className="text-sm text-gray-600">{wo.productName}</div>
+                          <div className="text-xs text-gray-400">{customer?.name} • {wo.quantity} pcs</div>
+                          {wo.requiresHT && !wo.htCertNo && (
+                            <span className="text-xs text-orange-600 mt-1 inline-block">⚠️ HT Required</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => { setSelectedWO(wo); setShowQCModal(true) }}
+                          className="px-3 py-1.5 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
+                        >
+                          {lang === 'th' ? 'ตรวจ QC' : 'QC Check'}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+                {workOrders.filter(wo => wo.currentDept === 'QC' && wo.status !== 'completed' && !wo.qcFailed).length === 0 && (
+                  <div className="p-8 text-center text-gray-400">
+                    <CheckCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>{lang === 'th' ? 'ไม่มีงานรอตรวจ' : 'No pending QC'}</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* QC Failed */}
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b bg-red-50">
+                <h3 className="font-bold text-red-800 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5" />
+                  {lang === 'th' ? 'QC ไม่ผ่าน' : 'QC Failed'}
+                </h3>
+              </div>
+              <div className="divide-y max-h-96 overflow-y-auto">
+                {workOrders.filter(wo => wo.qcFailed).map(wo => (
+                  <div key={wo.id} className="p-4 hover:bg-gray-50">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-mono text-red-700 font-medium">{wo.woNumber || wo.id}</div>
+                        <div className="text-sm text-gray-600">{wo.productName}</div>
+                        <div className="text-xs text-red-500 mt-1">Reason: {wo.qcFailReason}</div>
+                      </div>
+                      <Badge variant="danger">Failed</Badge>
+                    </div>
+                  </div>
+                ))}
+                {workOrders.filter(wo => wo.qcFailed).length === 0 && (
+                  <div className="p-8 text-center text-gray-400">
+                    <CheckCircle className="w-12 h-12 mx-auto mb-2 opacity-50 text-green-300" />
+                    <p>{lang === 'th' ? 'ไม่มีงาน QC ไม่ผ่าน' : 'No QC failures'}</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* HT Certificates Tab */}
+      {activeTab === 'ht' && (
+        <div className="space-y-6">
+          <Card className="p-4 bg-blue-50 border-blue-200">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+                HT
+              </div>
+              <div>
+                <h3 className="font-bold text-blue-800">ISPM15 Heat Treatment</h3>
+                <p className="text-sm text-blue-600">IND Thai Packwell - TH-0950 • 56°C for 30 minutes</p>
+              </div>
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Pending HT */}
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b bg-orange-50">
+                <h3 className="font-bold text-orange-800">{lang === 'th' ? 'รอออกใบ HT' : 'Pending HT Certs'}</h3>
+              </div>
+              <div className="divide-y max-h-96 overflow-y-auto">
+                {workOrders.filter(wo => wo.requiresHT && !wo.htCertNo && wo.status === 'completed').map(wo => (
+                  <div key={wo.id} className="p-4 hover:bg-gray-50">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-mono font-medium">{wo.woNumber || wo.id}</div>
+                        <div className="text-sm text-gray-600">{wo.productName}</div>
+                        <div className="text-xs text-gray-400">{wo.quantity} pcs</div>
+                      </div>
+                      <button
+                        onClick={() => { setSelectedWO(wo); setShowHTModal(true) }}
+                        className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                      >
+                        {lang === 'th' ? 'ออกใบ HT' : 'Generate'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {workOrders.filter(wo => wo.requiresHT && !wo.htCertNo && wo.status === 'completed').length === 0 && (
+                  <div className="p-8 text-center text-gray-400">
+                    <p>{lang === 'th' ? 'ไม่มีงานรอใบ HT' : 'No pending HT certs'}</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Issued HT Certs */}
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b bg-green-50">
+                <h3 className="font-bold text-green-800">{lang === 'th' ? 'ใบ HT ที่ออกแล้ว' : 'Issued HT Certs'}</h3>
+              </div>
+              <div className="divide-y max-h-96 overflow-y-auto">
+                {workOrders.filter(wo => wo.htCertNo).map(wo => (
+                  <div key={wo.id} className="p-4 hover:bg-gray-50">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-mono text-green-700 font-medium">HT-{wo.htCertNo}</div>
+                        <div className="text-sm text-gray-600">{wo.productName}</div>
+                        <div className="text-xs text-gray-400">{formatDate(wo.htDate)} • {wo.quantity} pcs</div>
+                      </div>
+                      <button className="p-1 text-blue-600 hover:bg-blue-50 rounded">
+                        <Printer className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Costing Tab */}
       {activeTab === 'costing' && (
         <ProductionCosting workOrders={workOrders} customers={customers} lang={lang} />
       )}
 
-      {/* WO Form Modal */}
-      {showWOModal && (
-        <Modal isOpen={showWOModal} onClose={() => setShowWOModal(false)} title={lang === 'th' ? 'สร้างใบสั่งผลิต' : 'New Work Order'} size="lg">
-          <WorkOrderForm
-            customers={customers}
-            departments={departments}
-            inventory={inventory}
-            categories={categories}
-            lang={lang}
-            onSave={(woData) => {
-              const newWO = {
-                id: `WO-${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(workOrders.length + 1).padStart(3, '0')}`,
-                ...woData,
-                status: 'pending',
-                completedQty: 0,
-                operations: [],
-                materialsIssued: [],
-                costs: { material: 0, labor: 0, overhead: 0, total: 0, perUnit: 0 },
-                profit: { amount: 0, margin: 0 },
-                createdAt: new Date().toISOString().split('T')[0],
-              }
-              setWorkOrders([...workOrders, newWO])
-              setShowWOModal(false)
-            }}
-            onCancel={() => setShowWOModal(false)}
-          />
+      {/* QC Modal */}
+      {showQCModal && selectedWO && (
+        <Modal isOpen={showQCModal} onClose={() => setShowQCModal(false)} title={lang === 'th' ? 'ตรวจ QC' : 'QC Inspection'} size="md">
+          <div className="space-y-4">
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="font-mono text-lg font-bold">{selectedWO.woNumber || selectedWO.id}</div>
+              <div className="text-gray-600">{selectedWO.productName}</div>
+              <div className="text-sm text-gray-500">{selectedWO.quantity} pcs</div>
+            </div>
+            
+            <div className="space-y-3">
+              <h4 className="font-medium">{lang === 'th' ? 'รายการตรวจสอบ' : 'Checklist'}</h4>
+              {['Dimensions correct', 'No visible defects', 'Proper assembly', 'Labels attached'].map((item, idx) => (
+                <label key={idx} className="flex items-center gap-2">
+                  <input type="checkbox" className="w-4 h-4 rounded" defaultChecked />
+                  <span>{item}</span>
+                </label>
+              ))}
+            </div>
+
+            {selectedWO.requiresHT && (
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <span className="text-blue-700 text-sm">⚠️ {lang === 'th' ? 'ลูกค้าต้องการใบ HT' : 'Customer requires HT Certificate'}</span>
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-4">
+              <Button variant="outline" className="flex-1" onClick={() => {
+                const reason = prompt(lang === 'th' ? 'เหตุผลที่ไม่ผ่าน:' : 'Reason for failure:')
+                if (reason) handleQCFail(selectedWO, reason)
+              }}>
+                <X className="w-4 h-4 mr-1" />
+                {lang === 'th' ? 'ไม่ผ่าน' : 'Fail'}
+              </Button>
+              <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => handleQCPass(selectedWO, {})}>
+                <CheckCircle className="w-4 h-4 mr-1" />
+                {lang === 'th' ? 'ผ่าน QC' : 'Pass QC'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* HT Modal */}
+      {showHTModal && selectedWO && (
+        <Modal isOpen={showHTModal} onClose={() => setShowHTModal(false)} title={lang === 'th' ? 'ออกใบ Heat Treatment' : 'Generate HT Certificate'} size="md">
+          <div className="space-y-4">
+            <div className="p-4 bg-blue-50 rounded-lg text-center">
+              <div className="text-2xl font-bold text-blue-800">TH-0950</div>
+              <div className="text-blue-600">ISPM15 Heat Treatment</div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm text-gray-500">{lang === 'th' ? 'อุณหภูมิ' : 'Temperature'}</label>
+                <div className="font-bold">56°C</div>
+              </div>
+              <div>
+                <label className="text-sm text-gray-500">{lang === 'th' ? 'ระยะเวลา' : 'Duration'}</label>
+                <div className="font-bold">30 minutes</div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'สินค้า' : 'Product'}</div>
+              <div className="font-bold">{selectedWO.productName}</div>
+              <div className="text-sm text-gray-600">{selectedWO.quantity} pcs</div>
+            </div>
+
+            <Button className="w-full" onClick={() => generateHTCert(selectedWO)}>
+              <FileText className="w-4 h-4 mr-2" />
+              {lang === 'th' ? 'ออกใบรับรอง' : 'Generate Certificate'}
+            </Button>
+          </div>
         </Modal>
       )}
 
@@ -10457,6 +10969,8 @@ function AppBasic() {
                   setInventory={setInventory}
                   categories={categories}
                   stores={stores}
+                  salesOrders={salesOrders}
+                  setSalesOrders={setSalesOrders}
                   lang={lang}
                 />
               )}
@@ -12827,6 +13341,8 @@ const AppFull = () => {
                   setInventory={setInventory}
                   categories={categories}
                   stores={stores}
+                  salesOrders={salesOrders}
+                  setSalesOrders={setSalesOrders}
                   lang={lang}
                 />
               )}
@@ -14269,19 +14785,22 @@ const VersionInfo = ({ lang }) => {
   )
 }
 
-// End of IND ERP v7.3 - Enhanced Sales Module with Production Plan View
+// End of IND ERP v7.4 - Enhanced Production Module
 // Total Features: 9 Modules, 6 Stores, 12 Categories, 13 Import Cost Types
-// NEW in v7.3: 
-//   - Dashboard with Daily Tasks & Weekly Calendar
-//   - Operations Tab (Production Plan style view)
-//   - Dispatch Tab (FG Store → DO → Invoice flow)
-//   - Customers Tab with Delivery Locations
-//   - Returns Tab (Rejection & Claim forms)
-//   - Document Numbers: IVT-YYYYMMXXX, BN-YYYYMMXXX, RE-YYYYMMXXX, QO-YYYYMMXXX
+// NEW in v7.4: 
+//   - Production Dashboard with Daily Tasks & Alerts
+//   - Department Schedule (Calendar view by dept)
+//   - WO Flow: C1/C2 → P1/P2/P3 → ASM1/ASM2 → OVN → QC → FG
+//   - Floor View (All depts at a glance)
+//   - QC Tab (Pending/Failed tracking)
+//   - HT Certificates (TH-0950, ISPM15)
+//   - Move WO through departments
 // Languages: EN, TH, MY, KH, ZH, JP
 // Roles: Admin, Sales, Production, Warehouse, HR, Accounting, Transport, Maintenance
 
 // ============================================
 // DEFAULT EXPORT - MUST BE AT END OF FILE
 // ============================================
-export default AppFull
+const App = AppFull
+export { AppFull, App }
+export default App
