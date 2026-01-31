@@ -19,8 +19,8 @@ import {
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '6.0'
-const VERSION_DATE = '2026-01-30'
+const VERSION = '7.0'
+const VERSION_DATE = '2026-01-31'
 
 // ============================================
 // IND LOGO (SVG as base64)
@@ -311,6 +311,104 @@ const IMPORT_COST_TYPES = [
   { id: 'lcCommission', nameEn: 'LC/Commission', nameTh: 'ค่า LC/คอมมิชชั่น' },
   { id: 'other', nameEn: 'Other', nameTh: 'อื่นๆ' },
 ]
+
+// ============================================
+// APPROVAL HIERARCHY (Spec 7)
+// PM ≤฿10k | GM ฿10k-50k | CEO >฿50k
+// ============================================
+const APPROVAL_THRESHOLDS = {
+  pm: { min: 0, max: 10000, role: 'production_manager', title: 'Production Manager', titleTh: 'ผู้จัดการฝ่ายผลิต' },
+  gm: { min: 10001, max: 50000, role: 'general_manager', title: 'General Manager', titleTh: 'ผู้จัดการทั่วไป' },
+  ceo: { min: 50001, max: Infinity, role: 'ceo', title: 'CEO', titleTh: 'ผู้บริหารสูงสุด' },
+}
+
+const getRequiredApprover = (amount) => {
+  if (amount <= APPROVAL_THRESHOLDS.pm.max) return APPROVAL_THRESHOLDS.pm
+  if (amount <= APPROVAL_THRESHOLDS.gm.max) return APPROVAL_THRESHOLDS.gm
+  return APPROVAL_THRESHOLDS.ceo
+}
+
+const canUserApprove = (userRole, requiredLevel) => {
+  const roleHierarchy = ['staff', 'supervisor', 'production_manager', 'general_manager', 'ceo', 'admin']
+  const userLevel = roleHierarchy.indexOf(userRole)
+  const requiredIdx = roleHierarchy.indexOf(requiredLevel)
+  return userLevel >= requiredIdx
+}
+
+// ============================================
+// REJECTION REASONS (for GRN - Spec 3-4)
+// ============================================
+const REJECTION_REASONS = [
+  { id: 'damaged', labelEn: 'Damaged goods', labelTh: 'สินค้าเสียหาย' },
+  { id: 'wrong_spec', labelEn: 'Wrong specification', labelTh: 'สเปคไม่ตรง' },
+  { id: 'wrong_qty', labelEn: 'Wrong quantity', labelTh: 'จำนวนไม่ตรง' },
+  { id: 'quality_issue', labelEn: 'Quality issue', labelTh: 'คุณภาพไม่ผ่าน' },
+  { id: 'not_ordered', labelEn: 'Not ordered', labelTh: 'ไม่ได้สั่ง' },
+  { id: 'late_delivery', labelEn: 'Too late / Rejected', labelTh: 'ส่งช้าเกินไป' },
+  { id: 'other', labelEn: 'Other', labelTh: 'อื่นๆ' },
+]
+
+// ============================================
+// VARIANCE TYPES (for GRN)
+// ============================================
+const VARIANCE_TYPES = [
+  { id: 'qty_short', labelEn: 'Quantity Short', labelTh: 'จำนวนขาด' },
+  { id: 'qty_over', labelEn: 'Quantity Over', labelTh: 'จำนวนเกิน' },
+  { id: 'size_different', labelEn: 'Size Different', labelTh: 'ขนาดต่าง' },
+  { id: 'mixed_sizes', labelEn: 'Mixed Sizes', labelTh: 'ขนาดผสม' },
+  { id: 'damaged_partial', labelEn: 'Some Damaged', labelTh: 'บางส่วนเสียหาย' },
+]
+
+// ============================================
+// IMPORT TRACKING STATUS (Spec 11 - G Thru)
+// ============================================
+const IMPORT_STATUS = [
+  { id: 'pending', label: 'Pending Shipment', labelTh: 'รอส่ง', color: 'bg-gray-500' },
+  { id: 'shipped', label: 'Shipped', labelTh: 'ส่งแล้ว', color: 'bg-blue-500' },
+  { id: 'in_transit', label: 'In Transit', labelTh: 'ระหว่างขนส่ง', color: 'bg-yellow-500' },
+  { id: 'at_port', label: 'At Port', labelTh: 'ถึงท่าเรือ', color: 'bg-orange-500' },
+  { id: 'customs', label: 'Customs Clearance', labelTh: 'ผ่านศุลกากร', color: 'bg-purple-500' },
+  { id: 'released', label: 'Released', labelTh: 'ปล่อยแล้ว', color: 'bg-green-500' },
+  { id: 'delivered', label: 'Delivered', labelTh: 'ส่งถึงแล้ว', color: 'bg-emerald-500' },
+]
+
+// ============================================
+// CUSTOMS STATUS
+// ============================================
+const CUSTOMS_STATUS = [
+  { id: 'not_started', label: 'Not Started', labelTh: 'ยังไม่เริ่ม' },
+  { id: 'docs_submitted', label: 'Documents Submitted', labelTh: 'ส่งเอกสารแล้ว' },
+  { id: 'inspection', label: 'Under Inspection', labelTh: 'กำลังตรวจ' },
+  { id: 'duty_paid', label: 'Duty Paid', labelTh: 'จ่ายภาษีแล้ว' },
+  { id: 'cleared', label: 'Cleared', labelTh: 'ผ่านแล้ว' },
+]
+
+// ============================================
+// LC STATUS (Spec 12 - Letter of Credit)
+// ============================================
+const LC_STATUS = [
+  { id: 'not_required', label: 'Not Required', labelTh: 'ไม่ต้องใช้' },
+  { id: 'pending', label: 'Pending Opening', labelTh: 'รอเปิด' },
+  { id: 'opened', label: 'LC Opened', labelTh: 'เปิดแล้ว' },
+  { id: 'amended', label: 'Amended', labelTh: 'แก้ไขแล้ว' },
+  { id: 'docs_submitted', label: 'Documents Submitted', labelTh: 'ส่งเอกสารแล้ว' },
+  { id: 'negotiated', label: 'Negotiated', labelTh: 'เจรจาแล้ว' },
+  { id: 'paid', label: 'Paid', labelTh: 'จ่ายแล้ว' },
+  { id: 'closed', label: 'Closed', labelTh: 'ปิดแล้ว' },
+]
+
+// ============================================
+// CREDIT NOTE REASONS
+// ============================================
+const CREDIT_NOTE_REASONS = [
+  { id: 'qty_short', label: 'Quantity Short', labelTh: 'จำนวนขาด' },
+  { id: 'damaged', label: 'Damaged Goods', labelTh: 'สินค้าเสียหาย' },
+  { id: 'wrong_spec', label: 'Wrong Specification', labelTh: 'สเปคผิด' },
+  { id: 'price_error', label: 'Price Error', labelTh: 'ราคาผิด' },
+  { id: 'returned', label: 'Goods Returned', labelTh: 'คืนสินค้า' },
+  { id: 'other', label: 'Other', labelTh: 'อื่นๆ' },
+]
+
 
 // ============================================
 // PURCHASE ORDERS (with Import Costing)
@@ -2817,8 +2915,11 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
     { id: 'dashboard', label: lang === 'th' ? 'ภาพรวม' : 'Dashboard', icon: BarChart3 },
     { id: 'orders', label: lang === 'th' ? 'ใบสั่งซื้อ' : 'Purchase Orders', icon: FileText },
     { id: 'receiving', label: lang === 'th' ? 'รับสินค้า' : 'Goods Receipt', icon: Package },
+    { id: 'import', label: lang === 'th' ? 'นำเข้า' : 'Import Tracking', icon: Truck },
     { id: 'vendors', label: lang === 'th' ? 'ผู้ขาย' : 'Vendors', icon: Users },
+    { id: 'reports', label: lang === 'th' ? 'รายงาน' : 'Reports', icon: PieChart },
   ]
+
 
   // Stats
   const stats = {
@@ -3250,20 +3351,23 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
       )}
 
       {/* GRN Modal */}
+
+      {/* GRN Modal - Enhanced with Split Lots */}
       {showGRNModal && selectedPO && (
         <Modal isOpen={showGRNModal} onClose={() => setShowGRNModal(false)} title={lang === 'th' ? 'รับสินค้า' : 'Goods Receipt'} size="xl">
           <GoodsReceiptForm
-  po={selectedPO}
-  vendors={vendors}
-  categories={categories}
-  globalLotSequence={globalLotSequence}
-  setGlobalLotSequence={setGlobalLotSequence}
-  lang={lang}
-  onSave={handleGRNSave}
-  onCancel={() => setShowGRNModal(false)}
-/>
+            po={selectedPO}
+            vendors={vendors}
+            categories={categories}
+            globalLotSequence={globalLotSequence}
+            setGlobalLotSequence={setGlobalLotSequence}
+            lang={lang}
+            onSave={handleGRNSave}
+            onCancel={() => setShowGRNModal(false)}
+          />
         </Modal>
       )}
+
 
       {/* Smart Upload Modal */}
       <SmartDocumentUploadModal
@@ -3681,61 +3785,6 @@ const PurchaseOrderForm = ({ po, vendors, categories, onSave, onCancel, lang }) 
   )
 }
 
-// ============================================
-// ENHANCED GOODS RECEIPT FORM - REPLACEMENT CODE
-// ============================================
-// 
-// STEP 1: Update GoodsReceiptForm CALL (around line 3255)
-// --------------------------------------------------------
-// Find this code in PurchaseModule:
-//
-//   <GoodsReceiptForm
-//     po={selectedPO}
-//     vendors={vendors}
-//     lang={lang}
-//     onSave={handleGRNSave}
-//     onCancel={() => setShowGRNModal(false)}
-//   />
-//
-// REPLACE WITH:
-//
-//   <GoodsReceiptForm
-//     po={selectedPO}
-//     vendors={vendors}
-//     categories={categories}
-//     globalLotSequence={globalLotSequence}
-//     setGlobalLotSequence={setGlobalLotSequence}
-//     lang={lang}
-//     onSave={handleGRNSave}
-//     onCancel={() => setShowGRNModal(false)}
-//   />
-//
-// STEP 2: Replace GoodsReceiptForm DEFINITION (lines 3684-3915)
-// --------------------------------------------------------
-// Delete the old "const GoodsReceiptForm = ..." through its closing "}"
-// Then paste everything below this comment block in its place
-//
-// ============================================
-
-// REJECTION REASONS
-const REJECTION_REASONS = [
-  { id: 'damaged', labelEn: 'Damaged goods', labelTh: 'สินค้าเสียหาย' },
-  { id: 'wrong_spec', labelEn: 'Wrong specification', labelTh: 'สเปคไม่ตรง' },
-  { id: 'wrong_qty', labelEn: 'Wrong quantity', labelTh: 'จำนวนไม่ตรง' },
-  { id: 'quality_issue', labelEn: 'Quality issue', labelTh: 'คุณภาพไม่ผ่าน' },
-  { id: 'not_ordered', labelEn: 'Not ordered', labelTh: 'ไม่ได้สั่ง' },
-  { id: 'late_delivery', labelEn: 'Too late / Rejected', labelTh: 'ส่งช้าเกินไป' },
-  { id: 'other', labelEn: 'Other', labelTh: 'อื่นๆ' },
-]
-
-// VARIANCE TYPES
-const VARIANCE_TYPES = [
-  { id: 'qty_short', labelEn: 'Quantity Short', labelTh: 'จำนวนขาด' },
-  { id: 'qty_over', labelEn: 'Quantity Over', labelTh: 'จำนวนเกิน' },
-  { id: 'size_different', labelEn: 'Size Different', labelTh: 'ขนาดต่าง' },
-  { id: 'mixed_sizes', labelEn: 'Mixed Sizes', labelTh: 'ขนาดผสม' },
-  { id: 'damaged_partial', labelEn: 'Some Damaged', labelTh: 'บางส่วนเสียหาย' },
-]
 
 // ============================================
 // REJECT ITEM MODAL
@@ -3800,13 +3849,14 @@ const RejectItemModal = ({ item, lang, onReject, onCancel }) => {
           </div>
 
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-            ⚠️ {lang === 'th' 
+            <AlertTriangle className="w-4 h-4 inline mr-1" />
+            {lang === 'th' 
               ? 'การปฏิเสธจะถูกบันทึก และต้องแจ้ง Vendor เพื่อออกใบแจ้งหนี้ใหม่ (Revised Invoice)' 
               : 'Rejection will be recorded. Vendor must be notified for Revised Invoice.'}
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="secondary" onClick={onCancel}>
               {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
             </Button>
             <Button type="submit" variant="danger" icon={X}>
@@ -3823,6 +3873,7 @@ const RejectItemModal = ({ item, lang, onReject, onCancel }) => {
 // ADD RECEIPT ITEM MODAL (Not on PO)
 // ============================================
 const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
+  const rmCategories = categories?.filter(c => c.type === 'raw_material') || []
   const [formData, setFormData] = useState({
     categoryId: '',
     thickness: 0,
@@ -3857,7 +3908,8 @@ const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
         </div>
 
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg mb-4 text-sm text-blue-800">
-          ℹ️ {lang === 'th' 
+          <Info className="w-4 h-4 inline mr-1" />
+          {lang === 'th' 
             ? 'รายการนี้จะถูกบันทึกเป็น Variance และจะสร้าง Variance Report' 
             : 'This will be recorded as Variance and generate a Variance Report'}
         </div>
@@ -3875,7 +3927,7 @@ const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
                 className="w-full px-3 py-2 border rounded-lg"
               >
                 <option value="">{lang === 'th' ? '-- เลือก --' : '-- Select --'}</option>
-                {categories.map(c => (
+                {rmCategories.map(c => (
                   <option key={c.id} value={c.id}>{c.code} - {c.nameEn}</option>
                 ))}
               </select>
@@ -3965,7 +4017,7 @@ const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="secondary" onClick={onCancel}>
               {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
             </Button>
             <Button type="submit" icon={Plus}>
@@ -3980,7 +4032,7 @@ const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
 
 // ============================================
 // ENHANCED GOODS RECEIPT FORM
-// With Split Lots, Reject, Add Items
+// With Split Lots, Reject, Add Items (Spec 3-4)
 // ============================================
 const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGlobalLotSequence, onSave, onCancel, lang }) => {
   const vendor = vendors.find(v => v.id === po.vendorId)
@@ -4235,7 +4287,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
           unitPrice: item.poItem.unitPrice,
           hasVariance: lot.hasVariance,
           varianceType: lot.varianceType,
-          varianceNote: lot.varianceNote || lot.hasVariance ? `Size: ${lot.actualThickness}x${lot.actualWidth}x${lot.actualLength} vs PO: ${item.poItem.thickness}x${item.poItem.width}x${item.poItem.length}` : '',
+          varianceNote: lot.varianceNote || (lot.hasVariance ? `Size: ${lot.actualThickness}x${lot.actualWidth}x${lot.actualLength} vs PO: ${item.poItem.thickness}x${item.poItem.width}x${item.poItem.length}` : ''),
           varianceReason: lot.varianceNote,
         })
       })
@@ -4399,7 +4451,8 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
                         {item.rejectNote && ` - ${item.rejectNote}`}
                       </div>
                       <div className="mt-2 p-2 bg-yellow-100 rounded text-sm text-yellow-800">
-                        ⚠️ {lang === 'th' ? 'Vendor ต้องออก Revised Invoice' : 'Vendor must issue Revised Invoice'}
+                        <AlertTriangle className="w-4 h-4 inline mr-1" />
+                        {lang === 'th' ? 'Vendor ต้องออก Revised Invoice' : 'Vendor must issue Revised Invoice'}
                       </div>
                       <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => handleUnrejectItem(itemIdx)}>
                         <RotateCcw className="w-4 h-4 mr-1" /> {lang === 'th' ? 'ยกเลิกปฏิเสธ' : 'Undo'}
@@ -4416,6 +4469,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
                         >
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-sm font-medium text-gray-600">
+                              <Layers className="w-4 h-4 inline mr-1" />
                               {lang === 'th' ? 'ล็อต' : 'Lot'} #{lotIdx + 1}
                               {lot.hasVariance && <span className="ml-2 text-amber-600">⚠️ Size differs</span>}
                             </span>
@@ -4523,7 +4577,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
         <div className="space-y-2">
           <h4 className="font-bold text-gray-700 flex items-center gap-2">
             <Plus className="w-4 h-4 text-blue-500" />
-            {lang === 'th' ? 'รายการเพิ่มเติม' : 'Additional Items'}
+            {lang === 'th' ? 'รายการเพิ่มเติม (ไม่อยู่ใน PO)' : 'Additional Items (Not in PO)'}
           </h4>
           {additionalItems.map((item, idx) => (
             <div key={idx} className="p-3 border-2 border-blue-300 bg-blue-50 rounded-lg flex items-center justify-between">
@@ -4574,7 +4628,10 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
           </div>
         </div>
         {totals.hasVariance && (
-          <div className="mt-2 text-center text-sm text-amber-700">⚠️ Variance detected - Report will be generated</div>
+          <div className="mt-2 text-center text-sm text-amber-700">
+            <AlertTriangle className="w-4 h-4 inline mr-1" />
+            Variance detected - Report will be generated
+          </div>
         )}
       </div>
 
@@ -4598,7 +4655,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
 
       {showAddItemModal && (
         <AddReceiptItemModal
-          categories={rmCategories}
+          categories={categories}
           lang={lang}
           onAdd={handleAddAdditionalItem}
           onCancel={() => setShowAddItemModal(false)}
@@ -4607,6 +4664,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
     </form>
   )
 }
+
 
 // ============================================
 // PRODUCTION MODULE (With Costing Analysis)
@@ -11241,7 +11299,8 @@ const VersionInfo = ({ lang }) => {
   )
 }
 
-// End of IND ERP v6.0 - Full Build
+// End of IND ERP v7.0 - Full Build with Enhanced Purchase Module
 // Total Features: 9 Modules, 6 Stores, 12 Categories, 13 Import Cost Types
+// NEW in v7: Split Lots, Reject/Add Items GRN, Approval Hierarchy, Import/LC Tracking
 // Languages: EN, TH, MY, KH, ZH, JP
 // Roles: Admin, Sales, Production, Warehouse, HR, Accounting, Transport, Maintenance
