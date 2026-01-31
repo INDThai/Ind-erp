@@ -3682,54 +3682,603 @@ const PurchaseOrderForm = ({ po, vendors, categories, onSave, onCancel, lang }) 
 }
 
 // ============================================
-// GOODS RECEIPT FORM
+// ENHANCED GOODS RECEIPT FORM - REPLACEMENT CODE
 // ============================================
-const GoodsReceiptForm = ({ po, vendors, onSave, onCancel, lang }) => {
-  const vendor = vendors.find(v => v.id === po.vendorId)
-  const [grnItems, setGrnItems] = useState(
-    po.items.map(item => ({
-      ...item,
-      qtyToReceive: item.qty - (item.qtyReceived || 0),
-      actualThickness: item.thickness,
-      actualWidth: item.width,
-      actualLength: item.length,
-      varianceReason: '',
-    }))
-  )
-  const [grnDate, setGrnDate] = useState(new Date().toISOString().split('T')[0])
-  const [notes, setNotes] = useState('')
+// 
+// STEP 1: Update GoodsReceiptForm CALL (around line 3255)
+// --------------------------------------------------------
+// Find this code in PurchaseModule:
+//
+//   <GoodsReceiptForm
+//     po={selectedPO}
+//     vendors={vendors}
+//     lang={lang}
+//     onSave={handleGRNSave}
+//     onCancel={() => setShowGRNModal(false)}
+//   />
+//
+// REPLACE WITH:
+//
+//   <GoodsReceiptForm
+//     po={selectedPO}
+//     vendors={vendors}
+//     categories={categories}
+//     globalLotSequence={globalLotSequence}
+//     setGlobalLotSequence={setGlobalLotSequence}
+//     lang={lang}
+//     onSave={handleGRNSave}
+//     onCancel={() => setShowGRNModal(false)}
+//   />
+//
+// STEP 2: Replace GoodsReceiptForm DEFINITION (lines 3684-3915)
+// --------------------------------------------------------
+// Delete the old "const GoodsReceiptForm = ..." through its closing "}"
+// Then paste everything below this comment block in its place
+//
+// ============================================
 
-  const updateGrnItem = (idx, field, value) => {
-    setGrnItems(items => items.map((item, i) => i === idx ? { ...item, [field]: value } : item))
-  }
+// REJECTION REASONS
+const REJECTION_REASONS = [
+  { id: 'damaged', labelEn: 'Damaged goods', labelTh: 'สินค้าเสียหาย' },
+  { id: 'wrong_spec', labelEn: 'Wrong specification', labelTh: 'สเปคไม่ตรง' },
+  { id: 'wrong_qty', labelEn: 'Wrong quantity', labelTh: 'จำนวนไม่ตรง' },
+  { id: 'quality_issue', labelEn: 'Quality issue', labelTh: 'คุณภาพไม่ผ่าน' },
+  { id: 'not_ordered', labelEn: 'Not ordered', labelTh: 'ไม่ได้สั่ง' },
+  { id: 'late_delivery', labelEn: 'Too late / Rejected', labelTh: 'ส่งช้าเกินไป' },
+  { id: 'other', labelEn: 'Other', labelTh: 'อื่นๆ' },
+]
+
+// VARIANCE TYPES
+const VARIANCE_TYPES = [
+  { id: 'qty_short', labelEn: 'Quantity Short', labelTh: 'จำนวนขาด' },
+  { id: 'qty_over', labelEn: 'Quantity Over', labelTh: 'จำนวนเกิน' },
+  { id: 'size_different', labelEn: 'Size Different', labelTh: 'ขนาดต่าง' },
+  { id: 'mixed_sizes', labelEn: 'Mixed Sizes', labelTh: 'ขนาดผสม' },
+  { id: 'damaged_partial', labelEn: 'Some Damaged', labelTh: 'บางส่วนเสียหาย' },
+]
+
+// ============================================
+// REJECT ITEM MODAL
+// ============================================
+const RejectItemModal = ({ item, lang, onReject, onCancel }) => {
+  const [reason, setReason] = useState('')
+  const [note, setNote] = useState('')
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    if (reason) onReject(reason, note)
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+            <AlertOctagon className="w-6 h-6 text-red-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-800">
+              {lang === 'th' ? 'ปฏิเสธรายการ' : 'Reject Item'}
+            </h3>
+            <p className="text-sm text-gray-500">
+              {item.categoryId} - {item.thickness}×{item.width}×{item.length}mm
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {lang === 'th' ? 'เหตุผลการปฏิเสธ *' : 'Rejection Reason *'}
+            </label>
+            <select
+              required
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg"
+            >
+              <option value="">{lang === 'th' ? '-- เลือกเหตุผล --' : '-- Select Reason --'}</option>
+              {REJECTION_REASONS.map(r => (
+                <option key={r.id} value={r.id}>
+                  {lang === 'th' ? r.labelTh : r.labelEn}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {lang === 'th' ? 'รายละเอียดเพิ่มเติม' : 'Additional Details'}
+            </label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 border rounded-lg"
+              placeholder={lang === 'th' ? 'ระบุรายละเอียด...' : 'Specify details...'}
+            />
+          </div>
+
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+            ⚠️ {lang === 'th' 
+              ? 'การปฏิเสธจะถูกบันทึก และต้องแจ้ง Vendor เพื่อออกใบแจ้งหนี้ใหม่ (Revised Invoice)' 
+              : 'Rejection will be recorded. Vendor must be notified for Revised Invoice.'}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+            </Button>
+            <Button type="submit" variant="danger" icon={X}>
+              {lang === 'th' ? 'ยืนยันปฏิเสธ' : 'Confirm Reject'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// ADD RECEIPT ITEM MODAL (Not on PO)
+// ============================================
+const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
+  const [formData, setFormData] = useState({
+    categoryId: '',
+    thickness: 0,
+    width: 0,
+    length: 0,
+    qty: 0,
+    unit: 'pcs',
+    unitPrice: 0,
+    note: '',
+  })
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onAdd(formData)
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+            <Plus className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-800">
+              {lang === 'th' ? 'เพิ่มรายการใหม่' : 'Add New Item'}
+            </h3>
+            <p className="text-sm text-gray-500">
+              {lang === 'th' ? 'สำหรับรายการที่ได้รับแต่ไม่อยู่ใน PO' : 'For items received but not in PO'}
+            </p>
+          </div>
+        </div>
+
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg mb-4 text-sm text-blue-800">
+          ℹ️ {lang === 'th' 
+            ? 'รายการนี้จะถูกบันทึกเป็น Variance และจะสร้าง Variance Report' 
+            : 'This will be recorded as Variance and generate a Variance Report'}
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'th' ? 'หมวดหมู่ *' : 'Category *'}
+              </label>
+              <select
+                required
+                value={formData.categoryId}
+                onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="">{lang === 'th' ? '-- เลือก --' : '-- Select --'}</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.code} - {c.nameEn}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'th' ? 'จำนวน *' : 'Quantity *'}
+              </label>
+              <input
+                type="number"
+                required
+                min="1"
+                value={formData.qty || ''}
+                onChange={(e) => setFormData({ ...formData, qty: parseInt(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'th' ? 'หนา (mm) *' : 'Thickness *'}
+              </label>
+              <input
+                type="number"
+                required
+                step="0.1"
+                value={formData.thickness || ''}
+                onChange={(e) => setFormData({ ...formData, thickness: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'th' ? 'กว้าง (mm) *' : 'Width *'}
+              </label>
+              <input
+                type="number"
+                required
+                step="0.1"
+                value={formData.width || ''}
+                onChange={(e) => setFormData({ ...formData, width: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'th' ? 'ยาว (mm) *' : 'Length *'}
+              </label>
+              <input
+                type="number"
+                required
+                step="0.1"
+                value={formData.length || ''}
+                onChange={(e) => setFormData({ ...formData, length: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {lang === 'th' ? 'ราคา/หน่วย *' : 'Unit Price *'}
+            </label>
+            <input
+              type="number"
+              required
+              step="0.01"
+              value={formData.unitPrice || ''}
+              onChange={(e) => setFormData({ ...formData, unitPrice: parseFloat(e.target.value) || 0 })}
+              className="w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {lang === 'th' ? 'หมายเหตุ' : 'Note'}
+            </label>
+            <input
+              type="text"
+              value={formData.note}
+              onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg"
+              placeholder={lang === 'th' ? 'เหตุผลที่เพิ่ม...' : 'Reason for adding...'}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+            </Button>
+            <Button type="submit" icon={Plus}>
+              {lang === 'th' ? 'เพิ่มรายการ' : 'Add Item'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// ENHANCED GOODS RECEIPT FORM
+// With Split Lots, Reject, Add Items
+// ============================================
+const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGlobalLotSequence, onSave, onCancel, lang }) => {
+  const vendor = vendors.find(v => v.id === po.vendorId)
+  const rmCategories = categories?.filter(c => c.type === 'raw_material') || []
+  
+  // State for receipt items - each PO item can have multiple lots
+  const [receiptItems, setReceiptItems] = useState(
+    po.items.map((item, idx) => ({
+      poItemIdx: idx,
+      poItem: item,
+      lots: [{
+        id: `lot-${idx}-0`,
+        qtyToReceive: item.qty - (item.qtyReceived || 0),
+        actualThickness: item.thickness,
+        actualWidth: item.width,
+        actualLength: item.length,
+        hasVariance: false,
+        varianceType: '',
+        varianceNote: '',
+      }],
+      isRejected: false,
+      rejectReason: '',
+      rejectNote: '',
+    }))
+  )
+  
+  // State for newly added items (not on PO)
+  const [additionalItems, setAdditionalItems] = useState([])
+  
+  // General receipt info
+  const [grnDate, setGrnDate] = useState(new Date().toISOString().split('T')[0])
+  const [grnNotes, setGrnNotes] = useState('')
+  
+  // Modal states
+  const [showRejectModal, setShowRejectModal] = useState(false)
+  const [rejectingItemIdx, setRejectingItemIdx] = useState(null)
+  const [showAddItemModal, setShowAddItemModal] = useState(false)
+  const [expandedItems, setExpandedItems] = useState(() => {
+    const expanded = {}
+    po.items.forEach((_, idx) => { expanded[idx] = true })
+    return expanded
+  })
+
+  // Generate lot number
+  const generateLotNumber = (categoryCode) => {
+    const seq = (globalLotSequence || 14926) + 1
+    if (setGlobalLotSequence) setGlobalLotSequence(seq)
+    
+    let prefix
+    switch (categoryCode) {
+      case 'MLH': prefix = 'LP'; break
+      case 'PW': prefix = vendor?.initials || 'PW'; break
+      case 'PWKD': prefix = vendor?.initials || 'PW'; break
+      case 'PWGRN': prefix = vendor?.initials || 'PW'; break
+      case 'PLYRR': prefix = 'PLYRR'; break
+      case 'PLYRW': prefix = 'PLYRW'; break
+      case 'PLYWW': prefix = 'PLYWW'; break
+      case 'PRTB': prefix = 'PRTB'; break
+      default: prefix = categoryCode
+    }
+    return `${prefix}${seq}`
+  }
+
+  // Toggle item expansion
+  const toggleExpand = (idx) => {
+    setExpandedItems(prev => ({ ...prev, [idx]: !prev[idx] }))
+  }
+
+  // Add a lot to a PO item (split)
+  const addLotToItem = (itemIdx) => {
+    setReceiptItems(items => items.map((item, idx) => {
+      if (idx !== itemIdx) return item
+      return {
+        ...item,
+        lots: [...item.lots, {
+          id: `lot-${itemIdx}-${item.lots.length}`,
+          qtyToReceive: 0,
+          actualThickness: item.poItem.thickness,
+          actualWidth: item.poItem.width,
+          actualLength: item.poItem.length,
+          hasVariance: false,
+          varianceType: '',
+          varianceNote: '',
+        }]
+      }
+    }))
+  }
+
+  // Remove a lot from an item
+  const removeLot = (itemIdx, lotIdx) => {
+    setReceiptItems(items => items.map((item, idx) => {
+      if (idx !== itemIdx || item.lots.length <= 1) return item
+      return {
+        ...item,
+        lots: item.lots.filter((_, i) => i !== lotIdx)
+      }
+    }))
+  }
+
+  // Update a lot field
+  const updateLot = (itemIdx, lotIdx, field, value) => {
+    setReceiptItems(items => items.map((item, idx) => {
+      if (idx !== itemIdx) return item
+      return {
+        ...item,
+        lots: item.lots.map((lot, i) => {
+          if (i !== lotIdx) return lot
+          const updated = { ...lot, [field]: value }
+          
+          // Auto-detect variance based on dimensions
+          const hasVariance = 
+            updated.actualThickness !== item.poItem.thickness ||
+            updated.actualWidth !== item.poItem.width ||
+            updated.actualLength !== item.poItem.length
+          
+          updated.hasVariance = hasVariance
+          if (hasVariance && !updated.varianceType) {
+            updated.varianceType = 'size_different'
+          }
+          
+          return updated
+        })
+      }
+    }))
+  }
+
+  // Get total qty in lots for an item
+  const getTotalInLots = (item) => {
+    return item.lots.reduce((sum, lot) => sum + (lot.qtyToReceive || 0), 0)
+  }
+
+  // Reject an item
+  const handleRejectItem = (itemIdx, reason, note) => {
+    setReceiptItems(items => items.map((item, idx) => {
+      if (idx !== itemIdx) return item
+      return {
+        ...item,
+        isRejected: true,
+        rejectReason: reason,
+        rejectNote: note,
+        lots: item.lots.map(lot => ({ ...lot, qtyToReceive: 0 }))
+      }
+    }))
+    setShowRejectModal(false)
+    setRejectingItemIdx(null)
+  }
+
+  // Un-reject an item
+  const handleUnrejectItem = (itemIdx) => {
+    setReceiptItems(items => items.map((item, idx) => {
+      if (idx !== itemIdx) return item
+      const remaining = item.poItem.qty - (item.poItem.qtyReceived || 0)
+      return {
+        ...item,
+        isRejected: false,
+        rejectReason: '',
+        rejectNote: '',
+        lots: [{
+          id: `lot-${itemIdx}-0`,
+          qtyToReceive: remaining,
+          actualThickness: item.poItem.thickness,
+          actualWidth: item.poItem.width,
+          actualLength: item.poItem.length,
+          hasVariance: false,
+          varianceType: '',
+          varianceNote: '',
+        }]
+      }
+    }))
+  }
+
+  // Add additional item (not on PO)
+  const handleAddAdditionalItem = (newItem) => {
+    setAdditionalItems(items => [...items, {
+      ...newItem,
+      id: `ADD-${items.length + 1}`,
+      isAdditional: true,
+    }])
+    setShowAddItemModal(false)
+  }
+
+  // Remove additional item
+  const removeAdditionalItem = (idx) => {
+    setAdditionalItems(items => items.filter((_, i) => i !== idx))
+  }
+
+  // Calculate totals
+  const calculateTotals = () => {
+    let totalLots = 0
+    let totalQty = 0
+    let totalValue = 0
+    let totalRejected = 0
+    let hasVariance = false
+
+    receiptItems.forEach(item => {
+      if (item.isRejected) {
+        totalRejected++
+      } else {
+        item.lots.forEach(lot => {
+          if (lot.qtyToReceive > 0) {
+            totalLots++
+            totalQty += lot.qtyToReceive
+            totalValue += lot.qtyToReceive * item.poItem.unitPrice * (po.exchangeRate || 1)
+            if (lot.hasVariance) hasVariance = true
+          }
+        })
+      }
+    })
+
+    additionalItems.forEach(item => {
+      totalLots++
+      totalQty += item.qty
+      totalValue += item.qty * item.unitPrice
+      hasVariance = true
+    })
+
+    return { totalLots, totalQty, totalValue, totalRejected, hasVariance }
+  }
+
+  const totals = calculateTotals()
+
+  // Submit receipt
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    
+    const allLots = []
+    const rejections = []
+    
+    receiptItems.forEach(item => {
+      if (item.isRejected) {
+        rejections.push({
+          poItemIdx: item.poItemIdx,
+          category: item.poItem.categoryId,
+          orderedQty: item.poItem.qty,
+          reason: item.rejectReason,
+          note: item.rejectNote,
+        })
+        return
+      }
+      
+      item.lots.forEach(lot => {
+        if (lot.qtyToReceive <= 0) return
+        
+        allLots.push({
+          poItemIdx: item.poItemIdx,
+          id: item.poItem.id,
+          category: item.poItem.categoryId,
+          thickness: lot.actualThickness,
+          width: lot.actualWidth,
+          length: lot.actualLength,
+          qtyReceived: lot.qtyToReceive,
+          unitPrice: item.poItem.unitPrice,
+          hasVariance: lot.hasVariance,
+          varianceType: lot.varianceType,
+          varianceNote: lot.varianceNote || lot.hasVariance ? `Size: ${lot.actualThickness}x${lot.actualWidth}x${lot.actualLength} vs PO: ${item.poItem.thickness}x${item.poItem.width}x${item.poItem.length}` : '',
+          varianceReason: lot.varianceNote,
+        })
+      })
+    })
+    
+    // Add additional items
+    additionalItems.forEach(item => {
+      allLots.push({
+        poItemIdx: null,
+        id: item.id,
+        category: item.categoryId,
+        thickness: item.thickness,
+        width: item.width,
+        length: item.length,
+        qtyReceived: item.qty,
+        unitPrice: item.unitPrice,
+        hasVariance: true,
+        varianceType: 'not_on_po',
+        varianceNote: item.note || 'Additional item not on PO',
+        varianceReason: item.note || 'Additional item not on PO',
+        isAdditional: true,
+      })
+    })
+    
     onSave({
       poId: po.id,
       grnDate,
-      notes,
-      items: grnItems.map(item => ({
-        id: item.id,
-        category: item.categoryId,
-        thickness: item.actualThickness,
-        width: item.actualWidth,
-        length: item.actualLength,
-        qtyReceived: item.qtyToReceive,
-        unitPrice: item.unitPrice,
-        varianceReason: item.varianceReason,
-      }))
+      notes: grnNotes,
+      items: allLots,
+      rejections,
+      hasVariance: totals.hasVariance,
+      summary: totals,
     })
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* PO Info */}
-      <div className="p-4 bg-gray-50 rounded-lg">
-        <div className="grid grid-cols-4 gap-4 text-sm">
+    <form onSubmit={handleSubmit} className="space-y-6 max-h-[75vh] overflow-y-auto pr-2">
+      {/* PO Info Header */}
+      <div className="p-4 bg-gradient-to-r from-[#1A5276]/10 to-[#2ECC40]/10 rounded-lg border">
+        <div className="grid grid-cols-5 gap-4 text-sm">
           <div>
             <div className="text-gray-500">{lang === 'th' ? 'เลขที่ PO' : 'PO Number'}</div>
-            <div className="font-bold text-[#1A5276]">{po.id}</div>
+            <div className="font-bold text-[#1A5276] text-lg">{po.id}</div>
           </div>
           <div>
             <div className="text-gray-500">{lang === 'th' ? 'ผู้ขาย' : 'Vendor'}</div>
@@ -3741,137 +4290,255 @@ const GoodsReceiptForm = ({ po, vendors, onSave, onCancel, lang }) => {
           </div>
           <div>
             <div className="text-gray-500">{lang === 'th' ? 'ประเภท' : 'Type'}</div>
-            <Badge variant={po.type === 'import' ? 'info' : 'success'}>{po.type}</Badge>
+            <Badge variant={po.type === 'import' ? 'info' : 'success'}>
+              {po.type === 'import' ? '🚢 Import' : '🏠 Local'}
+            </Badge>
+          </div>
+          <div>
+            <div className="text-gray-500">{lang === 'th' ? 'วันที่รับ' : 'Receipt Date'}</div>
+            <input
+              type="date"
+              required
+              value={grnDate}
+              onChange={(e) => setGrnDate(e.target.value)}
+              className="mt-1 px-2 py-1 border rounded text-sm w-full"
+            />
           </div>
         </div>
       </div>
 
-      {/* GRN Date */}
-      <div className="grid grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {lang === 'th' ? 'วันที่รับ *' : 'Receipt Date *'}
-          </label>
-          <input
-            type="date"
-            required
-            value={grnDate}
-            onChange={(e) => setGrnDate(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg"
-          />
+      {/* Action Buttons */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-600">
+          {po.items.length} {lang === 'th' ? 'รายการใน PO' : 'items in PO'}
+        </div>
+        <Button type="button" variant="outline" size="sm" icon={Plus} onClick={() => setShowAddItemModal(true)}>
+          {lang === 'th' ? 'เพิ่มรายการใหม่ (ไม่อยู่ใน PO)' : 'Add Item (Not in PO)'}
+        </Button>
+      </div>
+
+      {/* Instructions */}
+      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+        <div className="flex items-start gap-2">
+          <Info className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+          <div className="text-blue-800">
+            <strong>{lang === 'th' ? 'คำแนะนำ:' : 'Tips:'}</strong>
+            <span className="ml-1">
+              {lang === 'th' 
+                ? 'แก้ไขจำนวน/ขนาดตามจริง • ใช้ "แยกล็อต" หากมีหลายขนาด • ใช้ "ปฏิเสธ" หากไม่ผ่าน'
+                : 'Edit qty/size as received • Use "Split Lot" for multiple sizes • Use "Reject" if failed'}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Items to Receive */}
-      <div>
-        <label className="text-sm font-medium text-gray-700 mb-2 block">
-          {lang === 'th' ? 'รายการรับ (แก้ไขได้)' : 'Items to Receive (Editable)'}
-        </label>
-        <div className="space-y-4">
-          {grnItems.map((item, idx) => {
-            const remaining = item.qty - (po.items[idx].qtyReceived || 0)
-            const hasVariance = item.qtyToReceive !== remaining || 
-                               item.actualThickness !== item.thickness ||
-                               item.actualWidth !== item.width ||
-                               item.actualLength !== item.length
-            
-            return (
-              <Card key={idx} className={`p-4 ${hasVariance ? 'border-amber-300 bg-amber-50' : ''}`}>
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="info">{item.categoryId}</Badge>
-                      <span className="text-sm text-gray-500">
-                        {lang === 'th' ? 'สั่ง:' : 'Ordered:'} {item.qty} | 
-                        {lang === 'th' ? ' รับแล้ว:' : ' Received:'} {po.items[idx].qtyReceived || 0} | 
-                        {lang === 'th' ? ' คงเหลือ:' : ' Remaining:'} {remaining}
-                      </span>
-                    </div>
+      {/* Receipt Items */}
+      <div className="space-y-4">
+        {receiptItems.map((item, itemIdx) => {
+          const poItem = item.poItem
+          const ordered = poItem.qty - (poItem.qtyReceived || 0)
+          const totalInLots = getTotalInLots(item)
+          const remaining = ordered - totalInLots
+          const isExpanded = expandedItems[itemIdx] !== false
+          const hasAnyVariance = item.lots.some(l => l.hasVariance)
+          
+          return (
+            <div 
+              key={itemIdx} 
+              className={`border rounded-lg overflow-hidden ${
+                item.isRejected ? 'border-red-300 bg-red-50' :
+                hasAnyVariance ? 'border-amber-300' :
+                'border-gray-200'
+              }`}
+            >
+              {/* Item Header */}
+              <div 
+                className={`px-4 py-3 flex items-center justify-between cursor-pointer ${
+                  item.isRejected ? 'bg-red-100' :
+                  hasAnyVariance ? 'bg-amber-50' :
+                  'bg-gray-50'
+                }`}
+                onClick={() => toggleExpand(itemIdx)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="text-gray-400">
+                    {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                   </div>
-                  {hasVariance && (
-                    <Badge variant="warning">⚠️ {lang === 'th' ? 'ต่างจากที่สั่ง' : 'Variance'}</Badge>
+                  <Badge variant="info">{poItem.categoryId}</Badge>
+                  <div>
+                    <span className="font-medium">{poItem.thickness} × {poItem.width} × {poItem.length} mm</span>
+                    <span className="text-gray-500 text-sm ml-2">
+                      (Ord: {ordered} | Lots: {totalInLots} | Left: {remaining})
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  {item.isRejected && (
+                    <Badge variant="danger">❌ {lang === 'th' ? 'ปฏิเสธ' : 'Rejected'}</Badge>
+                  )}
+                  {hasAnyVariance && !item.isRejected && (
+                    <Badge variant="warning">⚠️ Variance</Badge>
                   )}
                 </div>
+              </div>
 
-                <div className="grid grid-cols-5 gap-4">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      {lang === 'th' ? 'จำนวนรับ *' : 'Qty to Receive *'}
-                    </label>
-                    <input
-                      type="number"
-                      value={item.qtyToReceive}
-                      onChange={(e) => updateGrnItem(idx, 'qtyToReceive', parseInt(e.target.value) || 0)}
-                      className={`w-full px-3 py-2 border rounded-lg ${item.qtyToReceive !== remaining ? 'border-amber-400 bg-amber-50' : ''}`}
-                      max={remaining}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      {lang === 'th' ? 'หนา (จริง)' : 'Actual Thickness'}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={item.actualThickness}
-                      onChange={(e) => updateGrnItem(idx, 'actualThickness', parseFloat(e.target.value) || 0)}
-                      className={`w-full px-3 py-2 border rounded-lg ${item.actualThickness !== item.thickness ? 'border-amber-400 bg-amber-50' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      {lang === 'th' ? 'กว้าง (จริง)' : 'Actual Width'}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={item.actualWidth}
-                      onChange={(e) => updateGrnItem(idx, 'actualWidth', parseFloat(e.target.value) || 0)}
-                      className={`w-full px-3 py-2 border rounded-lg ${item.actualWidth !== item.width ? 'border-amber-400 bg-amber-50' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      {lang === 'th' ? 'ยาว (จริง)' : 'Actual Length'}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={item.actualLength}
-                      onChange={(e) => updateGrnItem(idx, 'actualLength', parseFloat(e.target.value) || 0)}
-                      className={`w-full px-3 py-2 border rounded-lg ${item.actualLength !== item.length ? 'border-amber-400 bg-amber-50' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      {lang === 'th' ? 'มูลค่า' : 'Value'}
-                    </label>
-                    <div className="px-3 py-2 bg-gray-100 rounded-lg font-medium text-[#2ECC40]">
-                      {formatCurrency(item.qtyToReceive * item.unitPrice * (po.exchangeRate || 1))}
+              {/* Expanded Content */}
+              {isExpanded && (
+                <div className="p-4 border-t">
+                  {item.isRejected ? (
+                    <div className="text-center py-4">
+                      <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-red-100 flex items-center justify-center">
+                        <X className="w-6 h-6 text-red-500" />
+                      </div>
+                      <div className="font-bold text-red-700">
+                        {lang === 'th' ? 'รายการถูกปฏิเสธ' : 'Item Rejected'}
+                      </div>
+                      <div className="text-sm text-red-600 mt-1">
+                        {REJECTION_REASONS.find(r => r.id === item.rejectReason)?.[lang === 'th' ? 'labelTh' : 'labelEn']}
+                        {item.rejectNote && ` - ${item.rejectNote}`}
+                      </div>
+                      <div className="mt-2 p-2 bg-yellow-100 rounded text-sm text-yellow-800">
+                        ⚠️ {lang === 'th' ? 'Vendor ต้องออก Revised Invoice' : 'Vendor must issue Revised Invoice'}
+                      </div>
+                      <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => handleUnrejectItem(itemIdx)}>
+                        <RotateCcw className="w-4 h-4 mr-1" /> {lang === 'th' ? 'ยกเลิกปฏิเสธ' : 'Undo'}
+                      </Button>
                     </div>
-                  </div>
-                </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {item.lots.map((lot, lotIdx) => (
+                        <div 
+                          key={lot.id} 
+                          className={`p-3 rounded-lg border ${
+                            lot.hasVariance ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-600">
+                              {lang === 'th' ? 'ล็อต' : 'Lot'} #{lotIdx + 1}
+                              {lot.hasVariance && <span className="ml-2 text-amber-600">⚠️ Size differs</span>}
+                            </span>
+                            {item.lots.length > 1 && (
+                              <button type="button" onClick={() => removeLot(itemIdx, lotIdx)} className="p-1 text-red-500 hover:bg-red-50 rounded">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
 
-                {hasVariance && (
-                  <div className="mt-3">
-                    <label className="block text-xs text-gray-500 mb-1">
-                      {lang === 'th' ? 'เหตุผลที่ต่าง *' : 'Variance Reason *'}
-                    </label>
-                    <input
-                      type="text"
-                      value={item.varianceReason}
-                      onChange={(e) => updateGrnItem(idx, 'varianceReason', e.target.value)}
-                      placeholder={lang === 'th' ? 'ระบุเหตุผล เช่น ขาด 2 ชิ้น, สั้นกว่า 10mm' : 'e.g., 2 pieces short, 10mm shorter'}
-                      className="w-full px-3 py-2 border border-amber-400 rounded-lg bg-amber-50"
-                      required={hasVariance}
-                    />
-                  </div>
-                )}
-              </Card>
-            )
-          })}
-        </div>
+                          <div className="grid grid-cols-6 gap-2">
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">{lang === 'th' ? 'จำนวน' : 'Qty'} *</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={lot.qtyToReceive}
+                                onChange={(e) => updateLot(itemIdx, lotIdx, 'qtyToReceive', parseInt(e.target.value) || 0)}
+                                className="w-full px-2 py-1.5 border rounded text-center font-bold"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">T (mm)</label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                value={lot.actualThickness}
+                                onChange={(e) => updateLot(itemIdx, lotIdx, 'actualThickness', parseFloat(e.target.value) || 0)}
+                                className={`w-full px-2 py-1.5 border rounded text-center ${lot.actualThickness !== poItem.thickness ? 'border-amber-400 bg-amber-50' : ''}`}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">W (mm)</label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                value={lot.actualWidth}
+                                onChange={(e) => updateLot(itemIdx, lotIdx, 'actualWidth', parseFloat(e.target.value) || 0)}
+                                className={`w-full px-2 py-1.5 border rounded text-center ${lot.actualWidth !== poItem.width ? 'border-amber-400 bg-amber-50' : ''}`}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">L (mm)</label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                value={lot.actualLength}
+                                onChange={(e) => updateLot(itemIdx, lotIdx, 'actualLength', parseFloat(e.target.value) || 0)}
+                                className={`w-full px-2 py-1.5 border rounded text-center ${lot.actualLength !== poItem.length ? 'border-amber-400 bg-amber-50' : ''}`}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">CBM</label>
+                              <div className="px-2 py-1.5 bg-gray-100 rounded text-center text-sm">
+                                {((lot.actualThickness * lot.actualWidth * lot.actualLength * lot.qtyToReceive) / 1000000000).toFixed(3)}
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">{lang === 'th' ? 'มูลค่า' : 'Value'}</label>
+                              <div className="px-2 py-1.5 bg-green-50 rounded text-center text-sm font-medium text-green-700">
+                                ฿{(lot.qtyToReceive * poItem.unitPrice * (po.exchangeRate || 1)).toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+
+                          {lot.hasVariance && (
+                            <div className="mt-2">
+                              <input
+                                type="text"
+                                value={lot.varianceNote}
+                                onChange={(e) => updateLot(itemIdx, lotIdx, 'varianceNote', e.target.value)}
+                                placeholder={lang === 'th' ? 'หมายเหตุ variance...' : 'Variance note...'}
+                                className="w-full px-2 py-1.5 border border-amber-300 rounded bg-amber-50 text-sm"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      {remaining !== 0 && (
+                        <div className={`p-2 rounded text-sm text-center ${remaining > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
+                          {remaining > 0 ? `⚠️ ${remaining} pcs not assigned` : `❌ ${Math.abs(remaining)} pcs over-assigned`}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-2 border-t">
+                        <Button type="button" variant="outline" size="sm" icon={Copy} onClick={() => addLotToItem(itemIdx)}>
+                          {lang === 'th' ? 'แยกล็อต' : 'Split Lot'}
+                        </Button>
+                        <Button type="button" variant="danger" size="sm" icon={X} onClick={() => { setRejectingItemIdx(itemIdx); setShowRejectModal(true); }}>
+                          {lang === 'th' ? 'ปฏิเสธ' : 'Reject'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
+
+      {/* Additional Items */}
+      {additionalItems.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="font-bold text-gray-700 flex items-center gap-2">
+            <Plus className="w-4 h-4 text-blue-500" />
+            {lang === 'th' ? 'รายการเพิ่มเติม' : 'Additional Items'}
+          </h4>
+          {additionalItems.map((item, idx) => (
+            <div key={idx} className="p-3 border-2 border-blue-300 bg-blue-50 rounded-lg flex items-center justify-between">
+              <div>
+                <span className="font-medium">{item.categoryId}</span>
+                <span className="text-gray-600 ml-2">{item.thickness}×{item.width}×{item.length}mm × {item.qty}</span>
+                {item.note && <span className="text-blue-600 ml-2 text-sm">({item.note})</span>}
+              </div>
+              <button type="button" onClick={() => removeAdditionalItem(idx)} className="p-1 text-red-500 hover:bg-red-100 rounded">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Notes */}
       <div>
@@ -3879,40 +4546,64 @@ const GoodsReceiptForm = ({ po, vendors, onSave, onCancel, lang }) => {
           {lang === 'th' ? 'หมายเหตุ' : 'Notes'}
         </label>
         <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          value={grnNotes}
+          onChange={(e) => setGrnNotes(e.target.value)}
           rows={2}
           className="w-full px-3 py-2 border rounded-lg"
         />
       </div>
 
       {/* Summary */}
-      <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-        <div className="flex items-center justify-between">
+      <div className={`p-4 rounded-lg border ${totals.hasVariance ? 'border-amber-300 bg-amber-50' : 'border-green-300 bg-green-50'}`}>
+        <div className="grid grid-cols-4 gap-4 text-center">
           <div>
-            <div className="font-medium text-green-800">
-              {lang === 'th' ? 'สรุปการรับ' : 'Receipt Summary'}
-            </div>
-            <div className="text-sm text-green-600">
-              {grnItems.reduce((sum, i) => sum + i.qtyToReceive, 0)} {lang === 'th' ? 'รายการจะเข้าคลัง' : 'items will be added to inventory'}
-            </div>
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'ล็อต' : 'Lots'}</div>
+            <div className="text-2xl font-bold text-blue-600">{totals.totalLots}</div>
           </div>
-          <div className="text-right">
-            <div className="text-sm text-green-600">{lang === 'th' ? 'มูลค่ารวม' : 'Total Value'}</div>
-            <div className="text-2xl font-bold text-green-700">
-              {formatCurrency(grnItems.reduce((sum, i) => sum + (i.qtyToReceive * i.unitPrice * (po.exchangeRate || 1)), 0))}
-            </div>
+          <div>
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'จำนวน' : 'Qty'}</div>
+            <div className="text-2xl font-bold text-green-600">{totals.totalQty.toLocaleString()}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่า' : 'Value'}</div>
+            <div className="text-xl font-bold text-emerald-600">฿{totals.totalValue.toLocaleString()}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'ปฏิเสธ' : 'Rejected'}</div>
+            <div className="text-2xl font-bold text-red-600">{totals.totalRejected}</div>
           </div>
         </div>
+        {totals.hasVariance && (
+          <div className="mt-2 text-center text-sm text-amber-700">⚠️ Variance detected - Report will be generated</div>
+        )}
       </div>
 
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button type="button" variant="secondary" onClick={onCancel}>{t('action.cancel', lang)}</Button>
         <Button type="submit" icon={Save}>
-          {lang === 'th' ? 'ยืนยันรับสินค้า' : 'Confirm Receipt'}
+          {lang === 'th' ? 'ยืนยันรับสินค้า' : 'Confirm Receipt'} ({totals.totalLots} lots)
         </Button>
       </div>
+
+      {/* Modals */}
+      {showRejectModal && rejectingItemIdx !== null && (
+        <RejectItemModal
+          item={receiptItems[rejectingItemIdx].poItem}
+          lang={lang}
+          onReject={(reason, note) => handleRejectItem(rejectingItemIdx, reason, note)}
+          onCancel={() => { setShowRejectModal(false); setRejectingItemIdx(null); }}
+        />
+      )}
+
+      {showAddItemModal && (
+        <AddReceiptItemModal
+          categories={rmCategories}
+          lang={lang}
+          onAdd={handleAddAdditionalItem}
+          onCancel={() => setShowAddItemModal(false)}
+        />
+      )}
     </form>
   )
 }
