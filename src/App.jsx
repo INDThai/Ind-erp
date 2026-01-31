@@ -3253,12 +3253,15 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
       {showGRNModal && selectedPO && (
         <Modal isOpen={showGRNModal} onClose={() => setShowGRNModal(false)} title={lang === 'th' ? 'รับสินค้า' : 'Goods Receipt'} size="xl">
           <GoodsReceiptForm
-            po={selectedPO}
-            vendors={vendors}
-            lang={lang}
-            onSave={handleGRNSave}
-            onCancel={() => setShowGRNModal(false)}
-          />
+  po={selectedPO}
+  vendors={vendors}
+  categories={categories}
+  globalLotSequence={globalLotSequence}
+  setGlobalLotSequence={setGlobalLotSequence}
+  lang={lang}
+  onSave={handleGRNSave}
+  onCancel={() => setShowGRNModal(false)}
+/>
         </Modal>
       )}
 
