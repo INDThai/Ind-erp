@@ -19,7 +19,7 @@ import {
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '7.0'
+const VERSION = '7.1'
 const VERSION_DATE = '2026-01-31'
 
 // ============================================
@@ -328,15 +328,8 @@ const getRequiredApprover = (amount) => {
   return APPROVAL_THRESHOLDS.ceo
 }
 
-const canUserApprove = (userRole, requiredLevel) => {
-  const roleHierarchy = ['staff', 'supervisor', 'production_manager', 'general_manager', 'ceo', 'admin']
-  const userLevel = roleHierarchy.indexOf(userRole)
-  const requiredIdx = roleHierarchy.indexOf(requiredLevel)
-  return userLevel >= requiredIdx
-}
-
 // ============================================
-// REJECTION REASONS (for GRN - Spec 3-4)
+// REJECTION REASONS (for GRN - Spec 4)
 // ============================================
 const REJECTION_REASONS = [
   { id: 'damaged', labelEn: 'Damaged goods', labelTh: 'สินค้าเสียหาย' },
@@ -373,17 +366,6 @@ const IMPORT_STATUS = [
 ]
 
 // ============================================
-// CUSTOMS STATUS
-// ============================================
-const CUSTOMS_STATUS = [
-  { id: 'not_started', label: 'Not Started', labelTh: 'ยังไม่เริ่ม' },
-  { id: 'docs_submitted', label: 'Documents Submitted', labelTh: 'ส่งเอกสารแล้ว' },
-  { id: 'inspection', label: 'Under Inspection', labelTh: 'กำลังตรวจ' },
-  { id: 'duty_paid', label: 'Duty Paid', labelTh: 'จ่ายภาษีแล้ว' },
-  { id: 'cleared', label: 'Cleared', labelTh: 'ผ่านแล้ว' },
-]
-
-// ============================================
 // LC STATUS (Spec 12 - Letter of Credit)
 // ============================================
 const LC_STATUS = [
@@ -392,13 +374,12 @@ const LC_STATUS = [
   { id: 'opened', label: 'LC Opened', labelTh: 'เปิดแล้ว' },
   { id: 'amended', label: 'Amended', labelTh: 'แก้ไขแล้ว' },
   { id: 'docs_submitted', label: 'Documents Submitted', labelTh: 'ส่งเอกสารแล้ว' },
-  { id: 'negotiated', label: 'Negotiated', labelTh: 'เจรจาแล้ว' },
   { id: 'paid', label: 'Paid', labelTh: 'จ่ายแล้ว' },
   { id: 'closed', label: 'Closed', labelTh: 'ปิดแล้ว' },
 ]
 
 // ============================================
-// CREDIT NOTE REASONS
+// CREDIT NOTE REASONS (Spec 4)
 // ============================================
 const CREDIT_NOTE_REASONS = [
   { id: 'qty_short', label: 'Quantity Short', labelTh: 'จำนวนขาด' },
@@ -408,7 +389,6 @@ const CREDIT_NOTE_REASONS = [
   { id: 'returned', label: 'Goods Returned', labelTh: 'คืนสินค้า' },
   { id: 'other', label: 'Other', labelTh: 'อื่นๆ' },
 ]
-
 
 // ============================================
 // PURCHASE ORDERS (with Import Costing)
@@ -2599,21 +2579,406 @@ const EditLotModal = ({ isOpen, onClose, lot, categories, stores, onSave, onPrin
 }
 
 // ============================================
+// RM LABEL PRINT MODAL (A5 - 2 per page with BARCODE)
+// Spec 4 - LOCKED FORMAT
+// ============================================
+const RMLabelPrintModal = ({ isOpen, onClose, lots, lang }) => {
+  const printRef = useRef()
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank')
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>IND RM Labels</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; }
+          @page { size: A5 landscape; margin: 5mm; }
+          @media print { .page-break { page-break-after: always; } }
+          .label-page { width: 210mm; height: 148mm; display: flex; gap: 4mm; padding: 3mm; }
+          .label { width: 101mm; height: 140mm; border: 2px solid #000; display: flex; flex-direction: column; }
+          .label-header { background: #1A5276; color: white; text-align: center; padding: 3mm; font-weight: bold; font-size: 11pt; }
+          .label-row { display: flex; border-bottom: 1px solid #000; }
+          .label-row:last-child { border-bottom: none; }
+          .label-cell { padding: 2mm 3mm; border-right: 1px solid #000; }
+          .label-cell:last-child { border-right: none; }
+          .label-cell.header { width: 28mm; font-weight: bold; font-size: 9pt; background: #f5f5f5; }
+          .label-cell.value { flex: 1; font-size: 11pt; font-weight: bold; display: flex; align-items: center; }
+          .label-cell.value.large { font-size: 16pt; justify-content: center; padding: 4mm; }
+          .ind-code-row { flex: 1; display: flex; align-items: center; justify-content: center; font-family: monospace; font-size: 14pt; font-weight: bold; border-bottom: 1px solid #000; }
+          .barcode-row { padding: 3mm; text-align: center; border-bottom: 1px solid #000; }
+          .barcode-text { font-family: monospace; font-size: 8pt; margin-top: 1mm; }
+          .issue-section { display: flex; flex-direction: column; }
+          .issue-row { display: flex; border-bottom: 1px solid #000; min-height: 8mm; }
+          .issue-row:last-child { border-bottom: none; }
+        </style>
+      </head>
+      <body>
+    `)
+
+    for (let i = 0; i < lots.length; i += 2) {
+      const lot1 = lots[i]
+      const lot2 = lots[i + 1]
+      printWindow.document.write(`<div class="label-page ${i + 2 < lots.length ? 'page-break' : ''}">`)
+      printWindow.document.write(generateRMLabelHTML(lot1))
+      if (lot2) printWindow.document.write(generateRMLabelHTML(lot2))
+      printWindow.document.write('</div>')
+    }
+    printWindow.document.write('</body></html>')
+    printWindow.document.close()
+    setTimeout(() => printWindow.print(), 500)
+  }
+
+  const generateRMLabelHTML = (lot) => {
+    const barcodeValue = lot.code || `IND-${lot.category}/${lot.thickness}/${lot.width}/${lot.length}`
+    return `
+      <div class="label">
+        <div class="label-header">IND THAI PACKWELL INDUSTRIES CO., LTD.</div>
+        <div class="label-row"><div class="label-cell header">LOT NO:</div><div class="label-cell value large">${lot.lotNo}</div></div>
+        <div class="ind-code-row">${barcodeValue}</div>
+        <div class="label-row"><div class="label-cell header">QUANTITY</div><div class="label-cell value large">${lot.qty}</div></div>
+        <div class="label-row"><div class="label-cell header">DATE RECD</div><div class="label-cell value">${lot.dateIn || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div></div>
+        <div class="barcode-row"><div style="font-family:monospace;letter-spacing:2px">||||||||||||||||||||||||||||||||</div><div class="barcode-text">${barcodeValue}</div></div>
+        <div class="issue-section">
+          <div class="issue-row"><div class="label-cell header">DATE ISSUED</div><div class="label-cell value"></div></div>
+          <div class="issue-row"><div class="label-cell header">PCS ISSUED</div><div class="label-cell value"></div></div>
+          <div class="issue-row"><div class="label-cell header">ISSUED BY</div><div class="label-cell value"></div></div>
+        </div>
+      </div>
+    `
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={lang === 'th' ? 'พิมพ์ฉลาก RM (A5)' : 'Print RM Labels (A5)'} size="xl">
+      <div className="space-y-4">
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 flex items-center gap-2">
+          <Info className="w-5 h-5" />
+          <span>{lang === 'th' ? `พิมพ์ ${lots.length} ฉลาก (${Math.ceil(lots.length / 2)} แผ่น A5)` : `Printing ${lots.length} labels (${Math.ceil(lots.length / 2)} A5 sheets)`}</span>
+        </div>
+        <div ref={printRef} className="border rounded-lg p-4 bg-gray-50 max-h-[400px] overflow-y-auto space-y-4">
+          {lots.map((lot, idx) => {
+            const barcodeValue = lot.code || `IND-${lot.category}/${lot.thickness}/${lot.width}/${lot.length}`
+            return (
+              <div key={idx} className="bg-white border-2 border-black p-0 w-[380px]">
+                <div className="bg-[#1A5276] text-white text-center py-2 font-bold text-sm">IND THAI PACKWELL INDUSTRIES CO., LTD.</div>
+                <div className="flex border-b border-black">
+                  <div className="w-24 bg-gray-100 px-2 py-1 font-bold text-sm border-r border-black">LOT NO:</div>
+                  <div className="flex-1 px-2 py-1 text-xl font-bold text-center">{lot.lotNo}</div>
+                </div>
+                <div className="py-3 text-center font-mono font-bold text-lg border-b border-black">{barcodeValue}</div>
+                <div className="flex border-b border-black">
+                  <div className="w-24 bg-gray-100 px-2 py-1 font-bold text-sm border-r border-black">QUANTITY</div>
+                  <div className="flex-1 px-2 py-1 text-xl font-bold text-center">{lot.qty}</div>
+                </div>
+                <div className="flex border-b border-black">
+                  <div className="w-24 bg-gray-100 px-2 py-1 font-bold text-sm border-r border-black">DATE RECD</div>
+                  <div className="flex-1 px-2 py-1 font-medium">{lot.dateIn || new Date().toLocaleDateString('en-GB')}</div>
+                </div>
+                <div className="py-2 text-center border-b border-black">
+                  <div className="inline-block px-4 py-2 bg-gray-200 font-mono text-xs">||||||||||||||||||||||||||||||||</div>
+                  <div className="text-xs mt-1 font-mono">{barcodeValue}</div>
+                </div>
+                <div className="flex border-b border-black"><div className="w-24 bg-gray-100 px-2 py-1 font-bold text-sm border-r border-black">DATE ISSUED</div><div className="flex-1 px-2 py-1"></div></div>
+                <div className="flex border-b border-black"><div className="w-24 bg-gray-100 px-2 py-1 font-bold text-sm border-r border-black">PCS ISSUED</div><div className="flex-1 px-2 py-1"></div></div>
+                <div className="flex"><div className="w-24 bg-gray-100 px-2 py-1 font-bold text-sm border-r border-black">ISSUED BY</div><div className="flex-1 px-2 py-1"></div></div>
+              </div>
+            )
+          })}
+        </div>
+        <div className="flex justify-between items-center pt-4 border-t">
+          <div className="text-sm text-gray-500">{lots.length} {lang === 'th' ? 'ฉลาก' : 'labels'} → {Math.ceil(lots.length / 2)} A5</div>
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={onClose}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
+            <Button icon={Printer} onClick={handlePrint}>{lang === 'th' ? 'พิมพ์' : 'Print'}</Button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ============================================
+// MATERIAL ISSUE MODAL (Against WO) - Spec 33
+// ============================================
+const MaterialIssueModal = ({ isOpen, onClose, inventory, workOrders, onIssue, lang }) => {
+  const [selectedWO, setSelectedWO] = useState('')
+  const [selectedLot, setSelectedLot] = useState(null)
+  const [issueQty, setIssueQty] = useState(0)
+  const [searchLot, setSearchLot] = useState('')
+  const [issueNote, setIssueNote] = useState('')
+
+  const filteredLots = inventory.filter(lot => {
+    if (!searchLot) return true
+    return lot.lotNo?.toLowerCase().includes(searchLot.toLowerCase()) || lot.code?.toLowerCase().includes(searchLot.toLowerCase())
+  })
+
+  const activeWOs = (workOrders || []).filter(wo => ['pending', 'in_progress', 'cutting', 'processing', 'assembly'].includes(wo.status))
+
+  const handleIssue = () => {
+    if (!selectedWO || !selectedLot || issueQty <= 0) return
+    onIssue({ lotId: selectedLot.id, lotNo: selectedLot.lotNo, woId: selectedWO, qtyIssued: issueQty, issuedBy: 'Store Keeper', issuedDate: new Date().toISOString(), note: issueNote })
+    setSelectedWO(''); setSelectedLot(null); setIssueQty(0); setIssueNote(''); onClose()
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={lang === 'th' ? 'เบิกวัสดุ' : 'Material Issue'} size="lg">
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ใบสั่งผลิต (WO) *' : 'Work Order *'}</label>
+          <select value={selectedWO} onChange={(e) => setSelectedWO(e.target.value)} className="w-full px-3 py-2 border rounded-lg">
+            <option value="">{lang === 'th' ? '-- เลือก WO --' : '-- Select WO --'}</option>
+            {activeWOs.map(wo => (<option key={wo.id} value={wo.id}>{wo.id} - {wo.productName} ({wo.status})</option>))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ค้นหาล็อต' : 'Search Lot'}</label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input type="text" value={searchLot} onChange={(e) => setSearchLot(e.target.value)} placeholder={lang === 'th' ? 'พิมพ์เลขล็อต...' : 'Type lot number...'} className="w-full pl-10 pr-4 py-2 border rounded-lg" />
+          </div>
+        </div>
+        {searchLot && (
+          <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+            {filteredLots.slice(0, 10).map(lot => (
+              <div key={lot.id} onClick={() => { setSelectedLot(lot); setSearchLot(lot.lotNo); setIssueQty(lot.qty); }} className={`p-3 cursor-pointer hover:bg-gray-50 ${selectedLot?.id === lot.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''}`}>
+                <div className="flex justify-between">
+                  <div><span className="font-bold text-[#1A5276]">{lot.lotNo}</span><span className="text-gray-500 ml-2 text-sm">{lot.code}</span></div>
+                  <Badge variant="success">{lot.qty} pcs</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {selectedLot && (
+          <>
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="text-gray-500">{lang === 'th' ? 'ล็อต:' : 'Lot:'}</span><span className="font-bold ml-2">{selectedLot.lotNo}</span></div>
+                <div><span className="text-gray-500">{lang === 'th' ? 'คงเหลือ:' : 'Available:'}</span><span className="font-bold ml-2 text-green-600">{selectedLot.qty} pcs</span></div>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'จำนวนที่เบิก *' : 'Issue Quantity *'}</label>
+              <input type="number" min="1" max={selectedLot.qty} value={issueQty} onChange={(e) => setIssueQty(Math.min(parseInt(e.target.value) || 0, selectedLot.qty))} className="w-full px-3 py-2 border rounded-lg text-lg font-bold text-center" />
+            </div>
+          </>
+        )}
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          <Button variant="secondary" onClick={onClose}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
+          <Button icon={ArrowRight} onClick={handleIssue} disabled={!selectedWO || !selectedLot || issueQty <= 0}>{lang === 'th' ? 'ยืนยันเบิก' : 'Confirm Issue'}</Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ============================================
+// INTER-STORE TRANSFER MODAL - Spec 33
+// ============================================
+const InterStoreTransferModal = ({ isOpen, onClose, inventory, stores, onTransfer, lang }) => {
+  const [selectedLot, setSelectedLot] = useState(null)
+  const [fromStore, setFromStore] = useState('')
+  const [toStore, setToStore] = useState('')
+  const [transferQty, setTransferQty] = useState(0)
+  const [reason, setReason] = useState('')
+  const [searchLot, setSearchLot] = useState('')
+
+  const availableLots = inventory.filter(lot => {
+    if (fromStore && lot.store !== fromStore) return false
+    if (!searchLot) return true
+    return lot.lotNo?.toLowerCase().includes(searchLot.toLowerCase())
+  })
+
+  const handleTransfer = () => {
+    if (!selectedLot || !fromStore || !toStore || transferQty <= 0 || !reason) return
+    onTransfer({ lotId: selectedLot.id, lotNo: selectedLot.lotNo, fromStore, toStore, qty: transferQty, reason, transferredBy: 'Store Keeper', transferDate: new Date().toISOString() })
+    setSelectedLot(null); setFromStore(''); setToStore(''); setTransferQty(0); setReason(''); setSearchLot(''); onClose()
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={lang === 'th' ? 'โอนย้ายระหว่างคลัง' : 'Inter-Store Transfer'} size="lg">
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'จากคลัง *' : 'From Store *'}</label>
+            <select value={fromStore} onChange={(e) => { setFromStore(e.target.value); setSelectedLot(null); }} className="w-full px-3 py-2 border rounded-lg">
+              <option value="">{lang === 'th' ? '-- เลือก --' : '-- Select --'}</option>
+              {stores.map(s => (<option key={s.id} value={s.id}>{s.code}</option>))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ไปยังคลัง *' : 'To Store *'}</label>
+            <select value={toStore} onChange={(e) => setToStore(e.target.value)} className="w-full px-3 py-2 border rounded-lg" disabled={!fromStore}>
+              <option value="">{lang === 'th' ? '-- เลือก --' : '-- Select --'}</option>
+              {stores.filter(s => s.id !== fromStore).map(s => (<option key={s.id} value={s.id}>{s.code}</option>))}
+            </select>
+          </div>
+        </div>
+        {fromStore && (
+          <div>
+            <input type="text" value={searchLot} onChange={(e) => setSearchLot(e.target.value)} placeholder={lang === 'th' ? 'ค้นหาล็อต...' : 'Search lot...'} className="w-full px-3 py-2 border rounded-lg mb-2" />
+            <div className="max-h-40 overflow-y-auto border rounded-lg divide-y">
+              {availableLots.slice(0, 10).map(lot => (
+                <div key={lot.id} onClick={() => { setSelectedLot(lot); setTransferQty(lot.qty); }} className={`p-2 cursor-pointer hover:bg-gray-50 ${selectedLot?.id === lot.id ? 'bg-blue-50' : ''}`}>
+                  <div className="flex justify-between items-center"><span className="font-mono text-sm">{lot.lotNo}</span><Badge>{lot.qty} pcs</Badge></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {selectedLot && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'จำนวนที่โอน *' : 'Transfer Qty *'}</label>
+            <input type="number" min="1" max={selectedLot.qty} value={transferQty} onChange={(e) => setTransferQty(Math.min(parseInt(e.target.value) || 0, selectedLot.qty))} className="w-full px-3 py-2 border rounded-lg" />
+          </div>
+        )}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เหตุผล *' : 'Reason *'}</label>
+          <select value={reason} onChange={(e) => setReason(e.target.value)} className="w-full px-3 py-2 border rounded-lg">
+            <option value="">{lang === 'th' ? '-- เลือก --' : '-- Select --'}</option>
+            <option value="production_need">{lang === 'th' ? 'ใช้ในการผลิต' : 'Production Need'}</option>
+            <option value="stock_balance">{lang === 'th' ? 'ปรับสมดุลสต็อก' : 'Stock Balance'}</option>
+            <option value="relocation">{lang === 'th' ? 'ย้ายที่เก็บ' : 'Relocation'}</option>
+          </select>
+        </div>
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          <Button variant="secondary" onClick={onClose}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
+          <Button icon={ArrowRight} onClick={handleTransfer} disabled={!selectedLot || !fromStore || !toStore || transferQty <= 0 || !reason}>{lang === 'th' ? 'ยืนยันโอน' : 'Confirm Transfer'}</Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ============================================
+// STOCK ADJUSTMENT MODAL - Spec 33
+// ============================================
+const StockAdjustmentModal = ({ isOpen, onClose, inventory, onAdjust, lang }) => {
+  const [selectedLot, setSelectedLot] = useState(null)
+  const [adjustType, setAdjustType] = useState('')
+  const [adjustQty, setAdjustQty] = useState(0)
+  const [reason, setReason] = useState('')
+  const [searchLot, setSearchLot] = useState('')
+
+  const filteredLots = inventory.filter(lot => searchLot && lot.lotNo?.toLowerCase().includes(searchLot.toLowerCase()))
+
+  const handleAdjust = () => {
+    if (!selectedLot || !adjustType || adjustQty <= 0 || !reason) return
+    const newQty = adjustType === 'increase' ? selectedLot.qty + adjustQty : Math.max(0, selectedLot.qty - adjustQty)
+    onAdjust({ lotId: selectedLot.id, lotNo: selectedLot.lotNo, previousQty: selectedLot.qty, newQty, adjustType, adjustQty, reason, adjustedBy: 'Store Keeper', adjustDate: new Date().toISOString(), status: 'pending_approval' })
+    setSelectedLot(null); setAdjustType(''); setAdjustQty(0); setReason(''); setSearchLot(''); onClose()
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={lang === 'th' ? 'ปรับปรุงสต็อก' : 'Stock Adjustment'} size="lg">
+      <div className="space-y-4">
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2">
+          <AlertTriangle className="w-5 h-5" />
+          <span>{lang === 'th' ? 'การปรับปรุงสต็อกต้องได้รับการอนุมัติจากผู้จัดการ' : 'Stock adjustments require manager approval'}</span>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ค้นหาล็อต *' : 'Search Lot *'}</label>
+          <input type="text" value={searchLot} onChange={(e) => setSearchLot(e.target.value)} placeholder={lang === 'th' ? 'พิมพ์เลขล็อต...' : 'Type lot number...'} className="w-full px-3 py-2 border rounded-lg" />
+          {searchLot && filteredLots.length > 0 && (
+            <div className="mt-2 max-h-32 overflow-y-auto border rounded-lg divide-y">
+              {filteredLots.slice(0, 5).map(lot => (
+                <div key={lot.id} onClick={() => { setSelectedLot(lot); setSearchLot(lot.lotNo); }} className={`p-2 cursor-pointer hover:bg-gray-50 ${selectedLot?.id === lot.id ? 'bg-blue-50' : ''}`}>
+                  <div className="flex justify-between"><span className="font-mono">{lot.lotNo}</span><span className="font-bold">{lot.qty} pcs</span></div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {selectedLot && (
+          <>
+            <div className="p-3 bg-gray-50 rounded-lg text-sm">
+              <div><span className="text-gray-500">Lot:</span> <strong>{selectedLot.lotNo}</strong> | <span className="text-gray-500">Current:</span> <strong>{selectedLot.qty}</strong></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <label className={`p-4 border-2 rounded-lg cursor-pointer text-center ${adjustType === 'increase' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
+                <input type="radio" name="adjustType" value="increase" checked={adjustType === 'increase'} onChange={() => setAdjustType('increase')} className="sr-only" />
+                <TrendingUp className={`w-8 h-8 mx-auto mb-2 ${adjustType === 'increase' ? 'text-green-500' : 'text-gray-400'}`} />
+                <div className={`font-medium ${adjustType === 'increase' ? 'text-green-700' : 'text-gray-600'}`}>{lang === 'th' ? 'เพิ่ม' : 'Increase'}</div>
+              </label>
+              <label className={`p-4 border-2 rounded-lg cursor-pointer text-center ${adjustType === 'decrease' ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
+                <input type="radio" name="adjustType" value="decrease" checked={adjustType === 'decrease'} onChange={() => setAdjustType('decrease')} className="sr-only" />
+                <TrendingDown className={`w-8 h-8 mx-auto mb-2 ${adjustType === 'decrease' ? 'text-red-500' : 'text-gray-400'}`} />
+                <div className={`font-medium ${adjustType === 'decrease' ? 'text-red-700' : 'text-gray-600'}`}>{lang === 'th' ? 'ลด' : 'Decrease'}</div>
+              </label>
+            </div>
+          </>
+        )}
+        {adjustType && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'จำนวนที่ปรับ *' : 'Adjustment Qty *'}</label>
+              <input type="number" min="1" value={adjustQty} onChange={(e) => setAdjustQty(parseInt(e.target.value) || 0)} className="w-full px-3 py-2 border rounded-lg text-lg font-bold text-center" />
+              <div className="text-sm text-center mt-1">{lang === 'th' ? 'ผลลัพธ์:' : 'Result:'} <strong className={adjustType === 'increase' ? 'text-green-600' : 'text-red-600'}>{adjustType === 'increase' ? selectedLot.qty + adjustQty : Math.max(0, selectedLot.qty - adjustQty)}</strong></div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เหตุผล *' : 'Reason *'}</label>
+              <select value={reason} onChange={(e) => setReason(e.target.value)} className="w-full px-3 py-2 border rounded-lg">
+                <option value="">{lang === 'th' ? '-- เลือก --' : '-- Select --'}</option>
+                <option value="count_discrepancy">{lang === 'th' ? 'นับได้ไม่ตรง' : 'Physical Count Discrepancy'}</option>
+                <option value="damage">{lang === 'th' ? 'เสียหาย / แตกหัก' : 'Damaged / Broken'}</option>
+                <option value="correction">{lang === 'th' ? 'แก้ไขข้อมูล' : 'Data Correction'}</option>
+              </select>
+            </div>
+          </>
+        )}
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          <Button variant="secondary" onClick={onClose}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
+          <Button icon={Save} onClick={handleAdjust} disabled={!selectedLot || !adjustType || adjustQty <= 0 || !reason}>{lang === 'th' ? 'ส่งขออนุมัติ' : 'Submit for Approval'}</Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ============================================
 // INVENTORY MODULE (Full with CBM tracking)
 // ============================================
-const InventoryModule = ({ inventory, setInventory, stores, categories, lang }) => {
+const InventoryModule = ({ inventory, setInventory, stores, categories, workOrders, lang }) => {
+  const [activeTab, setActiveTab] = useState('inventory')
   const [selectedStore, setSelectedStore] = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [search, setSearch] = useState('')
   const [showEditModal, setShowEditModal] = useState(false)
   const [showLabelModal, setShowLabelModal] = useState(false)
+  const [showRMLabelModal, setShowRMLabelModal] = useState(false)
+  const [showIssueModal, setShowIssueModal] = useState(false)
+  const [showTransferModal, setShowTransferModal] = useState(false)
+  const [showAdjustModal, setShowAdjustModal] = useState(false)
   const [selectedLot, setSelectedLot] = useState(null)
   const [lotsForLabels, setLotsForLabels] = useState([])
   const [expandedCodes, setExpandedCodes] = useState({})
 
+  const tabs = [
+    { id: 'inventory', label: lang === 'th' ? 'สินค้าคงคลัง' : 'Inventory', icon: Package },
+    { id: 'issue', label: lang === 'th' ? 'เบิกวัสดุ' : 'Material Issue', icon: ArrowRight },
+    { id: 'transfer', label: lang === 'th' ? 'โอนย้าย' : 'Transfer', icon: RefreshCw },
+    { id: 'adjust', label: lang === 'th' ? 'ปรับปรุง' : 'Adjustment', icon: Edit3 },
+    { id: 'labels', label: lang === 'th' ? 'พิมพ์ฉลาก' : 'Labels', icon: Printer },
+  ]
+
   const handlePrintLabel = (lot) => {
     setLotsForLabels([lot])
     setShowLabelModal(true)
+  }
+
+  const handlePrintRMLabels = (lots) => {
+    setLotsForLabels(lots || filteredInventory.filter(i => ['MLH', 'PW', 'PWKD', 'PWGRN', 'PLYRR', 'PLYRW', 'PLYWW', 'PRTB'].includes(i.category)))
+    setShowRMLabelModal(true)
   }
 
   const handlePrintAllLabels = () => {
@@ -2625,6 +2990,49 @@ const InventoryModule = ({ inventory, setInventory, stores, categories, lang }) 
     setInventory(inv => inv.map(i => i.id === updatedLot.id ? updatedLot : i))
     setLotsForLabels([updatedLot])
     setShowLabelModal(true)
+  }
+
+  const handleMaterialIssue = (issueData) => {
+    setInventory(inv => inv.map(item => {
+      if (item.id === issueData.lotId) {
+        return { ...item, qty: item.qty - issueData.qtyIssued }
+      }
+      return item
+    }))
+  }
+
+  const handleTransfer = (transferData) => {
+    setInventory(inv => {
+      const newInv = inv.map(item => {
+        if (item.id === transferData.lotId) {
+          if (transferData.qty === item.qty) {
+            return { ...item, store: transferData.toStore }
+          } else {
+            return { ...item, qty: item.qty - transferData.qty }
+          }
+        }
+        return item
+      })
+      if (transferData.qty < inv.find(i => i.id === transferData.lotId)?.qty) {
+        const original = inv.find(i => i.id === transferData.lotId)
+        newInv.push({
+          ...original,
+          id: `${original.id}-T${Date.now()}`,
+          qty: transferData.qty,
+          store: transferData.toStore,
+        })
+      }
+      return newInv
+    })
+  }
+
+  const handleAdjust = (adjustData) => {
+    setInventory(inv => inv.map(item => {
+      if (item.id === adjustData.lotId) {
+        return { ...item, qty: adjustData.newQty }
+      }
+      return item
+    }))
   }
 
   // Filter inventory
@@ -2669,15 +3077,41 @@ const InventoryModule = ({ inventory, setInventory, stores, categories, lang }) 
           <p className="text-gray-500">{lang === 'th' ? 'ติดตามสินค้าคงคลังทุกคลัง' : 'Track inventory across all stores'}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" icon={Upload}>
-            {lang === 'th' ? 'อัพโหลด' : 'Upload'}
+          <Button variant="outline" icon={ArrowRight} onClick={() => setShowIssueModal(true)}>
+            {lang === 'th' ? 'เบิกวัสดุ' : 'Issue'}
           </Button>
-          <Button variant="outline" icon={Printer} onClick={handlePrintAllLabels}>
-            {lang === 'th' ? 'พิมพ์ทั้งหมด' : 'Print All'}
+          <Button variant="outline" icon={RefreshCw} onClick={() => setShowTransferModal(true)}>
+            {lang === 'th' ? 'โอนย้าย' : 'Transfer'}
+          </Button>
+          <Button variant="outline" icon={Edit3} onClick={() => setShowAdjustModal(true)}>
+            {lang === 'th' ? 'ปรับปรุง' : 'Adjust'}
+          </Button>
+          <Button variant="outline" icon={Printer} onClick={() => handlePrintRMLabels()}>
+            {lang === 'th' ? 'พิมพ์ฉลาก A5' : 'Print A5 Labels'}
           </Button>
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-2 border-b">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
+              activeTab === tab.id
+                ? 'border-[#1A5276] text-[#1A5276]'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'inventory' && (
+        <>
       {/* Store Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {stores.map(store => {
@@ -2835,6 +3269,97 @@ const InventoryModule = ({ inventory, setInventory, stores, categories, lang }) 
           </tbody>
         </table>
       </Card>
+        </>
+      )}
+
+      {/* Issue Tab */}
+      {activeTab === 'issue' && (
+        <Card className="p-6">
+          <div className="text-center py-8">
+            <Package className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+            <h3 className="text-lg font-bold text-gray-700 mb-2">
+              {lang === 'th' ? 'เบิกวัตถุดิบ' : 'Material Issue'}
+            </h3>
+            <p className="text-gray-500 mb-4">
+              {lang === 'th' ? 'เบิกวัตถุดิบโดยอ้างอิงใบสั่งผลิต (WO)' : 'Issue materials against Work Order (WO)'}
+            </p>
+            <Button icon={ArrowRight} onClick={() => setShowIssueModal(true)}>
+              {lang === 'th' ? 'เบิกวัสดุใหม่' : 'New Issue'}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Transfer Tab */}
+      {activeTab === 'transfer' && (
+        <Card className="p-6">
+          <div className="text-center py-8">
+            <RefreshCw className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+            <h3 className="text-lg font-bold text-gray-700 mb-2">
+              {lang === 'th' ? 'โอนระหว่างคลัง' : 'Inter-Store Transfer'}
+            </h3>
+            <p className="text-gray-500 mb-4">
+              {lang === 'th' ? 'โอนวัสดุระหว่างคลังต่างๆ' : 'Transfer materials between stores'}
+            </p>
+            <Button icon={RefreshCw} onClick={() => setShowTransferModal(true)}>
+              {lang === 'th' ? 'โอนย้ายใหม่' : 'New Transfer'}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Adjustment Tab */}
+      {activeTab === 'adjust' && (
+        <Card className="p-6">
+          <div className="text-center py-8">
+            <Edit3 className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+            <h3 className="text-lg font-bold text-gray-700 mb-2">
+              {lang === 'th' ? 'ปรับปรุงสต็อก' : 'Stock Adjustment'}
+            </h3>
+            <p className="text-gray-500 mb-4">
+              {lang === 'th' ? 'ปรับปรุงจำนวนสต็อก (ต้องขออนุมัติ)' : 'Adjust stock quantities (requires approval)'}
+            </p>
+            <Button icon={Edit3} onClick={() => setShowAdjustModal(true)}>
+              {lang === 'th' ? 'ปรับปรุงใหม่' : 'New Adjustment'}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Labels Tab */}
+      {activeTab === 'labels' && (
+        <Card className="p-6">
+          <h3 className="text-lg font-bold text-gray-700 mb-4">
+            {lang === 'th' ? 'พิมพ์ฉลาก' : 'Print Labels'}
+          </h3>
+          <div className="grid grid-cols-3 gap-4">
+            <button
+              onClick={() => handlePrintRMLabels()}
+              className="p-6 border-2 border-dashed rounded-xl hover:border-[#1A5276] hover:bg-blue-50 transition-all text-center"
+            >
+              <Printer className="w-8 h-8 mx-auto mb-2 text-[#1A5276]" />
+              <div className="font-bold text-gray-700">{lang === 'th' ? 'ฉลาก RM (A5)' : 'RM Labels (A5)'}</div>
+              <div className="text-sm text-gray-500">{lang === 'th' ? '2 ฉลาก/หน้า พร้อมบาร์โค้ด' : '2 labels/page with barcode'}</div>
+            </button>
+            <button
+              onClick={() => alert('Select Sales Order for Allianz labels')}
+              className="p-6 border-2 border-dashed rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
+            >
+              <Printer className="w-8 h-8 mx-auto mb-2 text-blue-600" />
+              <div className="font-bold text-gray-700">Allianz Labels</div>
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'QR Code สำหรับ Alliance' : 'QR Code for Alliance'}</div>
+            </button>
+            <button
+              onClick={() => alert('Select Sales Order for Polyplex labels')}
+              className="p-6 border-2 border-dashed rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all text-center"
+            >
+              <Printer className="w-8 h-8 mx-auto mb-2 text-orange-600" />
+              <div className="font-bold text-gray-700">Polyplex Labels</div>
+              <div className="text-sm text-gray-500">{lang === 'th' ? '4 คอลัมน์ รหัสสี' : '4-column color-coded'}</div>
+            </button>
+          </div>
+        </Card>
+      )}
 
       {/* Modals */}
       <EditLotModal
@@ -2851,6 +3376,39 @@ const InventoryModule = ({ inventory, setInventory, stores, categories, lang }) 
         isOpen={showLabelModal}
         onClose={() => setShowLabelModal(false)}
         lots={lotsForLabels}
+        lang={lang}
+      />
+
+      <RMLabelPrintModal
+        isOpen={showRMLabelModal}
+        onClose={() => setShowRMLabelModal(false)}
+        lots={lotsForLabels}
+        lang={lang}
+      />
+
+      <MaterialIssueModal
+        isOpen={showIssueModal}
+        onClose={() => setShowIssueModal(false)}
+        inventory={inventory}
+        workOrders={workOrders || []}
+        onIssue={handleMaterialIssue}
+        lang={lang}
+      />
+
+      <InterStoreTransferModal
+        isOpen={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+        inventory={inventory}
+        stores={stores}
+        onTransfer={handleTransfer}
+        lang={lang}
+      />
+
+      <StockAdjustmentModal
+        isOpen={showAdjustModal}
+        onClose={() => setShowAdjustModal(false)}
+        inventory={inventory}
+        onAdjust={handleAdjust}
         lang={lang}
       />
     </div>
@@ -2919,7 +3477,6 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
     { id: 'vendors', label: lang === 'th' ? 'ผู้ขาย' : 'Vendors', icon: Users },
     { id: 'reports', label: lang === 'th' ? 'รายงาน' : 'Reports', icon: PieChart },
   ]
-
 
   // Stats
   const stats = {
@@ -3328,6 +3885,152 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
         </Card>
       )}
 
+      {/* Import Tracking Tab */}
+      {activeTab === 'import' && (
+        <Card>
+          <div className="p-4 border-b">
+            <h3 className="text-lg font-bold text-gray-800">
+              {lang === 'th' ? 'ติดตามการนำเข้า' : 'Import Tracking'}
+            </h3>
+            <p className="text-sm text-gray-500">
+              {lang === 'th' ? 'ติดตามสถานะ PO นำเข้า, G Thru Logistics, ศุลกากร' : 'Track import PO status, G Thru Logistics, customs'}
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left">PO</th>
+                  <th className="px-4 py-3 text-left">{lang === 'th' ? 'ผู้ขาย' : 'Vendor'}</th>
+                  <th className="px-4 py-3 text-center">Container</th>
+                  <th className="px-4 py-3 text-center">ETD</th>
+                  <th className="px-4 py-3 text-center">ETA</th>
+                  <th className="px-4 py-3 text-center">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  <th className="px-4 py-3 text-center">{lang === 'th' ? 'ศุลกากร' : 'Customs'}</th>
+                  <th className="px-4 py-3 text-center">LC</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {purchaseOrders.filter(po => po.type === 'import').map(po => {
+                  const vendor = vendors.find(v => v.id === po.vendorId)
+                  const importStatus = IMPORT_STATUS.find(s => s.id === (po.logistics?.status || 'pending'))
+                  return (
+                    <tr key={po.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium text-[#1A5276]">{po.id}</td>
+                      <td className="px-4 py-3">{vendor?.name}</td>
+                      <td className="px-4 py-3 text-center font-mono text-xs">{po.logistics?.containerNo || '-'}</td>
+                      <td className="px-4 py-3 text-center">{po.logistics?.etd || '-'}</td>
+                      <td className="px-4 py-3 text-center">{po.logistics?.eta || '-'}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-1 rounded text-xs text-white ${importStatus?.color || 'bg-gray-500'}`}>
+                          {lang === 'th' ? importStatus?.labelTh : importStatus?.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-xs text-gray-500">{po.logistics?.customsStatus || 'N/A'}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {po.lc?.required ? (
+                          <Badge variant={po.lc?.status === 'opened' ? 'success' : 'warning'}>
+                            {po.lc?.status || 'pending'}
+                          </Badge>
+                        ) : (
+                          <span className="text-gray-400">N/A</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+                {purchaseOrders.filter(po => po.type === 'import').length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                      {lang === 'th' ? 'ไม่มี PO นำเข้า' : 'No import POs'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Reports Tab */}
+      {activeTab === 'reports' && (
+        <div className="space-y-6">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-4 gap-4">
+            <Card className="p-4">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รวม PO' : 'Total POs'}</div>
+              <div className="text-3xl font-bold text-blue-600">{purchaseOrders.length}</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่ารวม' : 'Total Value'}</div>
+              <div className="text-2xl font-bold text-green-600">฿{purchaseOrders.reduce((sum, po) => sum + (po.total || 0), 0).toLocaleString()}</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'นำเข้า' : 'Import'}</div>
+              <div className="text-3xl font-bold text-purple-600">{purchaseOrders.filter(po => po.type === 'import').length}</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ในประเทศ' : 'Local'}</div>
+              <div className="text-3xl font-bold text-orange-600">{purchaseOrders.filter(po => po.type === 'local').length}</div>
+            </Card>
+          </div>
+
+          {/* Spend by Vendor */}
+          <Card>
+            <div className="p-4 border-b">
+              <h3 className="font-bold text-gray-800">{lang === 'th' ? 'การใช้จ่ายตามผู้ขาย' : 'Spend by Vendor'}</h3>
+            </div>
+            <div className="p-4 space-y-2">
+              {vendors.map(vendor => {
+                const vendorPOs = purchaseOrders.filter(po => po.vendorId === vendor.id)
+                const total = vendorPOs.reduce((sum, po) => sum + (po.total || 0), 0)
+                const grandTotal = purchaseOrders.reduce((sum, po) => sum + (po.total || 0), 0)
+                const pct = grandTotal > 0 ? ((total / grandTotal) * 100).toFixed(1) : 0
+                return (
+                  <div key={vendor.id} className="p-3 bg-gray-50 rounded-lg flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{vendor.name}</div>
+                      <div className="text-sm text-gray-500">{vendorPOs.length} POs</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-[#2ECC40]">฿{total.toLocaleString()}</div>
+                      <div className="text-sm text-gray-500">{pct}%</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+
+          {/* Variance Report */}
+          <Card>
+            <div className="p-4 border-b">
+              <h3 className="font-bold text-gray-800">{lang === 'th' ? 'รายงาน Variance' : 'Variance Report'}</h3>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="text-sm text-amber-600">{lang === 'th' ? 'PO มี Variance' : 'POs with Variance'}</div>
+                  <div className="text-3xl font-bold text-amber-700">{purchaseOrders.filter(po => po.hasVariance).length}</div>
+                </div>
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="text-sm text-green-600">{lang === 'th' ? 'PO ปกติ' : 'Normal POs'}</div>
+                  <div className="text-3xl font-bold text-green-700">{purchaseOrders.filter(po => !po.hasVariance).length}</div>
+                </div>
+                <div className="p-4 bg-gray-50 border rounded-lg">
+                  <div className="text-sm text-gray-600">{lang === 'th' ? 'อัตรา Variance' : 'Variance Rate'}</div>
+                  <div className="text-3xl font-bold text-gray-700">
+                    {purchaseOrders.length > 0 ? ((purchaseOrders.filter(po => po.hasVariance).length / purchaseOrders.length) * 100).toFixed(1) : 0}%
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* PO Form Modal */}
       {showPOModal && (
         <Modal isOpen={showPOModal} onClose={() => setShowPOModal(false)} title={lang === 'th' ? 'สร้างใบสั่งซื้อ' : 'New Purchase Order'} size="xl">
@@ -3351,8 +4054,6 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
       )}
 
       {/* GRN Modal */}
-
-      {/* GRN Modal - Enhanced with Split Lots */}
       {showGRNModal && selectedPO && (
         <Modal isOpen={showGRNModal} onClose={() => setShowGRNModal(false)} title={lang === 'th' ? 'รับสินค้า' : 'Goods Receipt'} size="xl">
           <GoodsReceiptForm
@@ -3367,7 +4068,6 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
           />
         </Modal>
       )}
-
 
       {/* Smart Upload Modal */}
       <SmartDocumentUploadModal
@@ -3785,7 +4485,6 @@ const PurchaseOrderForm = ({ po, vendors, categories, onSave, onCancel, lang }) 
   )
 }
 
-
 // ============================================
 // REJECT ITEM MODAL
 // ============================================
@@ -3849,14 +4548,13 @@ const RejectItemModal = ({ item, lang, onReject, onCancel }) => {
           </div>
 
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-            <AlertTriangle className="w-4 h-4 inline mr-1" />
-            {lang === 'th' 
+            ⚠️ {lang === 'th' 
               ? 'การปฏิเสธจะถูกบันทึก และต้องแจ้ง Vendor เพื่อออกใบแจ้งหนี้ใหม่ (Revised Invoice)' 
               : 'Rejection will be recorded. Vendor must be notified for Revised Invoice.'}
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={onCancel}>
+            <Button type="button" variant="outline" onClick={onCancel}>
               {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
             </Button>
             <Button type="submit" variant="danger" icon={X}>
@@ -3873,7 +4571,6 @@ const RejectItemModal = ({ item, lang, onReject, onCancel }) => {
 // ADD RECEIPT ITEM MODAL (Not on PO)
 // ============================================
 const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
-  const rmCategories = categories?.filter(c => c.type === 'raw_material') || []
   const [formData, setFormData] = useState({
     categoryId: '',
     thickness: 0,
@@ -3908,8 +4605,7 @@ const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
         </div>
 
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg mb-4 text-sm text-blue-800">
-          <Info className="w-4 h-4 inline mr-1" />
-          {lang === 'th' 
+          ℹ️ {lang === 'th' 
             ? 'รายการนี้จะถูกบันทึกเป็น Variance และจะสร้าง Variance Report' 
             : 'This will be recorded as Variance and generate a Variance Report'}
         </div>
@@ -3927,7 +4623,7 @@ const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
                 className="w-full px-3 py-2 border rounded-lg"
               >
                 <option value="">{lang === 'th' ? '-- เลือก --' : '-- Select --'}</option>
-                {rmCategories.map(c => (
+                {categories.map(c => (
                   <option key={c.id} value={c.id}>{c.code} - {c.nameEn}</option>
                 ))}
               </select>
@@ -4017,7 +4713,7 @@ const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={onCancel}>
+            <Button type="button" variant="outline" onClick={onCancel}>
               {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
             </Button>
             <Button type="submit" icon={Plus}>
@@ -4032,7 +4728,7 @@ const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
 
 // ============================================
 // ENHANCED GOODS RECEIPT FORM
-// With Split Lots, Reject, Add Items (Spec 3-4)
+// With Split Lots, Reject, Add Items
 // ============================================
 const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGlobalLotSequence, onSave, onCancel, lang }) => {
   const vendor = vendors.find(v => v.id === po.vendorId)
@@ -4075,26 +4771,6 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
     po.items.forEach((_, idx) => { expanded[idx] = true })
     return expanded
   })
-
-  // Generate lot number
-  const generateLotNumber = (categoryCode) => {
-    const seq = (globalLotSequence || 14926) + 1
-    if (setGlobalLotSequence) setGlobalLotSequence(seq)
-    
-    let prefix
-    switch (categoryCode) {
-      case 'MLH': prefix = 'LP'; break
-      case 'PW': prefix = vendor?.initials || 'PW'; break
-      case 'PWKD': prefix = vendor?.initials || 'PW'; break
-      case 'PWGRN': prefix = vendor?.initials || 'PW'; break
-      case 'PLYRR': prefix = 'PLYRR'; break
-      case 'PLYRW': prefix = 'PLYRW'; break
-      case 'PLYWW': prefix = 'PLYWW'; break
-      case 'PRTB': prefix = 'PRTB'; break
-      default: prefix = categoryCode
-    }
-    return `${prefix}${seq}`
-  }
 
   // Toggle item expansion
   const toggleExpand = (idx) => {
@@ -4258,7 +4934,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
   const handleSubmit = (e) => {
     e.preventDefault()
     
-    const allLots = []
+    const allItems = []
     const rejections = []
     
     receiptItems.forEach(item => {
@@ -4276,8 +4952,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
       item.lots.forEach(lot => {
         if (lot.qtyToReceive <= 0) return
         
-        allLots.push({
-          poItemIdx: item.poItemIdx,
+        allItems.push({
           id: item.poItem.id,
           category: item.poItem.categoryId,
           thickness: lot.actualThickness,
@@ -4287,16 +4962,14 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
           unitPrice: item.poItem.unitPrice,
           hasVariance: lot.hasVariance,
           varianceType: lot.varianceType,
-          varianceNote: lot.varianceNote || (lot.hasVariance ? `Size: ${lot.actualThickness}x${lot.actualWidth}x${lot.actualLength} vs PO: ${item.poItem.thickness}x${item.poItem.width}x${item.poItem.length}` : ''),
-          varianceReason: lot.varianceNote,
+          varianceReason: lot.varianceNote || (lot.hasVariance ? `Size: ${lot.actualThickness}x${lot.actualWidth}x${lot.actualLength} vs PO: ${item.poItem.thickness}x${item.poItem.width}x${item.poItem.length}` : ''),
         })
       })
     })
     
     // Add additional items
     additionalItems.forEach(item => {
-      allLots.push({
-        poItemIdx: null,
+      allItems.push({
         id: item.id,
         category: item.categoryId,
         thickness: item.thickness,
@@ -4306,7 +4979,6 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
         unitPrice: item.unitPrice,
         hasVariance: true,
         varianceType: 'not_on_po',
-        varianceNote: item.note || 'Additional item not on PO',
         varianceReason: item.note || 'Additional item not on PO',
         isAdditional: true,
       })
@@ -4316,7 +4988,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
       poId: po.id,
       grnDate,
       notes: grnNotes,
-      items: allLots,
+      items: allItems,
       rejections,
       hasVariance: totals.hasVariance,
       summary: totals,
@@ -4451,8 +5123,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
                         {item.rejectNote && ` - ${item.rejectNote}`}
                       </div>
                       <div className="mt-2 p-2 bg-yellow-100 rounded text-sm text-yellow-800">
-                        <AlertTriangle className="w-4 h-4 inline mr-1" />
-                        {lang === 'th' ? 'Vendor ต้องออก Revised Invoice' : 'Vendor must issue Revised Invoice'}
+                        ⚠️ {lang === 'th' ? 'Vendor ต้องออก Revised Invoice' : 'Vendor must issue Revised Invoice'}
                       </div>
                       <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => handleUnrejectItem(itemIdx)}>
                         <RotateCcw className="w-4 h-4 mr-1" /> {lang === 'th' ? 'ยกเลิกปฏิเสธ' : 'Undo'}
@@ -4469,7 +5140,6 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
                         >
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-sm font-medium text-gray-600">
-                              <Layers className="w-4 h-4 inline mr-1" />
                               {lang === 'th' ? 'ล็อต' : 'Lot'} #{lotIdx + 1}
                               {lot.hasVariance && <span className="ml-2 text-amber-600">⚠️ Size differs</span>}
                             </span>
@@ -4577,7 +5247,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
         <div className="space-y-2">
           <h4 className="font-bold text-gray-700 flex items-center gap-2">
             <Plus className="w-4 h-4 text-blue-500" />
-            {lang === 'th' ? 'รายการเพิ่มเติม (ไม่อยู่ใน PO)' : 'Additional Items (Not in PO)'}
+            {lang === 'th' ? 'รายการเพิ่มเติม' : 'Additional Items'}
           </h4>
           {additionalItems.map((item, idx) => (
             <div key={idx} className="p-3 border-2 border-blue-300 bg-blue-50 rounded-lg flex items-center justify-between">
@@ -4628,10 +5298,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
           </div>
         </div>
         {totals.hasVariance && (
-          <div className="mt-2 text-center text-sm text-amber-700">
-            <AlertTriangle className="w-4 h-4 inline mr-1" />
-            Variance detected - Report will be generated
-          </div>
+          <div className="mt-2 text-center text-sm text-amber-700">⚠️ Variance detected - Report will be generated</div>
         )}
       </div>
 
@@ -4655,7 +5322,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
 
       {showAddItemModal && (
         <AddReceiptItemModal
-          categories={categories}
+          categories={rmCategories}
           lang={lang}
           onAdd={handleAddAdditionalItem}
           onCancel={() => setShowAddItemModal(false)}
@@ -4664,8 +5331,6 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
     </form>
   )
 }
-
-
 // ============================================
 // PRODUCTION MODULE (With Costing Analysis)
 // ============================================
@@ -7470,6 +8135,7 @@ export default function App() {
                   setInventory={setInventory}
                   stores={stores}
                   categories={categories}
+                  workOrders={workOrders}
                   lang={lang}
                 />
               )}
@@ -9834,6 +10500,7 @@ const AppFull = () => {
                   setInventory={setInventory}
                   stores={stores}
                   categories={categories}
+                  workOrders={workOrders}
                   lang={lang}
                 />
               )}
@@ -11301,6 +11968,6 @@ const VersionInfo = ({ lang }) => {
 
 // End of IND ERP v7.0 - Full Build with Enhanced Purchase Module
 // Total Features: 9 Modules, 6 Stores, 12 Categories, 13 Import Cost Types
-// NEW in v7: Split Lots, Reject/Add Items GRN, Approval Hierarchy, Import/LC Tracking
+// NEW in v7.0: Split Lots, Reject Items, Add Items Not in PO, Import Tracking, Reports
 // Languages: EN, TH, MY, KH, ZH, JP
 // Roles: Admin, Sales, Production, Warehouse, HR, Accounting, Transport, Maintenance
