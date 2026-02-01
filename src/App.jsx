@@ -19,10 +19,40 @@ import {
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '7.9'
+const VERSION = '8.2'
 const VERSION_DATE = '2026-02-01'
 
-// v7.9 NEW FEATURES - COMPLETE MWO TRACKING:
+// v8.2 NEW FEATURES - PRINT VIEWS & CERTIFICATES:
+// 1. TAX INVOICE PRINT - Full Thai Tax Invoice format with signatures
+// 2. EXPORT INVOICE PRINT - Commercial Invoice (NO VAT) + Packing List
+// 3. HEAT TREATMENT CERTIFICATE - ISPM15 TH-0950 format, 56°C/30min
+// 4. DELIVERY ORDER PRINT - With driver/truck info, customer signature
+// 5. QUOTATION PRINT - Professional quote with terms & conditions
+// 6. PRINT CONTROLS - Print button with preview in all documents
+// 7. ENHANCED CUSTOMERS - 8 customers with trip costs, special requirements
+// 8. ALLIANZ/POLYPLEX - QR labels, HT cert, 4-column labels config
+//
+// v8.1 FEATURES - COMPLETE SALES MODULE:
+// 1. REJECTION FORM (REJ-YYMM-XXX) - Record goods returns with reasons, actions
+// 2. CLAIM FORM (CLM-YYMM-XXX) - Customer disputes/compensation tracking
+// 3. CREDIT NOTE (CN-YYMM-XXX) - Auto-generate from rejections, apply to invoices
+// 4. SALES MEETING LOG - Track customer visits, outcomes, follow-ups due
+// 5. MEETING DASHBOARD - This month, follow-ups due, orders won stats
+// 6. ENHANCED CUSTOMERS - Type (local/export), trip cost, special requirements
+// 7. ALLIANZ/POLYPLEX SUPPORT - QR labels, HT certificate, 4-column labels
+// 8. 10 SALES TABS - Dashboard, Quotations, SO, DO, Invoices, Payments, AR Aging, Returns, Claims, Meetings
+//
+// v8.0 FEATURES - COMPLETE SALES FLOW (Order-to-Cash):
+// 1. QUOTATION MODULE - Create/Edit/Send quotations (QT-YYMM-XXX), validity tracking, convert to SO
+// 2. ENHANCED SALES ORDERS - Full line item management, link from quotation, delivery tracking
+// 3. DELIVERY ORDER (DO) - Create from SO, partial deliveries, truck/driver assignment, status tracking
+// 4. ENHANCED INVOICES - Auto-create from DO, proper due date calculation, payment terms
+// 5. PAYMENT RECORDING - Record payments against invoices, partial payments, multiple methods
+// 6. AR AGING REPORT - Current/30/60/90/90+ days buckets, overdue highlighting, customer analysis
+// 7. SALES DASHBOARD - Visual flow diagram, revenue summary, recent activity
+// 8. FULL AUDIT TRAIL - Quote→SO→DO→Invoice→Payment linking
+//
+// v7.9 FEATURES - COMPLETE MWO TRACKING:
 // 1. MAINTENANCE TEAM DASHBOARD - Shows all technicians, skills, hourly rates, current assignments
 // 2. ENHANCED MWO CARDS - Shows assigned technicians, work logs, parts used, total costs
 // 3. MWO DETAIL MODAL - 4 tabs: Info, Work Log, Parts Used, Cost Summary
@@ -526,10 +556,14 @@ const INITIAL_PURCHASE_ORDERS = [
 // CUSTOMERS
 // ============================================
 const INITIAL_CUSTOMERS = [
-  { id: 'C001', code: 'C001', name: 'Royal Ceramics', nameTh: 'รอยัล เซรามิค', contact: 'Khun Preeda', phone: '038-123-456', email: 'purchasing@royalceramics.co.th', paymentTerms: 30, deliveryAddress: 'Rayong', isActive: true },
-  { id: 'C002', code: 'C002', name: 'Shin Star Industries', nameTh: 'ชินสตาร์ อินดัสตรี', contact: 'Khun Somsak', phone: '038-234-567', email: 'po@shinstar.com', paymentTerms: 45, deliveryAddress: 'Chonburi', isActive: true },
-  { id: 'C003', code: 'C003', name: 'BV Industries', nameTh: 'บีวี อินดัสทรีส์', contact: 'Khun Napat', phone: '02-345-6789', email: 'procurement@bvindustries.com', paymentTerms: 60, deliveryAddress: 'Bangkok', isActive: true },
-  { id: 'C004', code: 'C004', name: 'SCG Packaging', nameTh: 'เอสซีจี แพคเกจจิ้ง', contact: 'Khun Prawit', phone: '02-586-1234', email: 'purchasing@scg.com', paymentTerms: 30, deliveryAddress: 'Saraburi', isActive: true },
+  { id: 'C001', code: 'RYL-016', name: 'Royal Ceramics', nameTh: 'รอยัล เซรามิค', contact: 'Khun Preeda', phone: '038-123-456', email: 'purchasing@royalceramics.co.th', paymentTerms: 30, deliveryAddress: 'Rayong', type: 'local', tripCost: 60, specialRequirements: null, isActive: true },
+  { id: 'C002', code: 'SHN-004', name: 'Shin Steel Industries', nameTh: 'ชินสตีล อินดัสทรีส์', contact: 'Khun Somsak', phone: '038-234-567', email: 'po@shinsteel.com', paymentTerms: 45, deliveryAddress: 'Chonburi', type: 'local', tripCost: 60, specialRequirements: null, isActive: true },
+  { id: 'C003', code: 'BVI-031', name: 'BV Industries', nameTh: 'บีวี อินดัสทรีส์', contact: 'Khun Napat', phone: '02-345-6789', email: 'procurement@bvindustries.com', paymentTerms: 60, deliveryAddress: 'Bangkok', type: 'local', tripCost: 80, specialRequirements: null, isActive: true },
+  { id: 'C004', code: 'PLX-002', name: 'Polyplex Thailand', nameTh: 'โพลีเพล็กซ์ ไทยแลนด์', contact: 'Khun Varunthanat', phone: '+66 38 627074', email: 'vthongkhumsan@polyplex.com', paymentTerms: 30, deliveryAddress: 'Siam Eastern Industrial Park, Rayong', type: 'local', tripCost: 50, specialRequirements: { labelFormat: 'polyplex_4column', colorCoding: { FILM: 'white', CPP: 'peach', Line10: 'red' } }, isActive: true },
+  { id: 'C005', code: 'ALL-013', name: 'Alliance Laundry', nameTh: 'อัลไลแอนซ์ ลอนดรี้', contact: 'Khun Somchai', phone: '038-456-789', email: 'purchasing@alliance.com', paymentTerms: 30, deliveryAddress: 'Amata City, Chonburi', type: 'local', tripCost: 50, specialRequirements: { qrLabels: true, htCertificate: true }, isActive: true },
+  { id: 'C006', code: 'FRKW-001', name: 'Furukawa Electric', nameTh: 'ฟูรูคาวา อิเล็คทริค', contact: 'Khun Tanaka', phone: '038-567-890', email: 'procurement@furukawa.co.th', paymentTerms: 45, deliveryAddress: 'Eastern Seaboard Industrial Estate', type: 'export', tripCost: 60, specialRequirements: { htCertificate: true }, isActive: true },
+  { id: 'C007', code: 'JYP-011', name: 'JY Packing', nameTh: 'เจวาย แพคกิ้ง', contact: 'Khun Jiraporn', phone: '038-678-901', email: 'po@jypacking.com', paymentTerms: 30, deliveryAddress: 'Self Pick-up', type: 'local', tripCost: 0, specialRequirements: { selfPickup: true }, isActive: true },
+  { id: 'C008', code: 'OKMT-020', name: 'Okamoto Industries', nameTh: 'โอคาโมโตะ อินดัสทรีส์', contact: 'Khun Yamamoto', phone: '038-789-012', email: 'purchasing@okamoto.co.th', paymentTerms: 60, deliveryAddress: 'Amata Nakorn, Chonburi', type: 'export', tripCost: 120, specialRequirements: null, isActive: true },
 ]
 
 // ============================================
@@ -777,6 +811,217 @@ const INITIAL_INVOICES = [
       { id: 1, date: '2024-07-25', amount: 30000, method: 'transfer', reference: 'TRF-2407-001', notes: 'Partial payment' },
     ],
     createdAt: '2024-07-20',
+  },
+]
+
+// ============================================
+// QUOTATIONS
+// ============================================
+const INITIAL_QUOTATIONS = [
+  {
+    id: 'QT-2601-001',
+    customerId: 'C001',
+    customerContact: 'Khun Preeda',
+    quoteDate: '2026-01-15',
+    validUntil: '2026-02-15',
+    status: 'accepted', // draft, sent, accepted, rejected, expired, converted
+    items: [
+      { id: 1, productId: 'PROD002', productName: 'Pallet 1100x950x950', description: 'Standard export pallet', qty: 500, unit: 'pcs', unitPrice: 303, total: 151500 },
+    ],
+    subtotal: 151500,
+    vatRate: 7,
+    vat: 10605,
+    discount: 0,
+    discountReason: '',
+    grandTotal: 162105,
+    paymentTerms: 'net30',
+    deliveryTerms: 'Delivered to customer site',
+    notes: 'Urgent requirement for Q1 shipments',
+    preparedBy: 'Darunda',
+    approvedBy: '',
+    entity: 'IND',
+    convertedToSO: 'SO-2407-001',
+    createdAt: '2026-01-15',
+  },
+  {
+    id: 'QT-2601-002',
+    customerId: 'C003',
+    customerContact: 'Khun Napat',
+    quoteDate: '2026-01-20',
+    validUntil: '2026-02-20',
+    status: 'sent',
+    items: [
+      { id: 1, productId: 'PROD001', productName: 'Pallet 1100x1100', description: 'Heavy duty pallet', qty: 200, unit: 'pcs', unitPrice: 350, total: 70000 },
+      { id: 2, productId: 'PROD003', productName: 'Box 600x400x300', description: 'Storage box', qty: 100, unit: 'pcs', unitPrice: 280, total: 28000 },
+    ],
+    subtotal: 98000,
+    vatRate: 7,
+    vat: 6860,
+    discount: 0,
+    discountReason: '',
+    grandTotal: 104860,
+    paymentTerms: 'net60',
+    deliveryTerms: 'Ex-works',
+    notes: 'New customer inquiry - follow up required',
+    preparedBy: 'Darunda',
+    approvedBy: '',
+    entity: 'IND',
+    convertedToSO: null,
+    createdAt: '2026-01-20',
+  },
+  {
+    id: 'QT-2601-003',
+    customerId: 'C004',
+    customerContact: 'Khun Prawit',
+    quoteDate: '2026-01-25',
+    validUntil: '2026-02-10',
+    status: 'draft',
+    items: [
+      { id: 1, productId: 'PROD004', productName: 'Upper 9x70x2440', description: 'PRTB slats for pallets', qty: 5000, unit: 'pcs', unitPrice: 12, total: 60000 },
+    ],
+    subtotal: 60000,
+    vatRate: 7,
+    vat: 4200,
+    discount: 3000,
+    discountReason: 'Volume discount - CEO approved',
+    grandTotal: 61200,
+    paymentTerms: 'net30',
+    deliveryTerms: 'Delivered to customer site',
+    notes: 'Large volume order - check inventory',
+    preparedBy: 'Darunda',
+    approvedBy: 'CEO',
+    entity: 'IND',
+    convertedToSO: null,
+    createdAt: '2026-01-25',
+  },
+]
+
+// ============================================
+// REJECTIONS (Returns/Rejections at delivery)
+// ============================================
+const INITIAL_REJECTIONS = [
+  {
+    id: 'REJ-2601-001',
+    date: '2026-01-28',
+    customerId: 'C001',
+    invoiceId: 'INV-2407-001',
+    doId: 'DO-2407-001',
+    items: [
+      { productName: 'Pallet 1100x950x950', qtyRejected: 5, qtyDelivered: 200, reason: 'Damaged', notes: 'Broken corners' }
+    ],
+    totalRejected: 5,
+    reason: 'damaged', // wrong_size, damaged, quality_issue, wrong_product, other
+    description: 'Customer found 5 pallets with broken corners upon inspection',
+    photos: [],
+    action: 'credit_note', // replace, repair, credit_note, scrap_invoice
+    status: 'resolved', // open, in_progress, resolved
+    resolutionDate: '2026-01-30',
+    resolutionNotes: 'Credit note CN-2601-001 issued',
+    creditNoteId: 'CN-2601-001',
+    handledBy: 'Darunda',
+    createdAt: '2026-01-28',
+  },
+]
+
+// ============================================
+// CLAIMS (Customer disputes/compensation)
+// ============================================
+const INITIAL_CLAIMS = [
+  {
+    id: 'CLM-2601-001',
+    date: '2026-01-25',
+    customerId: 'C002',
+    relatedDocs: {
+      invoiceId: null,
+      doId: null,
+      rejectionId: null,
+    },
+    claimType: 'quality', // quality, shortage, damage, price_dispute, other
+    claimAmount: 5000,
+    description: 'Customer claims product dimensions were not as specified in quotation',
+    supportingDocs: [],
+    investigationNotes: 'Verified measurements - within tolerance but customer unhappy',
+    resolution: 'partial', // accepted_full, accepted_partial, rejected, pending
+    resolvedAmount: 2500,
+    creditNoteId: null,
+    status: 'under_review', // open, under_review, resolved, closed
+    approvedBy: '',
+    createdAt: '2026-01-25',
+  },
+]
+
+// ============================================
+// CREDIT NOTES
+// ============================================
+const INITIAL_CREDIT_NOTES = [
+  {
+    id: 'CN-2601-001',
+    date: '2026-01-30',
+    customerId: 'C001',
+    originalInvoiceId: 'INV-2407-001',
+    rejectionId: 'REJ-2601-001',
+    claimId: null,
+    reason: 'Goods returned - damaged',
+    items: [
+      { description: 'Pallet 1100x950x950 (damaged)', qty: 5, unitPrice: 303, total: 1515 }
+    ],
+    subtotal: 1515,
+    vatRate: 7,
+    vat: 106.05,
+    grandTotal: 1621.05,
+    status: 'issued', // draft, issued, applied
+    appliedToInvoice: 'INV-2407-001',
+    appliedDate: '2026-01-30',
+    preparedBy: 'Darunda',
+    approvedBy: 'CEO',
+    entity: 'IND',
+    createdAt: '2026-01-30',
+  },
+]
+
+// ============================================
+// SALES MEETINGS LOG
+// ============================================
+const INITIAL_SALES_MEETINGS = [
+  {
+    id: 'MTG-001',
+    date: '2026-01-20',
+    timeStart: '10:00',
+    timeEnd: '11:30',
+    customerId: 'C001',
+    customerType: 'existing', // new, potential, existing
+    contactPerson: 'Khun Preeda',
+    indAttendees: ['Darunda', 'MAs'],
+    location: 'customer_site', // customer_site, ind, other
+    locationDetail: 'Royal Ceramics - Rayong Factory',
+    reason: 'relationship', // new_business, quotation_followup, complaint, relationship, price_negotiation, technical, other
+    meetingNotes: 'Discussed Q1 requirements. Customer planning to increase order volume by 20%.',
+    outcome: 'order_received', // order_received, quotation_requested, followup_required, no_action, lost
+    nextAction: 'Send revised quotation for Q2',
+    nextFollowupDate: '2026-02-15',
+    attachments: [],
+    createdBy: 'Darunda',
+    createdAt: '2026-01-20',
+  },
+  {
+    id: 'MTG-002',
+    date: '2026-01-22',
+    timeStart: '14:00',
+    timeEnd: '15:00',
+    customerId: 'C003',
+    customerType: 'potential',
+    contactPerson: 'Khun Napat',
+    indAttendees: ['Darunda'],
+    location: 'ind',
+    locationDetail: 'IND Meeting Room',
+    reason: 'new_business',
+    meetingNotes: 'New customer inquiry for wooden pallets. Showed factory tour. Very interested in MLH products.',
+    outcome: 'quotation_requested',
+    nextAction: 'Prepare quotation for 500 pallets',
+    nextFollowupDate: '2026-01-25',
+    attachments: [],
+    createdBy: 'Darunda',
+    createdAt: '2026-01-22',
   },
 ]
 
@@ -9406,6 +9651,11 @@ function AppBasic() {
   const [salesOrders, setSalesOrders] = useState(INITIAL_SALES_ORDERS)
   const [invoices, setInvoices] = useState(INITIAL_INVOICES)
   const [deliveryOrders, setDeliveryOrders] = useState(INITIAL_DELIVERY_ORDERS)
+  const [quotations, setQuotations] = useState(INITIAL_QUOTATIONS)
+  const [rejections, setRejections] = useState(INITIAL_REJECTIONS)
+  const [claims, setClaims] = useState(INITIAL_CLAIMS)
+  const [creditNotes, setCreditNotes] = useState(INITIAL_CREDIT_NOTES)
+  const [salesMeetings, setSalesMeetings] = useState(INITIAL_SALES_MEETINGS)
   const [scheduledDeliveries, setScheduledDeliveries] = useState(INITIAL_SCHEDULED_DELIVERIES)
   const [maintenanceTasks, setMaintenanceTasks] = useState(INITIAL_MAINTENANCE_TASKS)
 
@@ -9709,13 +9959,27 @@ function AppBasic() {
               )}
               {activeModule === 'sales' && (
                 <SalesModuleFull
+                  quotations={quotations}
+                  setQuotations={setQuotations}
                   salesOrders={salesOrders}
                   setSalesOrders={setSalesOrders}
+                  deliveryOrders={deliveryOrders}
+                  setDeliveryOrders={setDeliveryOrders}
                   invoices={invoices}
                   setInvoices={setInvoices}
+                  rejections={rejections}
+                  setRejections={setRejections}
+                  claims={claims}
+                  setClaims={setClaims}
+                  creditNotes={creditNotes}
+                  setCreditNotes={setCreditNotes}
+                  salesMeetings={salesMeetings}
+                  setSalesMeetings={setSalesMeetings}
                   customers={customers}
                   workOrders={workOrders}
                   products={products}
+                  trucks={trucks}
+                  employees={employees}
                   lang={lang}
                 />
               )}
@@ -11551,55 +11815,403 @@ const HRModuleFull = ({ employees, setEmployees, lang }) => {
 // ============================================
 // ENHANCED SALES MODULE
 // ============================================
-const SalesModuleFull = ({ salesOrders, setSalesOrders, invoices, setInvoices, customers, workOrders, products, lang }) => {
+const SalesModuleFull = ({ 
+  quotations, setQuotations,
+  salesOrders, setSalesOrders, 
+  deliveryOrders, setDeliveryOrders,
+  invoices, setInvoices,
+  rejections, setRejections,
+  claims, setClaims,
+  creditNotes, setCreditNotes,
+  salesMeetings, setSalesMeetings,
+  customers, workOrders, products, trucks, employees, lang 
+}) => {
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [showQuotationModal, setShowQuotationModal] = useState(false)
   const [showSOModal, setShowSOModal] = useState(false)
+  const [showDOModal, setShowDOModal] = useState(false)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
-  const [selectedInvoice, setSelectedInvoice] = useState(null)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [showRejectionModal, setShowRejectionModal] = useState(false)
+  const [showClaimModal, setShowClaimModal] = useState(false)
+  const [showCreditNoteModal, setShowCreditNoteModal] = useState(false)
+  const [showMeetingModal, setShowMeetingModal] = useState(false)
+  const [selectedItem, setSelectedItem] = useState(null)
+  const [editMode, setEditMode] = useState(false)
+  // Print modals
+  const [showPrintInvoice, setShowPrintInvoice] = useState(false)
+  const [showPrintExportInvoice, setShowPrintExportInvoice] = useState(false)
+  const [showPrintDO, setShowPrintDO] = useState(false)
+  const [showPrintQuotation, setShowPrintQuotation] = useState(false)
+  const [showHTCertModal, setShowHTCertModal] = useState(false)
 
   const tabs = [
     { id: 'dashboard', label: lang === 'th' ? 'ภาพรวม' : 'Dashboard', icon: BarChart3 },
+    { id: 'quotations', label: lang === 'th' ? 'ใบเสนอราคา' : 'Quotations', icon: FileText },
     { id: 'orders', label: lang === 'th' ? 'ใบสั่งขาย' : 'Sales Orders', icon: ClipboardList },
+    { id: 'delivery', label: lang === 'th' ? 'ใบส่งสินค้า' : 'Delivery', icon: Truck },
     { id: 'invoices', label: lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices', icon: Receipt },
     { id: 'payments', label: lang === 'th' ? 'การชำระ' : 'Payments', icon: CreditCard },
+    { id: 'aging', label: lang === 'th' ? 'อายุหนี้' : 'AR Aging', icon: Calendar },
+    { id: 'rejections', label: lang === 'th' ? 'การคืนสินค้า' : 'Returns', icon: RotateCcw },
+    { id: 'claims', label: lang === 'th' ? 'เคลม' : 'Claims', icon: AlertCircle },
+    { id: 'meetings', label: lang === 'th' ? 'บันทึกพบลูกค้า' : 'Meetings', icon: Users },
   ]
 
+  // Calculate stats
   const stats = {
-    totalOrders: salesOrders.length,
-    pendingOrders: salesOrders.filter(so => so.status === 'confirmed').length,
-    totalInvoices: invoices.length,
-    unpaidInvoices: invoices.filter(inv => inv.balance > 0).length,
-    totalRevenue: invoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0),
-    totalReceived: invoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0),
+    totalQuotations: quotations?.length || 0,
+    pendingQuotations: quotations?.filter(q => q.status === 'sent' || q.status === 'draft').length || 0,
+    totalOrders: salesOrders?.length || 0,
+    pendingOrders: salesOrders?.filter(so => so.status === 'confirmed').length || 0,
+    totalDOs: deliveryOrders?.length || 0,
+    pendingDOs: deliveryOrders?.filter(d => d.status === 'pending' || d.status === 'dispatched').length || 0,
+    totalInvoices: invoices?.length || 0,
+    unpaidInvoices: invoices?.filter(inv => inv.balance > 0).length || 0,
+    totalRevenue: invoices?.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0) || 0,
+    totalReceived: invoices?.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0) || 0,
+    openRejections: rejections?.filter(r => r.status !== 'resolved').length || 0,
+    openClaims: claims?.filter(c => c.status !== 'closed' && c.status !== 'resolved').length || 0,
+    totalCreditNotes: creditNotes?.length || 0,
+    meetingsThisMonth: salesMeetings?.filter(m => {
+      const meetingDate = new Date(m.date)
+      const now = new Date()
+      return meetingDate.getMonth() === now.getMonth() && meetingDate.getFullYear() === now.getFullYear()
+    }).length || 0,
+    followupsDue: salesMeetings?.filter(m => m.nextFollowupDate && new Date(m.nextFollowupDate) <= new Date()).length || 0,
   }
 
-  const handleSOSave = (soData) => {
+  // Generate IDs
+  const generateId = (prefix) => {
+    const now = new Date()
+    const yy = now.getFullYear().toString().slice(-2)
+    const mm = String(now.getMonth() + 1).padStart(2, '0')
+    let seq = 1
+    if (prefix === 'QT') seq = (quotations?.length || 0) + 1
+    else if (prefix === 'SO') seq = (salesOrders?.length || 0) + 1
+    else if (prefix === 'DO') seq = (deliveryOrders?.length || 0) + 1
+    else if (prefix === 'INV') seq = (invoices?.length || 0) + 1
+    else if (prefix === 'REJ') seq = (rejections?.length || 0) + 1
+    else if (prefix === 'CLM') seq = (claims?.length || 0) + 1
+    else if (prefix === 'CN') seq = (creditNotes?.length || 0) + 1
+    else if (prefix === 'MTG') seq = (salesMeetings?.length || 0) + 1
+    return `${prefix}-${yy}${mm}-${String(seq).padStart(3, '0')}`
+  }
+
+  // REJECTION Functions
+  const handleSaveRejection = (data) => {
+    if (editMode && selectedItem) {
+      setRejections(rejections.map(r => r.id === selectedItem.id ? { ...r, ...data } : r))
+    } else {
+      const newRej = {
+        id: generateId('REJ'),
+        ...data,
+        status: 'open',
+        createdAt: new Date().toISOString().split('T')[0],
+      }
+      setRejections([...rejections, newRej])
+    }
+    setShowRejectionModal(false)
+    setSelectedItem(null)
+    setEditMode(false)
+  }
+
+  const handleCreateCreditNote = (rejection) => {
+    const invoice = invoices?.find(inv => inv.id === rejection.invoiceId)
+    const newCN = {
+      id: generateId('CN'),
+      date: new Date().toISOString().split('T')[0],
+      customerId: rejection.customerId,
+      originalInvoiceId: rejection.invoiceId,
+      rejectionId: rejection.id,
+      claimId: null,
+      reason: `Goods returned - ${rejection.reason}`,
+      items: rejection.items.map((item, idx) => ({
+        id: idx + 1,
+        description: item.productName,
+        qty: item.qtyRejected,
+        unitPrice: invoice?.items?.find(i => i.description === item.productName)?.unitPrice || 0,
+        total: item.qtyRejected * (invoice?.items?.find(i => i.description === item.productName)?.unitPrice || 0),
+      })),
+      subtotal: 0,
+      vatRate: 7,
+      vat: 0,
+      grandTotal: 0,
+      status: 'draft',
+      appliedToInvoice: null,
+      appliedDate: null,
+      preparedBy: '',
+      approvedBy: '',
+      entity: invoice?.entity || 'IND',
+      createdAt: new Date().toISOString().split('T')[0],
+    }
+    newCN.subtotal = newCN.items.reduce((sum, item) => sum + item.total, 0)
+    newCN.vat = newCN.subtotal * 0.07
+    newCN.grandTotal = newCN.subtotal + newCN.vat
+    
+    setCreditNotes([...creditNotes, newCN])
+    setRejections(rejections.map(r => r.id === rejection.id ? { ...r, creditNoteId: newCN.id, status: 'resolved', resolutionDate: new Date().toISOString().split('T')[0] } : r))
+  }
+
+  // CLAIM Functions
+  const handleSaveClaim = (data) => {
+    if (editMode && selectedItem) {
+      setClaims(claims.map(c => c.id === selectedItem.id ? { ...c, ...data } : c))
+    } else {
+      const newClaim = {
+        id: generateId('CLM'),
+        ...data,
+        status: 'open',
+        createdAt: new Date().toISOString().split('T')[0],
+      }
+      setClaims([...claims, newClaim])
+    }
+    setShowClaimModal(false)
+    setSelectedItem(null)
+    setEditMode(false)
+  }
+
+  // MEETING Functions
+  const handleSaveMeeting = (data) => {
+    if (editMode && selectedItem) {
+      setSalesMeetings(salesMeetings.map(m => m.id === selectedItem.id ? { ...m, ...data } : m))
+    } else {
+      const newMeeting = {
+        id: generateId('MTG'),
+        ...data,
+        createdAt: new Date().toISOString().split('T')[0],
+      }
+      setSalesMeetings([...salesMeetings, newMeeting])
+    }
+    setShowMeetingModal(false)
+    setSelectedItem(null)
+    setEditMode(false)
+  }
+
+  // QUOTATION Functions
+  const handleSaveQuotation = (data) => {
+    if (editMode && selectedItem) {
+      setQuotations(quotations.map(q => q.id === selectedItem.id ? { ...q, ...data } : q))
+    } else {
+      const newQt = {
+        id: generateId('QT'),
+        ...data,
+        status: 'draft',
+        createdAt: new Date().toISOString().split('T')[0],
+        convertedToSO: null,
+      }
+      setQuotations([...quotations, newQt])
+    }
+    setShowQuotationModal(false)
+    setSelectedItem(null)
+    setEditMode(false)
+  }
+
+  const handleConvertToSO = (qt) => {
     const newSO = {
-      id: `SO-${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(salesOrders.length + 1).padStart(3, '0')}`,
-      ...soData,
+      id: generateId('SO'),
+      customerId: qt.customerId,
+      customerPO: '',
+      quotationId: qt.id,
+      orderDate: new Date().toISOString().split('T')[0],
+      dueDate: '',
+      deliveryDate: '',
+      status: 'confirmed',
+      items: qt.items.map((item, idx) => ({
+        ...item,
+        id: idx + 1,
+        qtyDelivered: 0,
+        woId: null,
+      })),
+      subtotal: qt.subtotal,
+      vatRate: qt.vatRate,
+      vat: qt.vat,
+      discount: qt.discount,
+      grandTotal: qt.grandTotal,
+      entity: qt.entity,
+      paymentTerms: qt.paymentTerms,
+      deliveryAddress: customers.find(c => c.id === qt.customerId)?.deliveryAddress || '',
+      notes: qt.notes,
       createdAt: new Date().toISOString().split('T')[0],
     }
     setSalesOrders([...salesOrders, newSO])
-    setShowSOModal(false)
+    setQuotations(quotations.map(q => q.id === qt.id ? { ...q, status: 'accepted', convertedToSO: newSO.id } : q))
   }
 
-  const handleCreateInvoice = (so) => {
-    const newInvoice = {
-      id: `INV-${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(invoices.length + 1).padStart(3, '0')}`,
-      soId: so.id,
-      customerId: so.customerId,
-      customerPO: so.customerPO,
-      invoiceDate: new Date().toISOString().split('T')[0],
-      items: so.items,
-      subtotal: so.subtotal,
-      vat: so.vat,
-      grandTotal: so.grandTotal,
-      paidAmount: 0,
-      balance: so.grandTotal,
-      status: 'pending',
-      entity: so.entity,
+  // SALES ORDER Functions
+  const handleSaveSO = (data) => {
+    if (editMode && selectedItem) {
+      setSalesOrders(salesOrders.map(so => so.id === selectedItem.id ? { ...so, ...data } : so))
+    } else {
+      const newSO = {
+        id: generateId('SO'),
+        ...data,
+        status: data.status || 'confirmed',
+        createdAt: new Date().toISOString().split('T')[0],
+      }
+      setSalesOrders([...salesOrders, newSO])
     }
+    setShowSOModal(false)
+    setSelectedItem(null)
+    setEditMode(false)
+  }
+
+  // DELIVERY ORDER Functions
+  const handleCreateDO = (so) => {
+    const pendingItems = so.items.filter(item => (item.qty - (item.qtyDelivered || 0)) > 0)
+    if (pendingItems.length === 0) {
+      alert(lang === 'th' ? 'ไม่มีสินค้าที่รอส่ง' : 'No items pending delivery')
+      return
+    }
+    setSelectedItem({ ...so, pendingItems })
+    setShowDOModal(true)
+  }
+
+  const handleSaveDO = (data) => {
+    const newDO = {
+      id: generateId('DO'),
+      soId: data.soId,
+      customerId: data.customerId,
+      deliveryDate: data.deliveryDate || new Date().toISOString().split('T')[0],
+      scheduledTime: data.scheduledTime || '09:00',
+      truckId: data.truckId || '',
+      driverId: data.driverId || null,
+      status: 'pending',
+      items: data.items,
+      deliveryAddress: data.deliveryAddress,
+      notes: data.notes || '',
+      entity: data.entity,
+      receivedBy: '',
+      receivedAt: null,
+      createdAt: new Date().toISOString().split('T')[0],
+    }
+    setDeliveryOrders([...deliveryOrders, newDO])
+    
+    // Update SO with delivered quantities
+    setSalesOrders(salesOrders.map(so => {
+      if (so.id === data.soId) {
+        const updatedItems = so.items.map(item => {
+          const deliveredItem = data.items.find(di => di.productName === item.productName)
+          if (deliveredItem) {
+            return { ...item, qtyDelivered: (item.qtyDelivered || 0) + deliveredItem.qty }
+          }
+          return item
+        })
+        const allDelivered = updatedItems.every(item => item.qtyDelivered >= item.qty)
+        return { ...so, items: updatedItems, status: allDelivered ? 'delivered' : 'in_production' }
+      }
+      return so
+    }))
+    
+    setShowDOModal(false)
+    setSelectedItem(null)
+  }
+
+  // INVOICE Functions
+  const handleCreateInvoice = (doItem) => {
+    const so = salesOrders.find(s => s.id === doItem.soId)
+    const newInvoice = {
+      id: generateId('INV'),
+      entity: doItem.entity || 'IND',
+      soId: doItem.soId,
+      doId: doItem.id,
+      customerId: doItem.customerId,
+      customerPO: so?.customerPO || '',
+      invoiceDate: new Date().toISOString().split('T')[0],
+      dueDate: (() => {
+        const customer = customers.find(c => c.id === doItem.customerId)
+        const terms = customer?.paymentTerms || 30
+        const due = new Date()
+        due.setDate(due.getDate() + terms)
+        return due.toISOString().split('T')[0]
+      })(),
+      items: doItem.items.map((item, idx) => ({
+        id: idx + 1,
+        description: item.productName,
+        descriptionTh: item.productName,
+        qty: item.qty,
+        unit: item.unit || 'pcs',
+        unitPrice: so?.items.find(i => i.productName === item.productName)?.unitPrice || 0,
+        total: item.qty * (so?.items.find(i => i.productName === item.productName)?.unitPrice || 0),
+      })),
+      subtotal: 0,
+      vatRate: 7,
+      vat: 0,
+      discount: 0,
+      grandTotal: 0,
+      status: 'pending',
+      paidAmount: 0,
+      balance: 0,
+      payments: [],
+      createdAt: new Date().toISOString().split('T')[0],
+    }
+    // Calculate totals
+    newInvoice.subtotal = newInvoice.items.reduce((sum, item) => sum + item.total, 0)
+    newInvoice.vat = newInvoice.subtotal * (newInvoice.vatRate / 100)
+    newInvoice.grandTotal = newInvoice.subtotal + newInvoice.vat - newInvoice.discount
+    newInvoice.balance = newInvoice.grandTotal
+    
     setInvoices([...invoices, newInvoice])
+    setDeliveryOrders(deliveryOrders.map(d => d.id === doItem.id ? { ...d, invoiceId: newInvoice.id } : d))
+  }
+
+  // PAYMENT Functions
+  const handleRecordPayment = (invoice, paymentData) => {
+    const newPayment = {
+      id: (invoice.payments?.length || 0) + 1,
+      date: paymentData.date || new Date().toISOString().split('T')[0],
+      amount: parseFloat(paymentData.amount),
+      method: paymentData.method,
+      reference: paymentData.reference,
+      notes: paymentData.notes,
+    }
+    const newPaidAmount = (invoice.paidAmount || 0) + newPayment.amount
+    const newBalance = invoice.grandTotal - newPaidAmount
+    const newStatus = newBalance <= 0 ? 'paid' : newPaidAmount > 0 ? 'partial' : 'pending'
+    
+    setInvoices(invoices.map(inv => 
+      inv.id === invoice.id 
+        ? { 
+            ...inv, 
+            payments: [...(inv.payments || []), newPayment],
+            paidAmount: newPaidAmount,
+            balance: Math.max(0, newBalance),
+            status: newStatus,
+          }
+        : inv
+    ))
+    setShowPaymentModal(false)
+    setSelectedItem(null)
+  }
+
+  // AR Aging calculation
+  const getAgingData = () => {
+    const today = new Date()
+    const aging = { current: [], days30: [], days60: [], days90: [], days120: [] }
+    
+    invoices?.filter(inv => inv.balance > 0).forEach(inv => {
+      const dueDate = new Date(inv.dueDate)
+      const daysPast = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24))
+      const customer = customers.find(c => c.id === inv.customerId)
+      const record = { ...inv, customerName: customer?.name, daysPast }
+      
+      if (daysPast <= 0) aging.current.push(record)
+      else if (daysPast <= 30) aging.days30.push(record)
+      else if (daysPast <= 60) aging.days60.push(record)
+      else if (daysPast <= 90) aging.days90.push(record)
+      else aging.days120.push(record)
+    })
+    
+    return aging
+  }
+
+  const agingData = getAgingData()
+  const agingTotals = {
+    current: agingData.current.reduce((sum, inv) => sum + inv.balance, 0),
+    days30: agingData.days30.reduce((sum, inv) => sum + inv.balance, 0),
+    days60: agingData.days60.reduce((sum, inv) => sum + inv.balance, 0),
+    days90: agingData.days90.reduce((sum, inv) => sum + inv.balance, 0),
+    days120: agingData.days120.reduce((sum, inv) => sum + inv.balance, 0),
   }
 
   return (
@@ -11608,50 +12220,53 @@ const SalesModuleFull = ({ salesOrders, setSalesOrders, invoices, setInvoices, c
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{t('nav.sales', lang)}</h1>
-          <p className="text-gray-500">{lang === 'th' ? 'จัดการการขายและใบแจ้งหนี้' : 'Manage sales and invoices'}</p>
+          <p className="text-gray-500">{lang === 'th' ? 'จัดการการขายครบวงจร: ใบเสนอราคา → ใบสั่งขาย → ใบส่งสินค้า → ใบแจ้งหนี้ → การชำระเงิน' : 'Complete sales flow: Quotation → SO → DO → Invoice → Payment'}</p>
         </div>
-        <Button icon={Plus} onClick={() => setShowSOModal(true)}>
-          {lang === 'th' ? 'สร้างใบสั่งขาย' : 'New Sales Order'}
-        </Button>
+        <div className="flex gap-2">
+          <Button icon={Plus} onClick={() => { setEditMode(false); setSelectedItem(null); setShowQuotationModal(true) }}>
+            {lang === 'th' ? 'ใบเสนอราคา' : 'New Quote'}
+          </Button>
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <Card className="p-4">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบสั่งขาย' : 'Orders'}</div>
-          <div className="text-2xl font-bold text-gray-800">{stats.totalOrders}</div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Card className="p-4 border-l-4 border-l-purple-500 cursor-pointer hover:shadow-md" onClick={() => setActiveTab('quotations')}>
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบเสนอราคา' : 'Quotations'}</div>
+          <div className="text-2xl font-bold text-purple-600">{stats.totalQuotations}</div>
+          <div className="text-xs text-purple-400">{stats.pendingQuotations} {lang === 'th' ? 'รอตอบรับ' : 'pending'}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-yellow-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'รอผลิต' : 'Pending'}</div>
-          <div className="text-2xl font-bold text-yellow-600">{stats.pendingOrders}</div>
+        <Card className="p-4 border-l-4 border-l-blue-500 cursor-pointer hover:shadow-md" onClick={() => setActiveTab('orders')}>
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบสั่งขาย' : 'Sales Orders'}</div>
+          <div className="text-2xl font-bold text-blue-600">{stats.totalOrders}</div>
+          <div className="text-xs text-blue-400">{stats.pendingOrders} {lang === 'th' ? 'รอผลิต' : 'pending'}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-blue-500">
+        <Card className="p-4 border-l-4 border-l-orange-500 cursor-pointer hover:shadow-md" onClick={() => setActiveTab('delivery')}>
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบส่งสินค้า' : 'Delivery Orders'}</div>
+          <div className="text-2xl font-bold text-orange-600">{stats.totalDOs}</div>
+          <div className="text-xs text-orange-400">{stats.pendingDOs} {lang === 'th' ? 'รอส่ง' : 'pending'}</div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-teal-500 cursor-pointer hover:shadow-md" onClick={() => setActiveTab('invoices')}>
           <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices'}</div>
-          <div className="text-2xl font-bold text-blue-600">{stats.totalInvoices}</div>
+          <div className="text-2xl font-bold text-teal-600">{stats.totalInvoices}</div>
+          <div className="text-xs text-red-400">{stats.unpaidInvoices} {lang === 'th' ? 'ค้างชำระ' : 'unpaid'}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-red-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'ยังไม่ชำระ' : 'Unpaid'}</div>
-          <div className="text-2xl font-bold text-red-600">{stats.unpaidInvoices}</div>
-        </Card>
-        <Card className="p-4 border-l-4 border-l-purple-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'รายได้รวม' : 'Revenue'}</div>
-          <div className="text-2xl font-bold text-purple-600">{formatCurrency(stats.totalRevenue)}</div>
-        </Card>
-        <Card className="p-4 border-l-4 border-l-green-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'รับแล้ว' : 'Received'}</div>
+        <Card className="p-4 border-l-4 border-l-green-500 cursor-pointer hover:shadow-md" onClick={() => setActiveTab('payments')}>
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รับชำระแล้ว' : 'Received'}</div>
           <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.totalReceived)}</div>
+          <div className="text-xs text-red-400">{formatCurrency(stats.totalRevenue - stats.totalReceived)} {lang === 'th' ? 'ค้าง' : 'due'}</div>
         </Card>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b">
+      <div className="flex gap-1 border-b overflow-x-auto">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap ${
               activeTab === tab.id 
-                ? 'border-[#1A5276] text-[#1A5276]' 
+                ? 'border-[#1A5276] text-[#1A5276] bg-blue-50' 
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -11661,141 +12276,64 @@ const SalesModuleFull = ({ salesOrders, setSalesOrders, invoices, setInvoices, c
         ))}
       </div>
 
-      {/* Orders Tab */}
-      {activeTab === 'orders' && (
-        <Card className="overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'SO #'}</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'PO ลูกค้า' : 'Customer PO'}</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {salesOrders.map(so => {
-                const customer = customers.find(c => c.id === so.customerId)
-                const hasInvoice = invoices.some(inv => inv.soId === so.id)
-                return (
-                  <tr key={so.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-mono text-[#1A5276]">{so.id}</td>
-                    <td className="px-4 py-3">{customer?.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{so.customerPO}</td>
-                    <td className="px-4 py-3">{formatDate(so.orderDate)}</td>
-                    <td className="px-4 py-3 text-right font-medium">{formatCurrency(so.grandTotal)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <Badge variant={
-                        so.status === 'delivered' ? 'success' :
-                        so.status === 'in_production' ? 'info' :
-                        'warning'
-                      }>
-                        {so.status}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {!hasInvoice && (
-                        <Button size="sm" variant="outline" onClick={() => handleCreateInvoice(so)}>
-                          {lang === 'th' ? 'สร้างใบแจ้งหนี้' : 'Create Invoice'}
-                        </Button>
-                      )}
-                      {hasInvoice && (
-                        <Badge variant="success">{lang === 'th' ? 'ออกใบแจ้งหนี้แล้ว' : 'Invoiced'}</Badge>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </Card>
-      )}
-
-      {/* Invoices Tab */}
-      {activeTab === 'invoices' && (
-        <Card className="overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'Invoice #'}</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Total'}</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ชำระแล้ว' : 'Paid'}</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Balance'}</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {invoices.map(inv => {
-                const customer = customers.find(c => c.id === inv.customerId)
-                return (
-                  <tr key={inv.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-mono text-[#1A5276]">{inv.id}</td>
-                    <td className="px-4 py-3">{customer?.name}</td>
-                    <td className="px-4 py-3">{formatDate(inv.invoiceDate)}</td>
-                    <td className="px-4 py-3 text-right font-medium">{formatCurrency(inv.grandTotal)}</td>
-                    <td className="px-4 py-3 text-right text-green-600">{formatCurrency(inv.paidAmount)}</td>
-                    <td className="px-4 py-3 text-right text-red-600">{formatCurrency(inv.balance)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <Badge variant={
-                        inv.status === 'paid' ? 'success' :
-                        inv.status === 'partial' ? 'warning' :
-                        'info'
-                      }>
-                        {inv.status}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button 
-                        className="p-1 hover:bg-gray-100 rounded"
-                        onClick={() => { setSelectedInvoice(inv); setShowInvoiceModal(true) }}
-                      >
-                        <Printer className="w-4 h-4 text-gray-500" />
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </Card>
-      )}
-
-      {/* Payments Tab */}
-      {activeTab === 'payments' && (
-        <PaymentTracker invoices={invoices} setInvoices={setInvoices} customers={customers} lang={lang} />
-      )}
-
-      {/* Dashboard */}
+      {/* ========== DASHBOARD TAB ========== */}
       {activeTab === 'dashboard' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Sales Flow Visual */}
+          <Card className="p-5 lg:col-span-3">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ขั้นตอนการขาย' : 'Sales Flow'}</h3>
+            <div className="flex items-center justify-between bg-gradient-to-r from-purple-50 via-blue-50 via-orange-50 via-teal-50 to-green-50 rounded-xl p-4">
+              {[
+                { label: lang === 'th' ? 'ใบเสนอราคา' : 'Quote', icon: FileText, color: 'purple', count: stats.pendingQuotations },
+                { label: lang === 'th' ? 'ใบสั่งขาย' : 'SO', icon: ClipboardList, color: 'blue', count: stats.pendingOrders },
+                { label: lang === 'th' ? 'ใบส่งสินค้า' : 'DO', icon: Truck, color: 'orange', count: stats.pendingDOs },
+                { label: lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoice', icon: Receipt, color: 'teal', count: stats.unpaidInvoices },
+                { label: lang === 'th' ? 'ชำระเงิน' : 'Payment', icon: CreditCard, color: 'green', count: 0 },
+              ].map((step, idx) => (
+                <React.Fragment key={step.label}>
+                  <div className="flex flex-col items-center">
+                    <div className={`w-12 h-12 rounded-full bg-${step.color}-100 flex items-center justify-center mb-2`}>
+                      <step.icon className={`w-6 h-6 text-${step.color}-600`} />
+                    </div>
+                    <span className="text-sm font-medium">{step.label}</span>
+                    {step.count > 0 && (
+                      <Badge variant="warning" className="mt-1">{step.count}</Badge>
+                    )}
+                  </div>
+                  {idx < 4 && <ArrowRight className="w-6 h-6 text-gray-400" />}
+                </React.Fragment>
+              ))}
+            </div>
+          </Card>
+
+          {/* Recent Quotations */}
           <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ใบแจ้งหนี้ล่าสุด' : 'Recent Invoices'}</h3>
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ใบเสนอราคาล่าสุด' : 'Recent Quotations'}</h3>
             <div className="space-y-3">
-              {invoices.slice(0, 5).map(inv => {
-                const customer = customers.find(c => c.id === inv.customerId)
+              {quotations?.slice(0, 5).map(qt => {
+                const customer = customers.find(c => c.id === qt.customerId)
                 return (
-                  <div key={inv.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div key={qt.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
-                      <div className="font-mono text-[#1A5276] font-medium">{inv.id}</div>
+                      <div className="font-mono text-purple-600 font-medium">{qt.id}</div>
                       <div className="text-sm text-gray-500">{customer?.name}</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-medium">{formatCurrency(inv.grandTotal)}</div>
-                      <Badge variant={inv.balance > 0 ? 'warning' : 'success'}>
-                        {inv.balance > 0 ? (lang === 'th' ? 'ค้างชำระ' : 'Outstanding') : (lang === 'th' ? 'ชำระแล้ว' : 'Paid')}
-                      </Badge>
+                      <div className="font-medium">{formatCurrency(qt.grandTotal)}</div>
+                      <Badge variant={
+                        qt.status === 'accepted' ? 'success' :
+                        qt.status === 'sent' ? 'info' :
+                        qt.status === 'rejected' ? 'danger' :
+                        'warning'
+                      }>{qt.status}</Badge>
                     </div>
                   </div>
                 )
               })}
             </div>
           </Card>
+
+          {/* Revenue Summary */}
           <Card className="p-5">
             <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'สรุปรายได้' : 'Revenue Summary'}</h3>
             <div className="space-y-4">
@@ -11815,33 +12353,2421 @@ const SalesModuleFull = ({ salesOrders, setSalesOrders, invoices, setInvoices, c
               </div>
             </div>
           </Card>
+
+          {/* AR Aging Summary */}
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'อายุหนี้' : 'AR Aging'}</h3>
+            <div className="space-y-2">
+              {[
+                { label: lang === 'th' ? 'ปัจจุบัน' : 'Current', amount: agingTotals.current, color: 'green' },
+                { label: '1-30 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days30, color: 'yellow' },
+                { label: '31-60 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days60, color: 'orange' },
+                { label: '61-90 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days90, color: 'red' },
+                { label: '90+ ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days120, color: 'purple' },
+              ].map(bucket => (
+                <div key={bucket.label} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <span className="text-sm">{bucket.label}</span>
+                  <span className={`font-bold text-${bucket.color}-600`}>{formatCurrency(bucket.amount)}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
         </div>
+      )}
+
+      {/* ========== QUOTATIONS TAB ========== */}
+      {activeTab === 'quotations' && (
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b flex justify-between items-center">
+            <h3 className="font-bold">{lang === 'th' ? 'รายการใบเสนอราคา' : 'Quotations List'}</h3>
+            <Button size="sm" icon={Plus} onClick={() => { setEditMode(false); setSelectedItem(null); setShowQuotationModal(true) }}>
+              {lang === 'th' ? 'สร้างใหม่' : 'New Quote'}
+            </Button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'Quote #'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ใช้ได้ถึง' : 'Valid Until'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {quotations?.map(qt => {
+                  const customer = customers.find(c => c.id === qt.customerId)
+                  const isExpired = new Date(qt.validUntil) < new Date() && qt.status !== 'accepted' && qt.status !== 'converted'
+                  return (
+                    <tr key={qt.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono text-purple-600">{qt.id}</td>
+                      <td className="px-4 py-3">{customer?.name}</td>
+                      <td className="px-4 py-3">{formatDate(qt.quoteDate)}</td>
+                      <td className="px-4 py-3">
+                        <span className={isExpired ? 'text-red-500' : ''}>{formatDate(qt.validUntil)}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(qt.grandTotal)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={
+                          qt.status === 'accepted' ? 'success' :
+                          qt.status === 'sent' ? 'info' :
+                          qt.status === 'rejected' ? 'danger' :
+                          isExpired ? 'danger' :
+                          'warning'
+                        }>{isExpired && qt.status === 'sent' ? 'expired' : qt.status}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {qt.status === 'draft' && (
+                            <Button size="sm" variant="outline" onClick={() => setQuotations(quotations.map(q => q.id === qt.id ? {...q, status: 'sent'} : q))}>
+                              <Send className="w-3 h-3" />
+                            </Button>
+                          )}
+                          {(qt.status === 'sent' || qt.status === 'draft') && !qt.convertedToSO && (
+                            <Button size="sm" variant="success" onClick={() => handleConvertToSO(qt)}>
+                              {lang === 'th' ? '→ SO' : '→ SO'}
+                            </Button>
+                          )}
+                          {qt.convertedToSO && (
+                            <span className="text-xs text-green-600">{qt.convertedToSO}</span>
+                          )}
+                          <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(qt); setEditMode(true); setShowQuotationModal(true) }}>
+                            <Edit3 className="w-3 h-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(qt); setShowPrintQuotation(true) }} title="Print">
+                            <Printer className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* ========== SALES ORDERS TAB ========== */}
+      {activeTab === 'orders' && (
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b flex justify-between items-center">
+            <h3 className="font-bold">{lang === 'th' ? 'รายการใบสั่งขาย' : 'Sales Orders List'}</h3>
+            <Button size="sm" icon={Plus} onClick={() => { setEditMode(false); setSelectedItem(null); setShowSOModal(true) }}>
+              {lang === 'th' ? 'สร้างใหม่' : 'New SO'}
+            </Button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'SO #'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'PO ลูกค้า' : 'Customer PO'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ส่งแล้ว' : 'Delivered'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {salesOrders?.map(so => {
+                  const customer = customers.find(c => c.id === so.customerId)
+                  const totalQty = so.items?.reduce((sum, item) => sum + item.qty, 0) || 0
+                  const deliveredQty = so.items?.reduce((sum, item) => sum + (item.qtyDelivered || 0), 0) || 0
+                  const hasDO = deliveryOrders?.some(d => d.soId === so.id)
+                  return (
+                    <tr key={so.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono text-blue-600">{so.id}</td>
+                      <td className="px-4 py-3">{customer?.name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{so.customerPO}</td>
+                      <td className="px-4 py-3">{formatDate(so.orderDate)}</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(so.grandTotal)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={deliveredQty >= totalQty ? 'text-green-600' : 'text-orange-600'}>
+                          {deliveredQty}/{totalQty}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={
+                          so.status === 'delivered' ? 'success' :
+                          so.status === 'in_production' ? 'info' :
+                          'warning'
+                        }>{so.status}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {deliveredQty < totalQty && (
+                            <Button size="sm" variant="outline" onClick={() => handleCreateDO(so)}>
+                              {lang === 'th' ? '→ DO' : '→ DO'}
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(so); setEditMode(true); setShowSOModal(true) }}>
+                            <Eye className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* ========== DELIVERY ORDERS TAB ========== */}
+      {activeTab === 'delivery' && (
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b">
+            <h3 className="font-bold">{lang === 'th' ? 'รายการใบส่งสินค้า' : 'Delivery Orders List'}</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่ DO' : 'DO #'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'SO อ้างอิง' : 'SO Ref'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันส่ง' : 'Delivery Date'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รถ/คนขับ' : 'Truck/Driver'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoice'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {deliveryOrders?.map(doItem => {
+                  const customer = customers.find(c => c.id === doItem.customerId)
+                  const truck = trucks?.find(t => t.id === doItem.truckId)
+                  const driver = employees?.find(e => e.id === doItem.driverId)
+                  const hasInvoice = invoices?.some(inv => inv.doId === doItem.id)
+                  return (
+                    <tr key={doItem.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono text-orange-600">{doItem.id}</td>
+                      <td className="px-4 py-3 font-mono text-blue-500 text-sm">{doItem.soId}</td>
+                      <td className="px-4 py-3">{customer?.name}</td>
+                      <td className="px-4 py-3">{formatDate(doItem.deliveryDate)}</td>
+                      <td className="px-4 py-3 text-sm">
+                        {truck?.code || '-'} / {driver?.name || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={
+                          doItem.status === 'delivered' ? 'success' :
+                          doItem.status === 'dispatched' ? 'info' :
+                          'warning'
+                        }>{doItem.status}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {hasInvoice ? (
+                          <span className="text-green-600 text-sm">{invoices.find(inv => inv.doId === doItem.id)?.id}</span>
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={() => handleCreateInvoice(doItem)}>
+                            {lang === 'th' ? '→ INV' : '→ INV'}
+                          </Button>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {doItem.status === 'pending' && (
+                            <Button size="sm" variant="info" onClick={() => setDeliveryOrders(deliveryOrders.map(d => d.id === doItem.id ? {...d, status: 'dispatched'} : d))}>
+                              {lang === 'th' ? 'ออก' : 'Dispatch'}
+                            </Button>
+                          )}
+                          {doItem.status === 'dispatched' && (
+                            <Button size="sm" variant="success" onClick={() => setDeliveryOrders(deliveryOrders.map(d => d.id === doItem.id ? {...d, status: 'delivered', receivedAt: new Date().toISOString()} : d))}>
+                              {lang === 'th' ? 'ส่งแล้ว' : 'Delivered'}
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(doItem); setShowPrintDO(true) }} title="Print DO">
+                            <Printer className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* ========== INVOICES TAB ========== */}
+      {activeTab === 'invoices' && (
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b">
+            <h3 className="font-bold">{lang === 'th' ? 'รายการใบแจ้งหนี้' : 'Invoices List'}</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'Invoice #'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ครบกำหนด' : 'Due Date'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Total'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ชำระแล้ว' : 'Paid'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Balance'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {invoices?.map(inv => {
+                  const customer = customers.find(c => c.id === inv.customerId)
+                  const isOverdue = new Date(inv.dueDate) < new Date() && inv.balance > 0
+                  return (
+                    <tr key={inv.id} className={`hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''}`}>
+                      <td className="px-4 py-3 font-mono text-teal-600">{inv.id}</td>
+                      <td className="px-4 py-3">{customer?.name}</td>
+                      <td className="px-4 py-3">{formatDate(inv.invoiceDate)}</td>
+                      <td className="px-4 py-3">
+                        <span className={isOverdue ? 'text-red-600 font-bold' : ''}>{formatDate(inv.dueDate)}</span>
+                        {isOverdue && <AlertTriangle className="w-3 h-3 inline ml-1 text-red-500" />}
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(inv.grandTotal)}</td>
+                      <td className="px-4 py-3 text-right text-green-600">{formatCurrency(inv.paidAmount || 0)}</td>
+                      <td className="px-4 py-3 text-right text-red-600 font-bold">{formatCurrency(inv.balance || 0)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={
+                          inv.status === 'paid' ? 'success' :
+                          inv.status === 'partial' ? 'warning' :
+                          isOverdue ? 'danger' :
+                          'info'
+                        }>{isOverdue && inv.status !== 'paid' ? 'overdue' : inv.status}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {inv.balance > 0 && (
+                            <Button size="sm" variant="success" onClick={() => { setSelectedItem(inv); setShowPaymentModal(true) }}>
+                              {lang === 'th' ? 'รับชำระ' : 'Pay'}
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(inv); setShowInvoiceModal(true) }} title="View">
+                            <Eye className="w-3 h-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => { 
+                            setSelectedItem(inv); 
+                            const cust = customers.find(c => c.id === inv.customerId);
+                            if (cust?.type === 'export') {
+                              setShowPrintExportInvoice(true);
+                            } else {
+                              setShowPrintInvoice(true);
+                            }
+                          }} title="Print">
+                            <Printer className="w-3 h-3" />
+                          </Button>
+                          {(customers.find(c => c.id === inv.customerId)?.specialRequirements?.htCertificate || 
+                            customers.find(c => c.id === inv.customerId)?.type === 'export') && (
+                            <Button size="sm" variant="warning" onClick={() => { setSelectedItem(inv); setShowHTCertModal(true) }} title="HT Certificate">
+                              <BadgeCheck className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* ========== PAYMENTS TAB ========== */}
+      {activeTab === 'payments' && (
+        <div className="space-y-6">
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ประวัติการชำระเงิน' : 'Payment History'}</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoice'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Amount'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วิธีชำระ' : 'Method'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อ้างอิง' : 'Reference'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {invoices?.flatMap(inv => 
+                    (inv.payments || []).map(pmt => ({
+                      ...pmt,
+                      invoiceId: inv.id,
+                      customerId: inv.customerId,
+                    }))
+                  ).sort((a, b) => new Date(b.date) - new Date(a.date)).map((pmt, idx) => {
+                    const customer = customers.find(c => c.id === pmt.customerId)
+                    return (
+                      <tr key={`${pmt.invoiceId}-${idx}`} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">{formatDate(pmt.date)}</td>
+                        <td className="px-4 py-3 font-mono text-teal-600">{pmt.invoiceId}</td>
+                        <td className="px-4 py-3">{customer?.name}</td>
+                        <td className="px-4 py-3 text-right font-bold text-green-600">{formatCurrency(pmt.amount)}</td>
+                        <td className="px-4 py-3">
+                          <Badge variant={pmt.method === 'transfer' ? 'info' : pmt.method === 'cash' ? 'success' : 'warning'}>
+                            {pmt.method}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{pmt.reference}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ========== AR AGING TAB ========== */}
+      {activeTab === 'aging' && (
+        <div className="space-y-6">
+          {/* Aging Summary Cards */}
+          <div className="grid grid-cols-5 gap-4">
+            {[
+              { label: lang === 'th' ? 'ปัจจุบัน' : 'Current', amount: agingTotals.current, count: agingData.current.length, color: 'green' },
+              { label: '1-30 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days30, count: agingData.days30.length, color: 'yellow' },
+              { label: '31-60 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days60, count: agingData.days60.length, color: 'orange' },
+              { label: '61-90 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days90, count: agingData.days90.length, color: 'red' },
+              { label: '90+ ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days120, count: agingData.days120.length, color: 'purple' },
+            ].map(bucket => (
+              <Card key={bucket.label} className={`p-4 border-l-4 border-l-${bucket.color}-500`}>
+                <div className="text-sm text-gray-500">{bucket.label}</div>
+                <div className={`text-2xl font-bold text-${bucket.color}-600`}>{formatCurrency(bucket.amount)}</div>
+                <div className="text-xs text-gray-400">{bucket.count} {lang === 'th' ? 'รายการ' : 'items'}</div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Aging Detail Table */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b">
+              <h3 className="font-bold">{lang === 'th' ? 'รายละเอียดหนี้ค้างชำระ' : 'Outstanding Receivables Detail'}</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoice'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ครบกำหนด' : 'Due Date'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'เกิน (วัน)' : 'Days Over'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดค้าง' : 'Balance'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ช่วงอายุ' : 'Aging Bucket'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {[...agingData.days120, ...agingData.days90, ...agingData.days60, ...agingData.days30, ...agingData.current].map(inv => (
+                    <tr key={inv.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium">{inv.customerName}</td>
+                      <td className="px-4 py-3 font-mono text-teal-600">{inv.id}</td>
+                      <td className="px-4 py-3">{formatDate(inv.dueDate)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={inv.daysPast > 60 ? 'text-red-600 font-bold' : inv.daysPast > 30 ? 'text-orange-600' : ''}>
+                          {inv.daysPast > 0 ? inv.daysPast : '-'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-red-600">{formatCurrency(inv.balance)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={
+                          inv.daysPast <= 0 ? 'success' :
+                          inv.daysPast <= 30 ? 'warning' :
+                          inv.daysPast <= 60 ? 'warning' :
+                          'danger'
+                        }>
+                          {inv.daysPast <= 0 ? (lang === 'th' ? 'ปัจจุบัน' : 'Current') :
+                           inv.daysPast <= 30 ? '1-30' :
+                           inv.daysPast <= 60 ? '31-60' :
+                           inv.daysPast <= 90 ? '61-90' : '90+'}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-100">
+                  <tr>
+                    <td colSpan="4" className="px-4 py-3 font-bold text-right">{lang === 'th' ? 'รวมค้างชำระ' : 'Total Outstanding'}</td>
+                    <td className="px-4 py-3 text-right font-bold text-red-600 text-lg">
+                      {formatCurrency(agingTotals.current + agingTotals.days30 + agingTotals.days60 + agingTotals.days90 + agingTotals.days120)}
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ========== REJECTIONS TAB ========== */}
+      {activeTab === 'rejections' && (
+        <div className="space-y-6">
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="font-bold">{lang === 'th' ? 'รายการคืนสินค้า/ปฏิเสธรับ' : 'Returns & Rejections'}</h3>
+              <Button size="sm" icon={Plus} onClick={() => { setEditMode(false); setSelectedItem(null); setShowRejectionModal(true) }}>
+                {lang === 'th' ? 'บันทึกการคืน' : 'New Return'}
+              </Button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'REJ #'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'Invoice/DO' : 'Invoice/DO'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'สาเหตุ' : 'Reason'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {rejections?.map(rej => {
+                    const customer = customers.find(c => c.id === rej.customerId)
+                    return (
+                      <tr key={rej.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-mono text-red-600">{rej.id}</td>
+                        <td className="px-4 py-3">{formatDate(rej.date)}</td>
+                        <td className="px-4 py-3">{customer?.name}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className="font-mono text-teal-600">{rej.invoiceId}</span>
+                          {rej.doId && <span className="text-gray-400 ml-1">/ {rej.doId}</span>}
+                        </td>
+                        <td className="px-4 py-3 text-center font-bold text-red-600">{rej.totalRejected}</td>
+                        <td className="px-4 py-3">
+                          <Badge variant={
+                            rej.reason === 'damaged' ? 'danger' :
+                            rej.reason === 'quality_issue' ? 'warning' :
+                            'default'
+                          }>{rej.reason}</Badge>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Badge variant={
+                            rej.status === 'resolved' ? 'success' :
+                            rej.status === 'in_progress' ? 'info' :
+                            'warning'
+                          }>{rej.status}</Badge>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            {rej.status === 'open' && !rej.creditNoteId && (
+                              <Button size="sm" variant="warning" onClick={() => handleCreateCreditNote(rej)}>
+                                {lang === 'th' ? 'ออก CN' : 'Issue CN'}
+                              </Button>
+                            )}
+                            {rej.creditNoteId && (
+                              <span className="text-xs text-green-600 font-mono">{rej.creditNoteId}</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Credit Notes Section */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b bg-yellow-50">
+              <h3 className="font-bold text-yellow-800">{lang === 'th' ? 'ใบลดหนี้ (Credit Notes)' : 'Credit Notes'}</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'CN #'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'Invoice อ้างอิง' : 'Ref Invoice'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Amount'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {creditNotes?.map(cn => {
+                    const customer = customers.find(c => c.id === cn.customerId)
+                    return (
+                      <tr key={cn.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-mono text-yellow-600">{cn.id}</td>
+                        <td className="px-4 py-3">{formatDate(cn.date)}</td>
+                        <td className="px-4 py-3">{customer?.name}</td>
+                        <td className="px-4 py-3 font-mono text-teal-600">{cn.originalInvoiceId}</td>
+                        <td className="px-4 py-3 text-right font-bold text-yellow-600">{formatCurrency(cn.grandTotal)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <Badge variant={cn.status === 'applied' ? 'success' : cn.status === 'issued' ? 'info' : 'warning'}>
+                            {cn.status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ========== CLAIMS TAB ========== */}
+      {activeTab === 'claims' && (
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b flex justify-between items-center">
+            <h3 className="font-bold">{lang === 'th' ? 'รายการเคลม/ข้อพิพาท' : 'Claims & Disputes'}</h3>
+            <Button size="sm" icon={Plus} onClick={() => { setEditMode(false); setSelectedItem(null); setShowClaimModal(true) }}>
+              {lang === 'th' ? 'บันทึกเคลม' : 'New Claim'}
+            </Button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'CLM #'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่าเคลม' : 'Claim Amt'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายละเอียด' : 'Description'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ผลการแก้ไข' : 'Resolution'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {claims?.map(claim => {
+                  const customer = customers.find(c => c.id === claim.customerId)
+                  return (
+                    <tr key={claim.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono text-orange-600">{claim.id}</td>
+                      <td className="px-4 py-3">{formatDate(claim.date)}</td>
+                      <td className="px-4 py-3">{customer?.name}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant={
+                          claim.claimType === 'quality' ? 'warning' :
+                          claim.claimType === 'damage' ? 'danger' :
+                          claim.claimType === 'shortage' ? 'info' :
+                          'default'
+                        }>{claim.claimType}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold">{claim.claimAmount ? formatCurrency(claim.claimAmount) : '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{claim.description}</td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={
+                          claim.status === 'closed' || claim.status === 'resolved' ? 'success' :
+                          claim.status === 'under_review' ? 'info' :
+                          'warning'
+                        }>{claim.status}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {claim.resolution ? (
+                          <Badge variant={claim.resolution === 'accepted_full' ? 'success' : claim.resolution === 'rejected' ? 'danger' : 'warning'}>
+                            {claim.resolution}
+                          </Badge>
+                        ) : '-'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* ========== MEETINGS TAB ========== */}
+      {activeTab === 'meetings' && (
+        <div className="space-y-6">
+          {/* Meeting Stats */}
+          <div className="grid grid-cols-4 gap-4">
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'เดือนนี้' : 'This Month'}</div>
+              <div className="text-2xl font-bold text-blue-600">{stats.meetingsThisMonth}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-red-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รอติดตาม' : 'Follow-ups Due'}</div>
+              <div className="text-2xl font-bold text-red-600">{stats.followupsDue}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-green-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ได้รับออเดอร์' : 'Orders Won'}</div>
+              <div className="text-2xl font-bold text-green-600">
+                {salesMeetings?.filter(m => m.outcome === 'order_received').length || 0}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-purple-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รอใบเสนอราคา' : 'Quote Requested'}</div>
+              <div className="text-2xl font-bold text-purple-600">
+                {salesMeetings?.filter(m => m.outcome === 'quotation_requested').length || 0}
+              </div>
+            </Card>
+          </div>
+
+          {/* Meeting List */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="font-bold">{lang === 'th' ? 'บันทึกการพบลูกค้า' : 'Sales Meeting Log'}</h3>
+              <Button size="sm" icon={Plus} onClick={() => { setEditMode(false); setSelectedItem(null); setShowMeetingModal(true) }}>
+                {lang === 'th' ? 'บันทึกการประชุม' : 'Log Meeting'}
+              </Button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เหตุผล' : 'Reason'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานที่' : 'Location'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ผลลัพธ์' : 'Outcome'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ติดตามวันที่' : 'Follow-up'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {salesMeetings?.sort((a, b) => new Date(b.date) - new Date(a.date)).map(meeting => {
+                    const customer = customers.find(c => c.id === meeting.customerId)
+                    const isFollowupDue = meeting.nextFollowupDate && new Date(meeting.nextFollowupDate) <= new Date()
+                    return (
+                      <tr key={meeting.id} className={`hover:bg-gray-50 ${isFollowupDue ? 'bg-red-50' : ''}`}>
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{formatDate(meeting.date)}</div>
+                          <div className="text-xs text-gray-500">{meeting.timeStart} - {meeting.timeEnd}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{customer?.name || meeting.customerId}</div>
+                          <div className="text-xs text-gray-500">{meeting.contactPerson}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant={
+                            meeting.customerType === 'existing' ? 'success' :
+                            meeting.customerType === 'potential' ? 'warning' :
+                            'info'
+                          }>{meeting.customerType}</Badge>
+                        </td>
+                        <td className="px-4 py-3 text-sm">{meeting.reason?.replace('_', ' ')}</td>
+                        <td className="px-4 py-3 text-sm">
+                          {meeting.location === 'customer_site' ? '🏭 Customer' : 
+                           meeting.location === 'ind' ? '🏢 IND' : '📍 Other'}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Badge variant={
+                            meeting.outcome === 'order_received' ? 'success' :
+                            meeting.outcome === 'quotation_requested' ? 'info' :
+                            meeting.outcome === 'lost' ? 'danger' :
+                            'warning'
+                          }>{meeting.outcome?.replace('_', ' ')}</Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          {meeting.nextFollowupDate && (
+                            <span className={isFollowupDue ? 'text-red-600 font-bold' : ''}>
+                              {formatDate(meeting.nextFollowupDate)}
+                              {isFollowupDue && <AlertTriangle className="w-3 h-3 inline ml-1" />}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ========== MODALS ========== */}
+      
+      {/* Quotation Modal */}
+      {showQuotationModal && (
+        <Modal isOpen={showQuotationModal} onClose={() => { setShowQuotationModal(false); setSelectedItem(null); setEditMode(false) }} 
+               title={editMode ? (lang === 'th' ? 'แก้ไขใบเสนอราคา' : 'Edit Quotation') : (lang === 'th' ? 'สร้างใบเสนอราคา' : 'New Quotation')} size="xl">
+          <QuotationForm
+            quotation={selectedItem}
+            customers={customers}
+            products={products}
+            lang={lang}
+            onSave={handleSaveQuotation}
+            onCancel={() => { setShowQuotationModal(false); setSelectedItem(null); setEditMode(false) }}
+          />
+        </Modal>
       )}
 
       {/* SO Modal */}
       {showSOModal && (
-        <Modal isOpen={showSOModal} onClose={() => setShowSOModal(false)} title={lang === 'th' ? 'สร้างใบสั่งขาย' : 'New Sales Order'} size="xl">
+        <Modal isOpen={showSOModal} onClose={() => { setShowSOModal(false); setSelectedItem(null); setEditMode(false) }}
+               title={editMode ? (lang === 'th' ? 'รายละเอียดใบสั่งขาย' : 'Sales Order Details') : (lang === 'th' ? 'สร้างใบสั่งขาย' : 'New Sales Order')} size="xl">
           <SalesOrderForm
+            so={selectedItem}
             customers={customers}
             products={products || []}
             lang={lang}
-            onSave={handleSOSave}
-            onCancel={() => setShowSOModal(false)}
+            onSave={handleSaveSO}
+            onCancel={() => { setShowSOModal(false); setSelectedItem(null); setEditMode(false) }}
+          />
+        </Modal>
+      )}
+
+      {/* DO Modal */}
+      {showDOModal && selectedItem && (
+        <Modal isOpen={showDOModal} onClose={() => { setShowDOModal(false); setSelectedItem(null) }}
+               title={lang === 'th' ? 'สร้างใบส่งสินค้า' : 'Create Delivery Order'} size="lg">
+          <DeliveryOrderForm
+            so={selectedItem}
+            customers={customers}
+            trucks={trucks}
+            employees={employees}
+            lang={lang}
+            onSave={handleSaveDO}
+            onCancel={() => { setShowDOModal(false); setSelectedItem(null) }}
+          />
+        </Modal>
+      )}
+
+      {/* Payment Modal */}
+      {showPaymentModal && selectedItem && (
+        <Modal isOpen={showPaymentModal} onClose={() => { setShowPaymentModal(false); setSelectedItem(null) }}
+               title={lang === 'th' ? 'บันทึกการชำระเงิน' : 'Record Payment'} size="md">
+          <PaymentForm
+            invoice={selectedItem}
+            customer={customers.find(c => c.id === selectedItem.customerId)}
+            lang={lang}
+            onSave={(data) => handleRecordPayment(selectedItem, data)}
+            onCancel={() => { setShowPaymentModal(false); setSelectedItem(null) }}
           />
         </Modal>
       )}
 
       {/* Invoice View Modal */}
-      {showInvoiceModal && selectedInvoice && (
-        <Modal isOpen={showInvoiceModal} onClose={() => { setShowInvoiceModal(false); setSelectedInvoice(null) }} title={`${lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoice'} ${selectedInvoice.id}`} size="lg">
+      {showInvoiceModal && selectedItem && (
+        <Modal isOpen={showInvoiceModal} onClose={() => { setShowInvoiceModal(false); setSelectedItem(null) }} 
+               title={`${lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoice'} ${selectedItem.id}`} size="lg">
           <InvoiceView
-            invoice={selectedInvoice}
-            customer={customers.find(c => c.id === selectedInvoice.customerId)}
-            entity={selectedInvoice.entity}
+            invoice={selectedItem}
+            customer={customers.find(c => c.id === selectedItem.customerId)}
+            entity={selectedItem.entity}
             lang={lang}
           />
         </Modal>
       )}
+
+      {/* Rejection Modal */}
+      {showRejectionModal && (
+        <Modal isOpen={showRejectionModal} onClose={() => { setShowRejectionModal(false); setSelectedItem(null); setEditMode(false) }}
+               title={lang === 'th' ? 'บันทึกการคืนสินค้า' : 'Record Return/Rejection'} size="lg">
+          <RejectionForm
+            rejection={selectedItem}
+            customers={customers}
+            invoices={invoices}
+            deliveryOrders={deliveryOrders}
+            lang={lang}
+            onSave={handleSaveRejection}
+            onCancel={() => { setShowRejectionModal(false); setSelectedItem(null); setEditMode(false) }}
+          />
+        </Modal>
+      )}
+
+      {/* Claim Modal */}
+      {showClaimModal && (
+        <Modal isOpen={showClaimModal} onClose={() => { setShowClaimModal(false); setSelectedItem(null); setEditMode(false) }}
+               title={lang === 'th' ? 'บันทึกเคลม' : 'Record Claim'} size="lg">
+          <ClaimForm
+            claim={selectedItem}
+            customers={customers}
+            invoices={invoices}
+            rejections={rejections}
+            lang={lang}
+            onSave={handleSaveClaim}
+            onCancel={() => { setShowClaimModal(false); setSelectedItem(null); setEditMode(false) }}
+          />
+        </Modal>
+      )}
+
+      {/* Meeting Modal */}
+      {showMeetingModal && (
+        <Modal isOpen={showMeetingModal} onClose={() => { setShowMeetingModal(false); setSelectedItem(null); setEditMode(false) }}
+               title={lang === 'th' ? 'บันทึกการพบลูกค้า' : 'Log Customer Meeting'} size="lg">
+          <MeetingForm
+            meeting={selectedItem}
+            customers={customers}
+            lang={lang}
+            onSave={handleSaveMeeting}
+            onCancel={() => { setShowMeetingModal(false); setSelectedItem(null); setEditMode(false) }}
+          />
+        </Modal>
+      )}
+
+      {/* ========== PRINT MODALS ========== */}
+      
+      {/* Print Tax Invoice (Local) */}
+      {showPrintInvoice && selectedItem && (
+        <Modal isOpen={showPrintInvoice} onClose={() => { setShowPrintInvoice(false); setSelectedItem(null) }} 
+               title={lang === 'th' ? 'พิมพ์ใบกำกับภาษี' : 'Print Tax Invoice'} size="xl">
+          <InvoicePrintView
+            invoice={selectedItem}
+            customer={customers.find(c => c.id === selectedItem.customerId)}
+            entity={selectedItem.entity}
+            onClose={() => { setShowPrintInvoice(false); setSelectedItem(null) }}
+          />
+        </Modal>
+      )}
+
+      {/* Print Export Invoice + Packing List */}
+      {showPrintExportInvoice && selectedItem && (
+        <Modal isOpen={showPrintExportInvoice} onClose={() => { setShowPrintExportInvoice(false); setSelectedItem(null) }} 
+               title={lang === 'th' ? 'พิมพ์ใบกำกับสินค้าส่งออก' : 'Print Export Invoice + Packing List'} size="xl">
+          <ExportInvoicePrintView
+            invoice={selectedItem}
+            customer={customers.find(c => c.id === selectedItem.customerId)}
+            entity={selectedItem.entity}
+            onClose={() => { setShowPrintExportInvoice(false); setSelectedItem(null) }}
+          />
+        </Modal>
+      )}
+
+      {/* Print Heat Treatment Certificate */}
+      {showHTCertModal && selectedItem && (
+        <Modal isOpen={showHTCertModal} onClose={() => { setShowHTCertModal(false); setSelectedItem(null) }} 
+               title={lang === 'th' ? 'พิมพ์ใบรับรองการอบความร้อน' : 'Print Heat Treatment Certificate'} size="lg">
+          <HeatTreatmentCertPrintView
+            certificate={{
+              certNo: `${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth()+1).padStart(2,'0')}${String(new Date().getDate()).padStart(2,'0')}`,
+              date: new Date(),
+              treatmentDate: new Date(),
+            }}
+            customer={customers.find(c => c.id === selectedItem.customerId)}
+            items={selectedItem.items?.map(item => ({
+              partNo: item.partNo || '',
+              productName: item.productName || item.description,
+              qty: item.qty,
+            }))}
+            onClose={() => { setShowHTCertModal(false); setSelectedItem(null) }}
+          />
+        </Modal>
+      )}
+
+      {/* Print Delivery Order */}
+      {showPrintDO && selectedItem && (
+        <Modal isOpen={showPrintDO} onClose={() => { setShowPrintDO(false); setSelectedItem(null) }} 
+               title={lang === 'th' ? 'พิมพ์ใบส่งสินค้า' : 'Print Delivery Order'} size="xl">
+          <DeliveryOrderPrintView
+            deliveryOrder={selectedItem}
+            customer={customers.find(c => c.id === selectedItem.customerId)}
+            truck={trucks?.find(t => t.id === selectedItem.truckId)}
+            driver={employees?.find(e => e.id === selectedItem.driverId)}
+            entity={selectedItem.entity}
+            onClose={() => { setShowPrintDO(false); setSelectedItem(null) }}
+          />
+        </Modal>
+      )}
+
+      {/* Print Quotation */}
+      {showPrintQuotation && selectedItem && (
+        <Modal isOpen={showPrintQuotation} onClose={() => { setShowPrintQuotation(false); setSelectedItem(null) }} 
+               title={lang === 'th' ? 'พิมพ์ใบเสนอราคา' : 'Print Quotation'} size="xl">
+          <QuotationPrintView
+            quotation={selectedItem}
+            customer={customers.find(c => c.id === selectedItem.customerId)}
+            entity={selectedItem.entity}
+            onClose={() => { setShowPrintQuotation(false); setSelectedItem(null) }}
+          />
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// REJECTION FORM
+// ============================================
+const RejectionForm = ({ rejection, customers, invoices, deliveryOrders, onSave, onCancel, lang }) => {
+  const [formData, setFormData] = useState({
+    date: rejection?.date || new Date().toISOString().split('T')[0],
+    customerId: rejection?.customerId || '',
+    invoiceId: rejection?.invoiceId || '',
+    doId: rejection?.doId || '',
+    items: rejection?.items || [{ productName: '', qtyRejected: 0, qtyDelivered: 0, reason: 'damaged', notes: '' }],
+    totalRejected: rejection?.totalRejected || 0,
+    reason: rejection?.reason || 'damaged',
+    description: rejection?.description || '',
+    action: rejection?.action || 'credit_note',
+    handledBy: rejection?.handledBy || '',
+  })
+
+  const reasonOptions = [
+    { id: 'wrong_size', label: lang === 'th' ? 'ขนาดไม่ตรง' : 'Wrong Size' },
+    { id: 'damaged', label: lang === 'th' ? 'เสียหาย' : 'Damaged' },
+    { id: 'quality_issue', label: lang === 'th' ? 'ปัญหาคุณภาพ' : 'Quality Issue' },
+    { id: 'wrong_product', label: lang === 'th' ? 'สินค้าผิด' : 'Wrong Product' },
+    { id: 'other', label: lang === 'th' ? 'อื่นๆ' : 'Other' },
+  ]
+
+  const actionOptions = [
+    { id: 'replace', label: lang === 'th' ? 'เปลี่ยนใหม่' : 'Replace' },
+    { id: 'repair', label: lang === 'th' ? 'ซ่อม' : 'Repair' },
+    { id: 'credit_note', label: lang === 'th' ? 'ออกใบลดหนี้' : 'Credit Note' },
+    { id: 'scrap_invoice', label: lang === 'th' ? 'ยกเลิกใบแจ้งหนี้' : 'Scrap Invoice' },
+  ]
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    const totalRej = formData.items.reduce((sum, item) => sum + (item.qtyRejected || 0), 0)
+    onSave({ ...formData, totalRejected: totalRej })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันที่' : 'Date'}</label>
+          <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ลูกค้า' : 'Customer'} *</label>
+          <select required value={formData.customerId} onChange={(e) => setFormData({...formData, customerId: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+            <option value="">{lang === 'th' ? 'เลือกลูกค้า' : 'Select Customer'}</option>
+            {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'Invoice อ้างอิง' : 'Reference Invoice'}</label>
+          <select value={formData.invoiceId} onChange={(e) => setFormData({...formData, invoiceId: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+            <option value="">{lang === 'th' ? 'เลือก Invoice' : 'Select Invoice'}</option>
+            {invoices?.filter(inv => inv.customerId === formData.customerId).map(inv => <option key={inv.id} value={inv.id}>{inv.id}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'สาเหตุ' : 'Reason'}</label>
+          <select value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+            {reasonOptions.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รายละเอียด' : 'Description'} *</label>
+        <textarea required value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-3 py-2 border rounded-lg" rows="2" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'จำนวนที่ถูกปฏิเสธ' : 'Qty Rejected'}</label>
+          <input type="number" value={formData.items[0]?.qtyRejected || 0} onChange={(e) => setFormData({...formData, items: [{...formData.items[0], qtyRejected: parseInt(e.target.value) || 0}]})} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'การดำเนินการ' : 'Action'}</label>
+          <select value={formData.action} onChange={(e) => setFormData({...formData, action: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+            {actionOptions.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="ghost" onClick={onCancel}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
+        <Button type="submit" icon={Save}>{lang === 'th' ? 'บันทึก' : 'Save'}</Button>
+      </div>
+    </form>
+  )
+}
+
+// ============================================
+// CLAIM FORM
+// ============================================
+const ClaimForm = ({ claim, customers, invoices, rejections, onSave, onCancel, lang }) => {
+  const [formData, setFormData] = useState({
+    date: claim?.date || new Date().toISOString().split('T')[0],
+    customerId: claim?.customerId || '',
+    relatedDocs: claim?.relatedDocs || { invoiceId: null, doId: null, rejectionId: null },
+    claimType: claim?.claimType || 'quality',
+    claimAmount: claim?.claimAmount || 0,
+    description: claim?.description || '',
+    investigationNotes: claim?.investigationNotes || '',
+  })
+
+  const claimTypes = [
+    { id: 'quality', label: lang === 'th' ? 'คุณภาพ' : 'Quality' },
+    { id: 'shortage', label: lang === 'th' ? 'ขาด/ไม่ครบ' : 'Shortage' },
+    { id: 'damage', label: lang === 'th' ? 'เสียหาย' : 'Damage' },
+    { id: 'price_dispute', label: lang === 'th' ? 'ราคาไม่ตรง' : 'Price Dispute' },
+    { id: 'other', label: lang === 'th' ? 'อื่นๆ' : 'Other' },
+  ]
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave(formData)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันที่' : 'Date'}</label>
+          <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ลูกค้า' : 'Customer'} *</label>
+          <select required value={formData.customerId} onChange={(e) => setFormData({...formData, customerId: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+            <option value="">{lang === 'th' ? 'เลือกลูกค้า' : 'Select Customer'}</option>
+            {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภทเคลม' : 'Claim Type'}</label>
+          <select value={formData.claimType} onChange={(e) => setFormData({...formData, claimType: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+            {claimTypes.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'มูลค่าเคลม (ถ้ามี)' : 'Claim Amount (if any)'}</label>
+          <input type="number" value={formData.claimAmount} onChange={(e) => setFormData({...formData, claimAmount: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รายละเอียดเคลม' : 'Claim Description'} *</label>
+        <textarea required value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-3 py-2 border rounded-lg" rows="3" />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'บันทึกการตรวจสอบ' : 'Investigation Notes'}</label>
+        <textarea value={formData.investigationNotes} onChange={(e) => setFormData({...formData, investigationNotes: e.target.value})} className="w-full px-3 py-2 border rounded-lg" rows="2" />
+      </div>
+
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="ghost" onClick={onCancel}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
+        <Button type="submit" icon={Save}>{lang === 'th' ? 'บันทึก' : 'Save'}</Button>
+      </div>
+    </form>
+  )
+}
+
+// ============================================
+// MEETING FORM
+// ============================================
+const MeetingForm = ({ meeting, customers, onSave, onCancel, lang }) => {
+  const [formData, setFormData] = useState({
+    date: meeting?.date || new Date().toISOString().split('T')[0],
+    timeStart: meeting?.timeStart || '09:00',
+    timeEnd: meeting?.timeEnd || '10:00',
+    customerId: meeting?.customerId || '',
+    customerType: meeting?.customerType || 'existing',
+    contactPerson: meeting?.contactPerson || '',
+    indAttendees: meeting?.indAttendees || [],
+    location: meeting?.location || 'customer_site',
+    locationDetail: meeting?.locationDetail || '',
+    reason: meeting?.reason || 'relationship',
+    meetingNotes: meeting?.meetingNotes || '',
+    outcome: meeting?.outcome || 'followup_required',
+    nextAction: meeting?.nextAction || '',
+    nextFollowupDate: meeting?.nextFollowupDate || '',
+  })
+
+  const customerTypes = [
+    { id: 'new', label: lang === 'th' ? 'ใหม่' : 'New' },
+    { id: 'potential', label: lang === 'th' ? 'สนใจ' : 'Potential' },
+    { id: 'existing', label: lang === 'th' ? 'เดิม' : 'Existing' },
+  ]
+
+  const locations = [
+    { id: 'customer_site', label: lang === 'th' ? 'ที่ลูกค้า' : 'Customer Site' },
+    { id: 'ind', label: lang === 'th' ? 'IND' : 'IND Office' },
+    { id: 'other', label: lang === 'th' ? 'ที่อื่น' : 'Other' },
+  ]
+
+  const reasons = [
+    { id: 'new_business', label: lang === 'th' ? 'ธุรกิจใหม่' : 'New Business' },
+    { id: 'quotation_followup', label: lang === 'th' ? 'ติดตามใบเสนอราคา' : 'Quotation Follow-up' },
+    { id: 'complaint', label: lang === 'th' ? 'รับเรื่องร้องเรียน' : 'Complaint Resolution' },
+    { id: 'relationship', label: lang === 'th' ? 'รักษาความสัมพันธ์' : 'Relationship' },
+    { id: 'price_negotiation', label: lang === 'th' ? 'เจรจาราคา' : 'Price Negotiation' },
+    { id: 'technical', label: lang === 'th' ? 'เทคนิค' : 'Technical Discussion' },
+    { id: 'other', label: lang === 'th' ? 'อื่นๆ' : 'Other' },
+  ]
+
+  const outcomes = [
+    { id: 'order_received', label: lang === 'th' ? 'ได้รับออเดอร์' : 'Order Received' },
+    { id: 'quotation_requested', label: lang === 'th' ? 'ขอใบเสนอราคา' : 'Quotation Requested' },
+    { id: 'followup_required', label: lang === 'th' ? 'ต้องติดตามต่อ' : 'Follow-up Required' },
+    { id: 'no_action', label: lang === 'th' ? 'ไม่ต้องดำเนินการ' : 'No Action Needed' },
+    { id: 'lost', label: lang === 'th' ? 'สูญเสียโอกาส' : 'Lost Opportunity' },
+  ]
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave(formData)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันที่' : 'Date'} *</label>
+          <input type="date" required value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เวลาเริ่ม' : 'Start Time'}</label>
+          <input type="time" value={formData.timeStart} onChange={(e) => setFormData({...formData, timeStart: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เวลาสิ้นสุด' : 'End Time'}</label>
+          <input type="time" value={formData.timeEnd} onChange={(e) => setFormData({...formData, timeEnd: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ลูกค้า' : 'Customer'} *</label>
+          <select required value={formData.customerId} onChange={(e) => setFormData({...formData, customerId: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+            <option value="">{lang === 'th' ? 'เลือกลูกค้า' : 'Select Customer'}</option>
+            {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภทลูกค้า' : 'Customer Type'}</label>
+          <select value={formData.customerType} onChange={(e) => setFormData({...formData, customerType: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+            {customerTypes.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ผู้ติดต่อ' : 'Contact Person'}</label>
+          <input type="text" value={formData.contactPerson} onChange={(e) => setFormData({...formData, contactPerson: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'สถานที่' : 'Location'}</label>
+          <select value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+            {locations.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เหตุผลการพบ' : 'Meeting Reason'}</label>
+          <select value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+            {reasons.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'บันทึกการประชุม' : 'Meeting Notes'} *</label>
+        <textarea required value={formData.meetingNotes} onChange={(e) => setFormData({...formData, meetingNotes: e.target.value})} className="w-full px-3 py-2 border rounded-lg" rows="3" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ผลลัพธ์' : 'Outcome'}</label>
+          <select value={formData.outcome} onChange={(e) => setFormData({...formData, outcome: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+            {outcomes.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันนัดติดตาม' : 'Follow-up Date'}</label>
+          <input type="date" value={formData.nextFollowupDate} onChange={(e) => setFormData({...formData, nextFollowupDate: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'สิ่งที่ต้องทำต่อ' : 'Next Action'}</label>
+        <input type="text" value={formData.nextAction} onChange={(e) => setFormData({...formData, nextAction: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder={lang === 'th' ? 'เช่น ส่งใบเสนอราคา' : 'e.g., Send quotation'} />
+      </div>
+
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="ghost" onClick={onCancel}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
+        <Button type="submit" icon={Save}>{lang === 'th' ? 'บันทึก' : 'Save'}</Button>
+      </div>
+    </form>
+  )
+}
+
+// ============================================
+// QUOTATION FORM
+// ============================================
+const QuotationForm = ({ quotation, customers, products, onSave, onCancel, lang }) => {
+  const [formData, setFormData] = useState({
+    customerId: quotation?.customerId || '',
+    customerContact: quotation?.customerContact || '',
+    quoteDate: quotation?.quoteDate || new Date().toISOString().split('T')[0],
+    validUntil: quotation?.validUntil || (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().split('T')[0] })(),
+    items: quotation?.items || [{ id: 1, productName: '', description: '', qty: 0, unit: 'pcs', unitPrice: 0, total: 0 }],
+    discount: quotation?.discount || 0,
+    discountReason: quotation?.discountReason || '',
+    paymentTerms: quotation?.paymentTerms || 'net30',
+    deliveryTerms: quotation?.deliveryTerms || '',
+    notes: quotation?.notes || '',
+    entity: quotation?.entity || 'IND',
+    preparedBy: quotation?.preparedBy || '',
+  })
+
+  const addItem = () => {
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, { id: prev.items.length + 1, productName: '', description: '', qty: 0, unit: 'pcs', unitPrice: 0, total: 0 }]
+    }))
+  }
+
+  const updateItem = (idx, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) => {
+        if (i === idx) {
+          const updated = { ...item, [field]: value }
+          if (field === 'qty' || field === 'unitPrice') {
+            updated.total = (updated.qty || 0) * (updated.unitPrice || 0)
+          }
+          return updated
+        }
+        return item
+      })
+    }))
+  }
+
+  const removeItem = (idx) => {
+    if (formData.items.length > 1) {
+      setFormData(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }))
+    }
+  }
+
+  const subtotal = formData.items.reduce((sum, item) => sum + (item.total || 0), 0)
+  const vat = subtotal * 0.07
+  const grandTotal = subtotal + vat - (formData.discount || 0)
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave({
+      ...formData,
+      subtotal,
+      vatRate: 7,
+      vat,
+      grandTotal,
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ลูกค้า *' : 'Customer *'}</label>
+          <select required value={formData.customerId} onChange={(e) => setFormData({ ...formData, customerId: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
+            <option value="">{lang === 'th' ? 'เลือกลูกค้า' : 'Select Customer'}</option>
+            {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ผู้ติดต่อ' : 'Contact Person'}</label>
+          <input type="text" value={formData.customerContact} onChange={(e) => setFormData({ ...formData, customerContact: e.target.value })} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'นิติบุคคล' : 'Entity'}</label>
+          <select value={formData.entity} onChange={(e) => setFormData({ ...formData, entity: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
+            <option value="IND">IND Thai Packwell</option>
+            <option value="IND2">IND-2 Thai Packwell</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันที่ใบเสนอราคา' : 'Quote Date'}</label>
+          <input type="date" value={formData.quoteDate} onChange={(e) => setFormData({ ...formData, quoteDate: e.target.value })} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ใช้ได้ถึง' : 'Valid Until'}</label>
+          <input type="date" value={formData.validUntil} onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เงื่อนไขชำระ' : 'Payment Terms'}</label>
+          <select value={formData.paymentTerms} onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
+            {PAYMENT_TERMS.map(pt => <option key={pt.id} value={pt.id}>{pt.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Items */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm font-medium text-gray-700">{lang === 'th' ? 'รายการสินค้า' : 'Items'}</label>
+          <Button type="button" size="sm" variant="outline" icon={Plus} onClick={addItem}>{lang === 'th' ? 'เพิ่มรายการ' : 'Add Item'}</Button>
+        </div>
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-left">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
+                <th className="px-3 py-2 text-left">{lang === 'th' ? 'รายละเอียด' : 'Description'}</th>
+                <th className="px-3 py-2 text-center w-20">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+                <th className="px-3 py-2 text-center w-20">{lang === 'th' ? 'หน่วย' : 'Unit'}</th>
+                <th className="px-3 py-2 text-right w-28">{lang === 'th' ? 'ราคา/หน่วย' : 'Unit Price'}</th>
+                <th className="px-3 py-2 text-right w-28">{lang === 'th' ? 'รวม' : 'Total'}</th>
+                <th className="px-3 py-2 w-10"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {formData.items.map((item, idx) => (
+                <tr key={idx}>
+                  <td className="px-2 py-1">
+                    <input type="text" value={item.productName} onChange={(e) => updateItem(idx, 'productName', e.target.value)} className="w-full px-2 py-1 border rounded" placeholder="Product name" />
+                  </td>
+                  <td className="px-2 py-1">
+                    <input type="text" value={item.description} onChange={(e) => updateItem(idx, 'description', e.target.value)} className="w-full px-2 py-1 border rounded" placeholder="Description" />
+                  </td>
+                  <td className="px-2 py-1">
+                    <input type="number" value={item.qty} onChange={(e) => updateItem(idx, 'qty', parseFloat(e.target.value) || 0)} className="w-full px-2 py-1 border rounded text-center" />
+                  </td>
+                  <td className="px-2 py-1">
+                    <input type="text" value={item.unit} onChange={(e) => updateItem(idx, 'unit', e.target.value)} className="w-full px-2 py-1 border rounded text-center" />
+                  </td>
+                  <td className="px-2 py-1">
+                    <input type="number" value={item.unitPrice} onChange={(e) => updateItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)} className="w-full px-2 py-1 border rounded text-right" />
+                  </td>
+                  <td className="px-2 py-1 text-right font-medium">{formatCurrency(item.total || 0)}</td>
+                  <td className="px-2 py-1">
+                    <button type="button" onClick={() => removeItem(idx)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Totals */}
+      <div className="flex justify-end">
+        <div className="w-64 space-y-2">
+          <div className="flex justify-between"><span>{lang === 'th' ? 'รวม' : 'Subtotal'}:</span><span>{formatCurrency(subtotal)}</span></div>
+          <div className="flex justify-between items-center">
+            <span>{lang === 'th' ? 'ส่วนลด' : 'Discount'}:</span>
+            <input type="number" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: parseFloat(e.target.value) || 0 })} className="w-24 px-2 py-1 border rounded text-right" />
+          </div>
+          <div className="flex justify-between"><span>VAT 7%:</span><span>{formatCurrency(vat)}</span></div>
+          <div className="flex justify-between font-bold text-lg border-t pt-2"><span>{lang === 'th' ? 'รวมทั้งสิ้น' : 'Grand Total'}:</span><span>{formatCurrency(grandTotal)}</span></div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'หมายเหตุ' : 'Notes'}</label>
+        <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-3 py-2 border rounded-lg" rows="2" />
+      </div>
+
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="ghost" onClick={onCancel}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
+        <Button type="submit" icon={Save}>{lang === 'th' ? 'บันทึก' : 'Save'}</Button>
+      </div>
+    </form>
+  )
+}
+
+// ============================================
+// DELIVERY ORDER FORM
+// ============================================
+const DeliveryOrderForm = ({ so, customers, trucks, employees, onSave, onCancel, lang }) => {
+  const customer = customers.find(c => c.id === so.customerId)
+  const drivers = employees?.filter(e => e.department === 'transport') || []
+  
+  const [formData, setFormData] = useState({
+    soId: so.id,
+    customerId: so.customerId,
+    deliveryDate: new Date().toISOString().split('T')[0],
+    scheduledTime: '09:00',
+    truckId: '',
+    driverId: '',
+    deliveryAddress: customer?.deliveryAddress || '',
+    items: so.pendingItems?.map(item => ({
+      ...item,
+      deliverQty: item.qty - (item.qtyDelivered || 0),
+    })) || so.items?.filter(item => (item.qty - (item.qtyDelivered || 0)) > 0).map(item => ({
+      ...item,
+      deliverQty: item.qty - (item.qtyDelivered || 0),
+    })) || [],
+    notes: '',
+    entity: so.entity,
+  })
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave({
+      ...formData,
+      items: formData.items.filter(item => item.deliverQty > 0).map(item => ({
+        productName: item.productName,
+        qty: item.deliverQty,
+        unit: item.unit || 'pcs',
+      })),
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="p-3 bg-blue-50 rounded-lg">
+        <div className="text-sm text-blue-600">{lang === 'th' ? 'จาก SO' : 'From SO'}: <span className="font-mono font-bold">{so.id}</span></div>
+        <div className="text-lg font-bold">{customer?.name}</div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันที่ส่ง' : 'Delivery Date'}</label>
+          <input type="date" value={formData.deliveryDate} onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เวลา' : 'Time'}</label>
+          <input type="time" value={formData.scheduledTime} onChange={(e) => setFormData({ ...formData, scheduledTime: e.target.value })} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รถ' : 'Truck'}</label>
+          <select value={formData.truckId} onChange={(e) => setFormData({ ...formData, truckId: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
+            <option value="">{lang === 'th' ? 'เลือกรถ' : 'Select Truck'}</option>
+            {trucks?.map(t => <option key={t.id} value={t.id}>{t.code} - {t.nameEn}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ที่อยู่จัดส่ง' : 'Delivery Address'}</label>
+        <textarea value={formData.deliveryAddress} onChange={(e) => setFormData({ ...formData, deliveryAddress: e.target.value })} className="w-full px-3 py-2 border rounded-lg" rows="2" />
+      </div>
+
+      {/* Items to deliver */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">{lang === 'th' ? 'รายการที่จะส่ง' : 'Items to Deliver'}</label>
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-left">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
+                <th className="px-3 py-2 text-center">{lang === 'th' ? 'สั่งทั้งหมด' : 'Ordered'}</th>
+                <th className="px-3 py-2 text-center">{lang === 'th' ? 'ส่งแล้ว' : 'Delivered'}</th>
+                <th className="px-3 py-2 text-center">{lang === 'th' ? 'ส่งครั้งนี้' : 'This Delivery'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {formData.items.map((item, idx) => (
+                <tr key={idx}>
+                  <td className="px-3 py-2">{item.productName}</td>
+                  <td className="px-3 py-2 text-center">{item.qty}</td>
+                  <td className="px-3 py-2 text-center text-green-600">{item.qtyDelivered || 0}</td>
+                  <td className="px-3 py-2 text-center">
+                    <input 
+                      type="number" 
+                      value={item.deliverQty} 
+                      onChange={(e) => {
+                        const maxQty = item.qty - (item.qtyDelivered || 0)
+                        const newQty = Math.min(Math.max(0, parseFloat(e.target.value) || 0), maxQty)
+                        setFormData(prev => ({
+                          ...prev,
+                          items: prev.items.map((it, i) => i === idx ? { ...it, deliverQty: newQty } : it)
+                        }))
+                      }}
+                      max={item.qty - (item.qtyDelivered || 0)}
+                      className="w-20 px-2 py-1 border rounded text-center"
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="ghost" onClick={onCancel}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
+        <Button type="submit" icon={Truck}>{lang === 'th' ? 'สร้างใบส่งสินค้า' : 'Create DO'}</Button>
+      </div>
+    </form>
+  )
+}
+
+// ============================================
+// PAYMENT FORM
+// ============================================
+const PaymentForm = ({ invoice, customer, onSave, onCancel, lang }) => {
+  const [formData, setFormData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    amount: invoice.balance,
+    method: 'transfer',
+    reference: '',
+    notes: '',
+  })
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (formData.amount <= 0) {
+      alert(lang === 'th' ? 'กรุณาระบุจำนวนเงิน' : 'Please enter amount')
+      return
+    }
+    if (formData.amount > invoice.balance) {
+      alert(lang === 'th' ? 'จำนวนเงินเกินยอดค้างชำระ' : 'Amount exceeds balance')
+      return
+    }
+    onSave(formData)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="p-4 bg-gray-50 rounded-lg">
+        <div className="flex justify-between mb-2">
+          <span className="text-gray-600">{lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoice'}:</span>
+          <span className="font-mono font-bold">{invoice.id}</span>
+        </div>
+        <div className="flex justify-between mb-2">
+          <span className="text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}:</span>
+          <span className="font-bold">{customer?.name}</span>
+        </div>
+        <div className="flex justify-between mb-2">
+          <span className="text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Total'}:</span>
+          <span>{formatCurrency(invoice.grandTotal)}</span>
+        </div>
+        <div className="flex justify-between mb-2">
+          <span className="text-gray-600">{lang === 'th' ? 'ชำระแล้ว' : 'Paid'}:</span>
+          <span className="text-green-600">{formatCurrency(invoice.paidAmount || 0)}</span>
+        </div>
+        <div className="flex justify-between font-bold text-lg border-t pt-2">
+          <span className="text-red-600">{lang === 'th' ? 'ยอดค้าง' : 'Balance'}:</span>
+          <span className="text-red-600">{formatCurrency(invoice.balance)}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันที่ชำระ' : 'Payment Date'}</label>
+          <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วิธีชำระ' : 'Method'}</label>
+          <select value={formData.method} onChange={(e) => setFormData({ ...formData, method: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
+            <option value="transfer">{lang === 'th' ? 'โอนเงิน' : 'Bank Transfer'}</option>
+            <option value="cheque">{lang === 'th' ? 'เช็ค' : 'Cheque'}</option>
+            <option value="cash">{lang === 'th' ? 'เงินสด' : 'Cash'}</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'จำนวนเงิน' : 'Amount'} *</label>
+        <input 
+          type="number" 
+          value={formData.amount} 
+          onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+          max={invoice.balance}
+          className="w-full px-3 py-2 border rounded-lg text-xl font-bold text-right"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เลขอ้างอิง' : 'Reference'}</label>
+        <input type="text" value={formData.reference} onChange={(e) => setFormData({ ...formData, reference: e.target.value })} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., TRF-2601-001" />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'หมายเหตุ' : 'Notes'}</label>
+        <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-3 py-2 border rounded-lg" rows="2" />
+      </div>
+
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="ghost" onClick={onCancel}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
+        <Button type="submit" variant="success" icon={CreditCard}>{lang === 'th' ? 'บันทึกการชำระ' : 'Record Payment'}</Button>
+      </div>
+    </form>
+  )
+}
+
+// ============================================
+// PRINT VIEW - TAX INVOICE (LOCAL)
+// ============================================
+const InvoicePrintView = ({ invoice, customer, entity, onClose }) => {
+  const companyInfo = COMPANY_ENTITIES.find(e => e.id === entity) || COMPANY_ENTITIES[0]
+  
+  const handlePrint = () => {
+    window.print()
+  }
+
+  return (
+    <div className="bg-white">
+      {/* Print Controls - Hidden when printing */}
+      <div className="print:hidden p-4 bg-gray-100 flex justify-between items-center mb-4">
+        <h2 className="font-bold text-lg">Print Preview - Tax Invoice</h2>
+        <div className="flex gap-2">
+          <Button onClick={handlePrint} icon={Printer}>Print</Button>
+          <Button variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+
+      {/* Invoice Content */}
+      <div className="p-8 max-w-4xl mx-auto print:p-0 print:max-w-none" style={{ fontFamily: 'Arial, sans-serif' }}>
+        {/* Header */}
+        <div className="border-2 border-black">
+          {/* Company Header */}
+          <div className="flex justify-between items-start p-4 border-b-2 border-black">
+            <div className="flex items-center gap-4">
+              <img src={IND_LOGO_SVG} alt="IND Logo" className="w-16 h-16" />
+              <div>
+                <div className="font-bold text-lg">{companyInfo.name}</div>
+                <div className="text-sm">{companyInfo.nameTh}</div>
+                <div className="text-xs text-gray-600">{companyInfo.address}</div>
+                <div className="text-xs text-gray-600">Tax ID: {companyInfo.taxId}</div>
+                <div className="text-xs text-gray-600">Tel: {companyInfo.tel}</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold border-2 border-black px-4 py-2 mb-2">
+                TAX INVOICE / ใบกำกับภาษี
+              </div>
+              <div className="font-mono text-lg font-bold text-red-600">{invoice.id}</div>
+            </div>
+          </div>
+
+          {/* Customer & Invoice Info */}
+          <div className="grid grid-cols-2 border-b border-black">
+            <div className="p-4 border-r border-black">
+              <div className="font-bold mb-2">Bill To / ลูกค้า:</div>
+              <div className="font-medium">{customer?.name}</div>
+              <div className="text-sm">{customer?.nameTh}</div>
+              <div className="text-xs text-gray-600">{customer?.deliveryAddress}</div>
+              <div className="text-xs text-gray-600">Tax ID: {customer?.taxId || '-'}</div>
+            </div>
+            <div className="p-4 text-sm">
+              <div className="grid grid-cols-2 gap-1">
+                <span>Invoice Date:</span><span className="font-medium">{formatDate(invoice.invoiceDate)}</span>
+                <span>Due Date:</span><span className="font-medium text-red-600">{formatDate(invoice.dueDate)}</span>
+                <span>Customer PO:</span><span className="font-mono">{invoice.customerPO || '-'}</span>
+                <span>SO Ref:</span><span className="font-mono">{invoice.soId || '-'}</span>
+                <span>DO Ref:</span><span className="font-mono">{invoice.doId || '-'}</span>
+                <span>Payment Terms:</span><span>{customer?.paymentTerms || 30} days</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Items Table */}
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-100 border-b border-black">
+                <th className="px-2 py-2 text-center border-r border-black w-12">No.</th>
+                <th className="px-2 py-2 text-left border-r border-black">Description / รายการ</th>
+                <th className="px-2 py-2 text-center border-r border-black w-16">Qty</th>
+                <th className="px-2 py-2 text-center border-r border-black w-16">Unit</th>
+                <th className="px-2 py-2 text-right border-r border-black w-24">Unit Price</th>
+                <th className="px-2 py-2 text-right w-28">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoice.items?.map((item, idx) => (
+                <tr key={idx} className="border-b border-gray-300">
+                  <td className="px-2 py-2 text-center border-r border-gray-300">{idx + 1}</td>
+                  <td className="px-2 py-2 border-r border-gray-300">{item.description || item.productName}</td>
+                  <td className="px-2 py-2 text-center border-r border-gray-300">{item.qty}</td>
+                  <td className="px-2 py-2 text-center border-r border-gray-300">{item.unit || 'pcs'}</td>
+                  <td className="px-2 py-2 text-right border-r border-gray-300">{formatCurrency(item.unitPrice)}</td>
+                  <td className="px-2 py-2 text-right">{formatCurrency(item.qty * item.unitPrice)}</td>
+                </tr>
+              ))}
+              {/* Empty rows for minimum 5 */}
+              {Array.from({ length: Math.max(0, 5 - (invoice.items?.length || 0)) }).map((_, idx) => (
+                <tr key={`empty-${idx}`} className="border-b border-gray-300">
+                  <td className="px-2 py-4 border-r border-gray-300">&nbsp;</td>
+                  <td className="px-2 py-4 border-r border-gray-300"></td>
+                  <td className="px-2 py-4 border-r border-gray-300"></td>
+                  <td className="px-2 py-4 border-r border-gray-300"></td>
+                  <td className="px-2 py-4 border-r border-gray-300"></td>
+                  <td className="px-2 py-4"></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Totals */}
+          <div className="grid grid-cols-2 border-t border-black">
+            <div className="p-4 border-r border-black">
+              <div className="text-xs mb-2">Amount in words / จำนวนเงินเป็นตัวอักษร:</div>
+              <div className="font-medium text-sm italic">
+                {invoice.grandTotal?.toLocaleString('th-TH', { style: 'currency', currency: 'THB' })}
+              </div>
+            </div>
+            <div className="p-2 text-sm">
+              <div className="flex justify-between py-1"><span>Subtotal / รวม:</span><span>{formatCurrency(invoice.subtotal)}</span></div>
+              {invoice.discount > 0 && <div className="flex justify-between py-1"><span>Discount / ส่วนลด:</span><span>-{formatCurrency(invoice.discount)}</span></div>}
+              <div className="flex justify-between py-1"><span>VAT 7% / ภาษี:</span><span>{formatCurrency(invoice.vat)}</span></div>
+              <div className="flex justify-between py-2 text-lg font-bold border-t border-black mt-2">
+                <span>TOTAL / รวมทั้งสิ้น:</span>
+                <span className="text-red-600">{formatCurrency(invoice.grandTotal)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Signatures */}
+          <div className="grid grid-cols-3 border-t border-black text-center text-sm">
+            <div className="p-4 border-r border-black">
+              <div className="mb-8">Received by / ผู้รับ</div>
+              <div className="border-t border-black pt-2">Date / วันที่: _____________</div>
+            </div>
+            <div className="p-4 border-r border-black">
+              <div className="mb-8">Checked by / ผู้ตรวจ</div>
+              <div className="border-t border-black pt-2">Date / วันที่: _____________</div>
+            </div>
+            <div className="p-4">
+              <div className="mb-8">Authorized / ผู้อนุมัติ</div>
+              <div className="border-t border-black pt-2">Date / วันที่: _____________</div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-2 border-t border-black text-center text-xs text-gray-500">
+            This document is computer generated. / เอกสารนี้ออกโดยระบบคอมพิวเตอร์
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// PRINT VIEW - EXPORT INVOICE WITH PACKING LIST (NO VAT)
+// ============================================
+const ExportInvoicePrintView = ({ invoice, customer, entity, packingList, onClose }) => {
+  const companyInfo = COMPANY_ENTITIES.find(e => e.id === entity) || COMPANY_ENTITIES[0]
+  
+  const handlePrint = () => {
+    window.print()
+  }
+
+  return (
+    <div className="bg-white">
+      {/* Print Controls */}
+      <div className="print:hidden p-4 bg-gray-100 flex justify-between items-center mb-4">
+        <h2 className="font-bold text-lg">Print Preview - Commercial Invoice + Packing List</h2>
+        <div className="flex gap-2">
+          <Button onClick={handlePrint} icon={Printer}>Print</Button>
+          <Button variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+
+      {/* Commercial Invoice */}
+      <div className="p-8 max-w-4xl mx-auto print:p-0 print:max-w-none mb-8" style={{ fontFamily: 'Arial, sans-serif' }}>
+        <div className="border-2 border-black">
+          {/* Header */}
+          <div className="flex justify-between items-start p-4 border-b-2 border-black">
+            <div className="flex items-center gap-4">
+              <img src={IND_LOGO_SVG} alt="IND Logo" className="w-16 h-16" />
+              <div>
+                <div className="font-bold text-lg">{companyInfo.name}</div>
+                <div className="text-xs text-gray-600">{companyInfo.address}</div>
+                <div className="text-xs text-gray-600">Tax ID: {companyInfo.taxId}</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold border-2 border-black px-4 py-2 mb-2">
+                COMMERCIAL INVOICE
+              </div>
+              <div className="font-mono text-lg font-bold text-blue-600">{invoice.id}</div>
+              <div className="text-xs text-gray-500">EXPORT - NO VAT</div>
+            </div>
+          </div>
+
+          {/* Buyer Info */}
+          <div className="grid grid-cols-2 border-b border-black">
+            <div className="p-4 border-r border-black">
+              <div className="font-bold mb-2">Consignee / Buyer:</div>
+              <div className="font-medium">{customer?.name}</div>
+              <div className="text-sm text-gray-600">{customer?.deliveryAddress}</div>
+              <div className="text-xs text-gray-600">Contact: {customer?.contact}</div>
+            </div>
+            <div className="p-4 text-sm">
+              <div className="grid grid-cols-2 gap-1">
+                <span>Invoice No:</span><span className="font-mono font-bold">{invoice.id}</span>
+                <span>Date:</span><span>{formatDate(invoice.invoiceDate)}</span>
+                <span>Customer PO:</span><span className="font-mono">{invoice.customerPO || '-'}</span>
+                <span>Payment Terms:</span><span>{customer?.paymentTerms || 30} days</span>
+                <span>Incoterms:</span><span>FOB Thailand</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Items Table */}
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-100 border-b border-black">
+                <th className="px-2 py-2 text-center border-r border-black w-12">No.</th>
+                <th className="px-2 py-2 text-left border-r border-black">Description of Goods</th>
+                <th className="px-2 py-2 text-center border-r border-black w-16">Qty</th>
+                <th className="px-2 py-2 text-center border-r border-black w-16">Unit</th>
+                <th className="px-2 py-2 text-right border-r border-black w-24">Unit Price</th>
+                <th className="px-2 py-2 text-right w-28">Amount (THB)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoice.items?.map((item, idx) => (
+                <tr key={idx} className="border-b border-gray-300">
+                  <td className="px-2 py-2 text-center border-r border-gray-300">{idx + 1}</td>
+                  <td className="px-2 py-2 border-r border-gray-300">{item.description || item.productName}</td>
+                  <td className="px-2 py-2 text-center border-r border-gray-300">{item.qty}</td>
+                  <td className="px-2 py-2 text-center border-r border-gray-300">{item.unit || 'pcs'}</td>
+                  <td className="px-2 py-2 text-right border-r border-gray-300">{formatCurrency(item.unitPrice)}</td>
+                  <td className="px-2 py-2 text-right">{formatCurrency(item.qty * item.unitPrice)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Totals - NO VAT */}
+          <div className="grid grid-cols-2 border-t border-black">
+            <div className="p-4 border-r border-black">
+              <div className="text-xs mb-2">Country of Origin: Thailand</div>
+              <div className="text-xs">HS Code: 4415.20</div>
+            </div>
+            <div className="p-2 text-sm">
+              <div className="flex justify-between py-1"><span>Subtotal:</span><span>{formatCurrency(invoice.subtotal)}</span></div>
+              <div className="flex justify-between py-1 text-gray-500"><span>VAT:</span><span>EXEMPT (Export)</span></div>
+              <div className="flex justify-between py-2 text-lg font-bold border-t border-black mt-2">
+                <span>TOTAL:</span>
+                <span className="text-blue-600">{formatCurrency(invoice.subtotal)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Declaration */}
+          <div className="p-4 border-t border-black text-xs">
+            <p>We hereby certify that the goods described above are of Thailand origin and were manufactured by IND Thai Packwell Industries Co., Ltd.</p>
+            <div className="mt-4 flex justify-end">
+              <div className="text-center">
+                <div className="mb-8">Authorized Signature</div>
+                <div className="border-t border-black pt-2 w-48">For {companyInfo.name}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Packing List - Page Break */}
+      <div className="print:break-before-page p-8 max-w-4xl mx-auto print:p-0 print:max-w-none" style={{ fontFamily: 'Arial, sans-serif' }}>
+        <div className="border-2 border-black">
+          <div className="flex justify-between items-start p-4 border-b-2 border-black">
+            <div className="flex items-center gap-4">
+              <img src={IND_LOGO_SVG} alt="IND Logo" className="w-16 h-16" />
+              <div>
+                <div className="font-bold text-lg">{companyInfo.name}</div>
+                <div className="text-xs text-gray-600">{companyInfo.address}</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold border-2 border-black px-4 py-2 mb-2">
+                PACKING LIST
+              </div>
+              <div className="font-mono text-sm">Ref: {invoice.id}</div>
+            </div>
+          </div>
+
+          {/* Packing Details */}
+          <div className="p-4 border-b border-black">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="font-bold">Consignee:</div>
+                <div>{customer?.name}</div>
+                <div className="text-sm text-gray-600">{customer?.deliveryAddress}</div>
+              </div>
+              <div className="text-sm">
+                <div><span className="font-medium">Date:</span> {formatDate(invoice.invoiceDate)}</div>
+                <div><span className="font-medium">Invoice No:</span> {invoice.id}</div>
+                <div><span className="font-medium">PO No:</span> {invoice.customerPO || '-'}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Packing Table */}
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-100 border-b border-black">
+                <th className="px-2 py-2 text-center border-r border-black w-16">Carton No.</th>
+                <th className="px-2 py-2 text-left border-r border-black">Description</th>
+                <th className="px-2 py-2 text-center border-r border-black w-16">Qty/Ctn</th>
+                <th className="px-2 py-2 text-center border-r border-black w-16">Total Qty</th>
+                <th className="px-2 py-2 text-center border-r border-black w-24">Gross Wt (kg)</th>
+                <th className="px-2 py-2 text-center w-24">Net Wt (kg)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoice.items?.map((item, idx) => (
+                <tr key={idx} className="border-b border-gray-300">
+                  <td className="px-2 py-2 text-center border-r border-gray-300">{idx + 1}</td>
+                  <td className="px-2 py-2 border-r border-gray-300">{item.description || item.productName}</td>
+                  <td className="px-2 py-2 text-center border-r border-gray-300">{item.qty}</td>
+                  <td className="px-2 py-2 text-center border-r border-gray-300">{item.qty}</td>
+                  <td className="px-2 py-2 text-center border-r border-gray-300">{(item.qty * 15).toFixed(1)}</td>
+                  <td className="px-2 py-2 text-center">{(item.qty * 12).toFixed(1)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="bg-gray-100 font-bold">
+                <td colSpan="3" className="px-2 py-2 text-right border-r border-black">TOTAL:</td>
+                <td className="px-2 py-2 text-center border-r border-black">{invoice.items?.reduce((sum, i) => sum + i.qty, 0)}</td>
+                <td className="px-2 py-2 text-center border-r border-black">{(invoice.items?.reduce((sum, i) => sum + i.qty, 0) * 15).toFixed(1)}</td>
+                <td className="px-2 py-2 text-center">{(invoice.items?.reduce((sum, i) => sum + i.qty, 0) * 12).toFixed(1)}</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          {/* Footer */}
+          <div className="p-4 border-t border-black">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <div><span className="font-medium">Total Packages:</span> {invoice.items?.length || 0}</div>
+                <div><span className="font-medium">Total Gross Weight:</span> {(invoice.items?.reduce((sum, i) => sum + i.qty, 0) * 15).toFixed(1)} kg</div>
+                <div><span className="font-medium">Total Net Weight:</span> {(invoice.items?.reduce((sum, i) => sum + i.qty, 0) * 12).toFixed(1)} kg</div>
+              </div>
+              <div className="text-right">
+                <div className="mb-8 mt-4">Packed by: _____________</div>
+                <div>Date: _____________</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// PRINT VIEW - HEAT TREATMENT CERTIFICATE (ISPM15)
+// ============================================
+const HeatTreatmentCertPrintView = ({ certificate, customer, items, onClose }) => {
+  const handlePrint = () => {
+    window.print()
+  }
+
+  // Generate certificate number: YYMMDD + sequence
+  const certNo = certificate?.certNo || (() => {
+    const d = new Date()
+    return `${d.getFullYear().toString().slice(-2)}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`
+  })()
+
+  return (
+    <div className="bg-white">
+      {/* Print Controls */}
+      <div className="print:hidden p-4 bg-gray-100 flex justify-between items-center mb-4">
+        <h2 className="font-bold text-lg">Print Preview - Heat Treatment Certificate (ISPM15)</h2>
+        <div className="flex gap-2">
+          <Button onClick={handlePrint} icon={Printer}>Print</Button>
+          <Button variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+
+      {/* Certificate Content */}
+      <div className="p-8 max-w-3xl mx-auto print:p-0 print:max-w-none" style={{ fontFamily: 'Times New Roman, serif' }}>
+        <div className="border border-black p-8">
+          {/* Company Header */}
+          <div className="text-center mb-6">
+            <div className="font-bold text-xl">IND THAI PACKWELL INDUSTRIES CO., LTD</div>
+            <div className="text-lg">บริษัท ไอเอ็นดี ไทย แพ็คเวล อุตสาหกรรม จำกัด</div>
+            <div className="text-sm mt-2">399 หมู่ 8 ต.ธาตุทอง อ.บ่อทอง จ.ชลบุรี 20270 โทร 038-119430</div>
+            <div className="text-sm">เลขที่ประจำตัวผู้เสียภาษี : 0-2055-56010-51-8 (สำนักงานใหญ่)</div>
+          </div>
+
+          <hr className="border-black mb-6" />
+
+          {/* Certificate Title */}
+          <div className="text-center mb-8">
+            <div className="font-bold text-xl underline">CERTIFICATE OF HEAT TREATMENT</div>
+          </div>
+
+          {/* Certificate Details */}
+          <div className="flex justify-between mb-8">
+            <div>
+              <span className="font-bold">Certificate No. : </span>
+              <span className="text-lg">{certNo}</span>
+            </div>
+            <div>
+              <span className="font-bold">DATE : </span>
+              <span>{formatDate(certificate?.date || new Date())}</span>
+            </div>
+          </div>
+
+          {/* Body Text */}
+          <div className="mb-8 text-justify leading-relaxed">
+            <p className="mb-4">
+              This is to certify that the wooden pallets described below have been treated by Heat Treatment 
+              to a minimum internal wood core temperature of <span className="font-bold">56°C for 30 minutes</span> in a controlled environment 
+              industrial drying chamber. The process is met the standard set by <span className="font-bold">ISPM15</span>
+            </p>
+            <p className="mb-4">
+              <span className="font-bold">IND thai packwell industries co.,ltd.</span> is an official <span className="font-bold">ISPM15 certified body TH-0950</span>
+            </p>
+            <p>
+              Authorized by the <span className="font-bold">Department of Agriculture, Ministry of Agriculture, Thailand.</span>
+            </p>
+          </div>
+
+          {/* Products Table */}
+          <div className="mb-8">
+            <div className="font-bold mb-2">Number and Description of Packages :</div>
+            <div className="ml-8">
+              {items?.map((item, idx) => (
+                <div key={idx} className="mb-1">
+                  : {item.partNo || item.productName} {item.description} = {item.qty} Pcs.
+                </div>
+              )) || (
+                <>
+                  <div>: 70653302 PALLET,T30 TUMBLER V7 = 20 Pcs.</div>
+                  <div>: 70659301 PALLET,WOOD 30 HEAT TREAT = 10 Pcs.</div>
+                  <div>: F8314501 PALLET,WOOD(C60) V7 = 20 Pcs.</div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Treatment Details */}
+          <div className="mb-8 space-y-2">
+            <div>
+              <span className="font-bold">Date of Heat Treatment</span>
+              <span className="ml-8">: {formatDate(certificate?.treatmentDate || new Date())}</span>
+            </div>
+            <div>
+              <span className="font-bold">Location</span>
+              <span className="ml-8">: WAREHOUSE OF IND THAI PACKWELL INDUSTRIES CO.,LTD.</span>
+            </div>
+            <div>
+              <span className="font-bold">Name and address of Shipper</span>
+              <span className="ml-8">: <span className="font-bold italic">{customer?.name || 'Customer Name'}</span></span>
+            </div>
+          </div>
+
+          {/* Stamps and Signatures */}
+          <div className="flex justify-between items-end mt-12">
+            {/* ISPM15 Stamp */}
+            <div className="text-center">
+              <div className="border-2 border-black p-4 inline-block">
+                <div className="flex items-center gap-2">
+                  <div className="text-3xl">🌾</div>
+                  <div>
+                    <div className="font-bold">TH - 0950</div>
+                    <div className="font-bold">HT</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Company Stamp (Placeholder) */}
+            <div className="text-center">
+              <div className="w-32 h-32 border-2 border-gray-300 rounded-full flex items-center justify-center text-gray-400">
+                <div className="text-center text-xs">
+                  <div>Company</div>
+                  <div>Stamp</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Signature Line */}
+          <div className="text-center mt-8">
+            <div className="border-t border-black w-48 mx-auto pt-2">
+              AUTHORIZED CERTIFICATE
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// PRINT VIEW - DELIVERY ORDER
+// ============================================
+const DeliveryOrderPrintView = ({ deliveryOrder, customer, truck, driver, entity, onClose }) => {
+  const companyInfo = COMPANY_ENTITIES.find(e => e.id === entity) || COMPANY_ENTITIES[0]
+  
+  const handlePrint = () => {
+    window.print()
+  }
+
+  return (
+    <div className="bg-white">
+      {/* Print Controls */}
+      <div className="print:hidden p-4 bg-gray-100 flex justify-between items-center mb-4">
+        <h2 className="font-bold text-lg">Print Preview - Delivery Order</h2>
+        <div className="flex gap-2">
+          <Button onClick={handlePrint} icon={Printer}>Print</Button>
+          <Button variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+
+      {/* DO Content */}
+      <div className="p-8 max-w-4xl mx-auto print:p-0 print:max-w-none" style={{ fontFamily: 'Arial, sans-serif' }}>
+        <div className="border-2 border-black">
+          {/* Header */}
+          <div className="flex justify-between items-start p-4 border-b-2 border-black">
+            <div className="flex items-center gap-4">
+              <img src={IND_LOGO_SVG} alt="IND Logo" className="w-16 h-16" />
+              <div>
+                <div className="font-bold text-lg">{companyInfo.name}</div>
+                <div className="text-xs text-gray-600">{companyInfo.address}</div>
+                <div className="text-xs text-gray-600">Tel: {companyInfo.tel}</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold border-2 border-black px-4 py-2 mb-2">
+                DELIVERY ORDER / ใบส่งสินค้า
+              </div>
+              <div className="font-mono text-lg font-bold text-green-600">{deliveryOrder.id}</div>
+            </div>
+          </div>
+
+          {/* Customer & Delivery Info */}
+          <div className="grid grid-cols-2 border-b border-black">
+            <div className="p-4 border-r border-black">
+              <div className="font-bold mb-2">Deliver To / ส่งถึง:</div>
+              <div className="font-medium">{customer?.name}</div>
+              <div className="text-sm text-gray-600">{deliveryOrder.deliveryAddress || customer?.deliveryAddress}</div>
+              <div className="text-xs text-gray-600">Contact: {customer?.contact}</div>
+            </div>
+            <div className="p-4 text-sm">
+              <div className="grid grid-cols-2 gap-1">
+                <span>Delivery Date:</span><span className="font-medium">{formatDate(deliveryOrder.deliveryDate)}</span>
+                <span>Time:</span><span>{deliveryOrder.scheduledTime || '-'}</span>
+                <span>SO Ref:</span><span className="font-mono">{deliveryOrder.soId}</span>
+                <span>Invoice:</span><span className="font-mono">{deliveryOrder.invoiceId || 'Pending'}</span>
+                <span>Truck:</span><span>{truck?.code || deliveryOrder.truckId}</span>
+                <span>Driver:</span><span>{driver?.name || 'TBD'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Items Table */}
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-100 border-b border-black">
+                <th className="px-2 py-2 text-center border-r border-black w-12">No.</th>
+                <th className="px-2 py-2 text-left border-r border-black">Description / รายการ</th>
+                <th className="px-2 py-2 text-center border-r border-black w-20">Qty</th>
+                <th className="px-2 py-2 text-center w-16">Unit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {deliveryOrder.items?.map((item, idx) => (
+                <tr key={idx} className="border-b border-gray-300">
+                  <td className="px-2 py-3 text-center border-r border-gray-300">{idx + 1}</td>
+                  <td className="px-2 py-3 border-r border-gray-300">{item.productName || item.description}</td>
+                  <td className="px-2 py-3 text-center border-r border-gray-300 font-bold">{item.qty}</td>
+                  <td className="px-2 py-3 text-center">{item.unit || 'pcs'}</td>
+                </tr>
+              ))}
+              {/* Empty rows */}
+              {Array.from({ length: Math.max(0, 5 - (deliveryOrder.items?.length || 0)) }).map((_, idx) => (
+                <tr key={`empty-${idx}`} className="border-b border-gray-300">
+                  <td className="px-2 py-4 border-r border-gray-300">&nbsp;</td>
+                  <td className="px-2 py-4 border-r border-gray-300"></td>
+                  <td className="px-2 py-4 border-r border-gray-300"></td>
+                  <td className="px-2 py-4"></td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="bg-gray-100 font-bold">
+                <td colSpan="2" className="px-2 py-2 text-right border-r border-black">TOTAL / รวม:</td>
+                <td className="px-2 py-2 text-center border-r border-black">{deliveryOrder.items?.reduce((sum, i) => sum + i.qty, 0)}</td>
+                <td className="px-2 py-2 text-center">pcs</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          {/* Notes */}
+          {deliveryOrder.notes && (
+            <div className="p-4 border-t border-black">
+              <span className="font-bold">Notes / หมายเหตุ: </span>
+              <span>{deliveryOrder.notes}</span>
+            </div>
+          )}
+
+          {/* Signatures */}
+          <div className="grid grid-cols-4 border-t border-black text-center text-sm">
+            <div className="p-4 border-r border-black">
+              <div className="mb-8">Prepared by / ผู้จัดทำ</div>
+              <div className="border-t border-black pt-2">Date: ________</div>
+            </div>
+            <div className="p-4 border-r border-black">
+              <div className="mb-8">Checked by / ผู้ตรวจ</div>
+              <div className="border-t border-black pt-2">Date: ________</div>
+            </div>
+            <div className="p-4 border-r border-black">
+              <div className="mb-8">Driver / พนักงานขับรถ</div>
+              <div className="border-t border-black pt-2">Out: ______ In: ______</div>
+            </div>
+            <div className="p-4">
+              <div className="mb-8">Received by / ผู้รับ</div>
+              <div className="border-t border-black pt-2">Date: ________</div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-2 border-t border-black text-center text-xs text-gray-500">
+            Please sign and return this copy to driver. / กรุณาลงนามและส่งคืนสำเนานี้ให้พนักงานขับรถ
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// PRINT VIEW - QUOTATION
+// ============================================
+const QuotationPrintView = ({ quotation, customer, entity, onClose }) => {
+  const companyInfo = COMPANY_ENTITIES.find(e => e.id === entity) || COMPANY_ENTITIES[0]
+  
+  const handlePrint = () => {
+    window.print()
+  }
+
+  return (
+    <div className="bg-white">
+      {/* Print Controls */}
+      <div className="print:hidden p-4 bg-gray-100 flex justify-between items-center mb-4">
+        <h2 className="font-bold text-lg">Print Preview - Quotation</h2>
+        <div className="flex gap-2">
+          <Button onClick={handlePrint} icon={Printer}>Print</Button>
+          <Button variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+
+      {/* Quotation Content */}
+      <div className="p-8 max-w-4xl mx-auto print:p-0 print:max-w-none" style={{ fontFamily: 'Arial, sans-serif' }}>
+        <div className="border-2 border-black">
+          {/* Header */}
+          <div className="flex justify-between items-start p-4 border-b-2 border-black">
+            <div className="flex items-center gap-4">
+              <img src={IND_LOGO_SVG} alt="IND Logo" className="w-16 h-16" />
+              <div>
+                <div className="font-bold text-lg">{companyInfo.name}</div>
+                <div className="text-sm">{companyInfo.nameTh}</div>
+                <div className="text-xs text-gray-600">{companyInfo.address}</div>
+                <div className="text-xs text-gray-600">Tax ID: {companyInfo.taxId}</div>
+                <div className="text-xs text-gray-600">Tel: {companyInfo.tel}</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold border-2 border-black px-4 py-2 mb-2">
+                QUOTATION / ใบเสนอราคา
+              </div>
+              <div className="font-mono text-lg font-bold text-purple-600">{quotation.id}</div>
+            </div>
+          </div>
+
+          {/* Customer & Quote Info */}
+          <div className="grid grid-cols-2 border-b border-black">
+            <div className="p-4 border-r border-black">
+              <div className="font-bold mb-2">To / เรียน:</div>
+              <div className="font-medium">{customer?.name}</div>
+              <div className="text-sm">{customer?.nameTh}</div>
+              <div className="text-xs text-gray-600">{customer?.deliveryAddress}</div>
+              <div className="text-xs text-gray-600">Attn: {quotation.customerContact || customer?.contact}</div>
+            </div>
+            <div className="p-4 text-sm">
+              <div className="grid grid-cols-2 gap-1">
+                <span>Quote Date:</span><span className="font-medium">{formatDate(quotation.quoteDate)}</span>
+                <span className="text-red-600 font-medium">Valid Until:</span><span className="text-red-600 font-medium">{formatDate(quotation.validUntil)}</span>
+                <span>Prepared By:</span><span>{quotation.preparedBy || '-'}</span>
+                <span>Payment Terms:</span><span>{quotation.paymentTerms}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Items Table */}
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-100 border-b border-black">
+                <th className="px-2 py-2 text-center border-r border-black w-12">No.</th>
+                <th className="px-2 py-2 text-left border-r border-black">Description / รายการ</th>
+                <th className="px-2 py-2 text-center border-r border-black w-16">Qty</th>
+                <th className="px-2 py-2 text-center border-r border-black w-16">Unit</th>
+                <th className="px-2 py-2 text-right border-r border-black w-24">Unit Price</th>
+                <th className="px-2 py-2 text-right w-28">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {quotation.items?.map((item, idx) => (
+                <tr key={idx} className="border-b border-gray-300">
+                  <td className="px-2 py-2 text-center border-r border-gray-300">{idx + 1}</td>
+                  <td className="px-2 py-2 border-r border-gray-300">
+                    <div>{item.productName}</div>
+                    {item.description && <div className="text-xs text-gray-500">{item.description}</div>}
+                  </td>
+                  <td className="px-2 py-2 text-center border-r border-gray-300">{item.qty}</td>
+                  <td className="px-2 py-2 text-center border-r border-gray-300">{item.unit || 'pcs'}</td>
+                  <td className="px-2 py-2 text-right border-r border-gray-300">{formatCurrency(item.unitPrice)}</td>
+                  <td className="px-2 py-2 text-right">{formatCurrency(item.total || item.qty * item.unitPrice)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Totals */}
+          <div className="grid grid-cols-2 border-t border-black">
+            <div className="p-4 border-r border-black">
+              <div className="font-bold mb-2">Terms & Conditions:</div>
+              <div className="text-xs space-y-1">
+                <div>1. Prices are in Thai Baht and include VAT 7%</div>
+                <div>2. Delivery: {quotation.deliveryTerms || 'To be agreed'}</div>
+                <div>3. Payment Terms: {quotation.paymentTerms}</div>
+                <div>4. This quotation is valid until {formatDate(quotation.validUntil)}</div>
+              </div>
+            </div>
+            <div className="p-2 text-sm">
+              <div className="flex justify-between py-1"><span>Subtotal:</span><span>{formatCurrency(quotation.subtotal)}</span></div>
+              {quotation.discount > 0 && (
+                <div className="flex justify-between py-1 text-red-600">
+                  <span>Discount:</span><span>-{formatCurrency(quotation.discount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between py-1"><span>VAT 7%:</span><span>{formatCurrency(quotation.vat)}</span></div>
+              <div className="flex justify-between py-2 text-lg font-bold border-t border-black mt-2">
+                <span>TOTAL:</span>
+                <span className="text-purple-600">{formatCurrency(quotation.grandTotal)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Notes */}
+          {quotation.notes && (
+            <div className="p-4 border-t border-black">
+              <span className="font-bold">Notes / หมายเหตุ: </span>
+              <span className="text-sm">{quotation.notes}</span>
+            </div>
+          )}
+
+          {/* Signatures */}
+          <div className="grid grid-cols-2 border-t border-black text-center text-sm">
+            <div className="p-4 border-r border-black">
+              <div className="font-bold mb-2">For {companyInfo.name}</div>
+              <div className="mb-8">&nbsp;</div>
+              <div className="border-t border-black pt-2">
+                Authorized Signature
+              </div>
+            </div>
+            <div className="p-4">
+              <div className="font-bold mb-2">Customer Acceptance</div>
+              <div className="mb-8">&nbsp;</div>
+              <div className="border-t border-black pt-2">
+                Signature & Company Stamp
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-2 border-t border-black text-center text-xs text-gray-500">
+            Thank you for your interest. We look forward to serving you. / ขอบคุณที่สนใจ ยินดีให้บริการ
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -11873,6 +14799,11 @@ const AppFull = () => {
   const [salesOrders, setSalesOrders] = useState(INITIAL_SALES_ORDERS)
   const [invoices, setInvoices] = useState(INITIAL_INVOICES)
   const [deliveryOrders, setDeliveryOrders] = useState(INITIAL_DELIVERY_ORDERS)
+  const [quotations, setQuotations] = useState(INITIAL_QUOTATIONS)
+  const [rejections, setRejections] = useState(INITIAL_REJECTIONS)
+  const [claims, setClaims] = useState(INITIAL_CLAIMS)
+  const [creditNotes, setCreditNotes] = useState(INITIAL_CREDIT_NOTES)
+  const [salesMeetings, setSalesMeetings] = useState(INITIAL_SALES_MEETINGS)
   const [scheduledDeliveries, setScheduledDeliveries] = useState(INITIAL_SCHEDULED_DELIVERIES)
   const [maintenanceTasks, setMaintenanceTasks] = useState(INITIAL_MAINTENANCE_TASKS)
   const [maintenanceStore, setMaintenanceStore] = useState(INITIAL_MAINTENANCE_STORE)
@@ -12292,13 +15223,27 @@ const AppFull = () => {
               )}
               {activeModule === 'sales' && (
                 <SalesModuleFull
+                  quotations={quotations}
+                  setQuotations={setQuotations}
                   salesOrders={salesOrders}
                   setSalesOrders={setSalesOrders}
+                  deliveryOrders={deliveryOrders}
+                  setDeliveryOrders={setDeliveryOrders}
                   invoices={invoices}
                   setInvoices={setInvoices}
+                  rejections={rejections}
+                  setRejections={setRejections}
+                  claims={claims}
+                  setClaims={setClaims}
+                  creditNotes={creditNotes}
+                  setCreditNotes={setCreditNotes}
+                  salesMeetings={salesMeetings}
+                  setSalesMeetings={setSalesMeetings}
                   customers={customers}
                   workOrders={workOrders}
                   products={products}
+                  trucks={trucks}
+                  employees={employees}
                   lang={lang}
                 />
               )}
