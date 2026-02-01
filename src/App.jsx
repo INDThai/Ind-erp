@@ -12,17 +12,24 @@ import {
   Warehouse, ArrowRight, ArrowLeft, MoreVertical, Copy, Archive,
   Languages, Check, AlertCircle, Info, HelpCircle, ExternalLink, Play,
   Car, Hammer, CalendarDays, FileUp, Briefcase, UserPlus, Banknote,
-  Fuel, MapPinned, Navigation, FileImage, FileScan, Brain,
+  Fuel, MapPinned, Navigation, FileImage, FileScan, Brain, BookOpen,
   Cog, AlertOctagon, ClipboardCheck, Timer, BadgeCheck, QrCode
 } from 'lucide-react'
 
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '8.5'
+const VERSION = '8.6'
 const VERSION_DATE = '2026-02-01'
 
-// v8.5 NEW FEATURES - SALES COMPLETE ENHANCEMENT:
+// v8.6 NEW FEATURES - CRITICAL BUSINESS LOGIC:
+// 1. TRANSPORT ALLOWANCES - Full calculation per spec (100% furthest + 50% additional, bonuses)
+// 2. DISCOUNT APPROVAL WORKFLOW - CEO approval required, reason tracking, approval status
+// 3. SO → WO LINK - Sales Orders show linked Work Orders, "→ WO" button for production flow
+// 4. CN → INVOICE BALANCE - Credit Notes now automatically reduce invoice balance
+// 5. QUOTATION DISCOUNT BLOCKING - Cannot save quotation with unapproved discount
+//
+// v8.5 FEATURES:
 // 1. SALES KPI DASHBOARD - Collection rate, DSO, overdue amount, win rate, avg order value
 // 2. TOP CUSTOMERS - Revenue ranking with click to statement
 // 3. CUSTOMER STATEMENT PRINT - All invoices/payments/CN for customer
@@ -1363,6 +1370,8 @@ const Button = ({ children, variant = 'primary', size = 'md', icon: Icon, onClic
     danger: 'bg-red-500 text-white hover:bg-red-600',
     ghost: 'text-gray-600 hover:bg-gray-100',
     success: 'bg-green-500 text-white hover:bg-green-600',
+    info: 'bg-blue-500 text-white hover:bg-blue-600',
+    warning: 'bg-orange-500 text-white hover:bg-orange-600',
   }
   const sizes = {
     sm: 'px-3 py-1.5 text-sm',
@@ -1934,15 +1943,111 @@ const TransportModule = ({ deliveries, setDeliveries, trucks, employees, salesOr
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [showScheduleModal, setShowScheduleModal] = useState(false)
   const [selectedDelivery, setSelectedDelivery] = useState(null)
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
 
   const tabs = [
     { id: 'calendar', label: lang === 'th' ? 'ปฏิทิน' : 'Calendar', icon: CalendarDays },
     { id: 'deliveries', label: lang === 'th' ? 'รายการส่ง' : 'Deliveries', icon: Truck },
+    { id: 'allowances', label: lang === 'th' ? 'เบี้ยเลี้ยง' : 'Allowances', icon: Banknote },
     { id: 'vehicles', label: lang === 'th' ? 'ยานพาหนะ' : 'Vehicles', icon: Car },
     { id: 'routes', label: lang === 'th' ? 'เส้นทาง' : 'Routes', icon: Navigation },
   ]
 
   const drivers = employees?.filter(e => e.department === 'transport') || []
+
+  // ========== ALLOWANCE CALCULATION (Per Spec Section 32) ==========
+  // Rules:
+  // - Base allowance: 100% of furthest destination rate
+  // - Additional stops: +50% of each additional stop rate
+  // - Monthly bonus: 45+ trips = ฿500
+  // - Late delivery (after 7PM): +฿50
+  // - Holiday delivery: +฿50
+  
+  const DESTINATION_RATES = {
+    'local': 100,      // Within Chonburi
+    'rayong': 200,     // Rayong
+    'chachoengsao': 180, // Chachoengsao
+    'bangkok': 350,    // Bangkok
+    'ayutthaya': 400,  // Ayutthaya
+    'samut_prakan': 300, // Samut Prakan
+    'pathum_thani': 380, // Pathum Thani
+    'other': 250,      // Default
+  }
+
+  const HOLIDAYS_2026 = [
+    '2026-01-01', '2026-02-26', '2026-04-06', '2026-04-13', '2026-04-14', '2026-04-15',
+    '2026-05-01', '2026-05-04', '2026-05-13', '2026-06-03', '2026-07-10', '2026-07-28',
+    '2026-08-12', '2026-10-13', '2026-10-23', '2026-12-05', '2026-12-10', '2026-12-31'
+  ]
+
+  const isHoliday = (dateStr) => HOLIDAYS_2026.includes(dateStr) || new Date(dateStr).getDay() === 0
+
+  const calculateTripAllowance = (delivery) => {
+    if (!delivery) return { base: 0, additional: 0, lateBonus: 0, holidayBonus: 0, total: 0 }
+    
+    // Get base rate for furthest destination
+    const baseRate = DESTINATION_RATES[delivery.destination] || DESTINATION_RATES.other
+    
+    // Additional stops at 50%
+    const additionalStops = delivery.additionalStops || 0
+    const additionalRate = additionalStops * (baseRate * 0.5)
+    
+    // Late delivery bonus (after 7PM)
+    const deliveryHour = delivery.completedTime ? parseInt(delivery.completedTime.split(':')[0]) : 0
+    const lateBonus = deliveryHour >= 19 ? 50 : 0
+    
+    // Holiday bonus
+    const holidayBonus = isHoliday(delivery.date) ? 50 : 0
+    
+    return {
+      base: baseRate,
+      additional: additionalRate,
+      lateBonus,
+      holidayBonus,
+      total: baseRate + additionalRate + lateBonus + holidayBonus
+    }
+  }
+
+  const calculateDriverMonthlyAllowance = (driverId, month, year) => {
+    const monthDeliveries = deliveries?.filter(d => {
+      const deliveryDate = new Date(d.date)
+      return d.driverId === driverId && 
+             d.status === 'delivered' &&
+             deliveryDate.getMonth() === month && 
+             deliveryDate.getFullYear() === year
+    }) || []
+
+    let totalAllowance = 0
+    let totalTrips = monthDeliveries.length
+    let totalBase = 0
+    let totalAdditional = 0
+    let totalLate = 0
+    let totalHoliday = 0
+
+    monthDeliveries.forEach(d => {
+      const calc = calculateTripAllowance(d)
+      totalBase += calc.base
+      totalAdditional += calc.additional
+      totalLate += calc.lateBonus
+      totalHoliday += calc.holidayBonus
+      totalAllowance += calc.total
+    })
+
+    // Monthly trip bonus: 45+ trips = ฿500
+    const tripBonus = totalTrips >= 45 ? 500 : 0
+
+    return {
+      driverId,
+      trips: totalTrips,
+      baseAllowance: totalBase,
+      additionalAllowance: totalAdditional,
+      lateBonus: totalLate,
+      holidayBonus: totalHoliday,
+      tripBonus,
+      totalAllowance: totalAllowance + tripBonus
+    }
+  }
 
   // Calendar helpers
   const getDaysInMonth = (date) => {
@@ -2253,6 +2358,122 @@ const TransportModule = ({ deliveries, setDeliveries, trucks, employees, salesOr
               </div>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* ========== ALLOWANCES TAB ========== */}
+      {activeTab === 'allowances' && (
+        <div className="space-y-6">
+          {/* Policy Summary */}
+          <Card className="p-4 bg-blue-50 border-blue-200">
+            <h4 className="font-bold text-blue-800 mb-2">📋 {lang === 'th' ? 'นโยบายเบี้ยเลี้ยง' : 'Allowance Policy'}</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-blue-700">
+              <div><span className="font-medium">Base:</span> 100% furthest destination</div>
+              <div><span className="font-medium">Additional:</span> +50% per extra stop</div>
+              <div><span className="font-medium">Late (7PM+):</span> +฿50</div>
+              <div><span className="font-medium">Holiday:</span> +฿50</div>
+              <div className="col-span-2"><span className="font-medium">Monthly Bonus:</span> 45+ trips = ฿500</div>
+            </div>
+          </Card>
+
+          {/* Month Selector */}
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold">{lang === 'th' ? 'สรุปเบี้ยเลี้ยงรายเดือน' : 'Monthly Allowance Summary'}</h3>
+              <div className="flex gap-2">
+                <select 
+                  value={selectedMonth} 
+                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                  className="px-3 py-2 border rounded-lg"
+                >
+                  {monthNames.map((name, idx) => (
+                    <option key={idx} value={idx}>{name}</option>
+                  ))}
+                </select>
+                <select 
+                  value={selectedYear} 
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="px-3 py-2 border rounded-lg"
+                >
+                  <option value={2025}>2025</option>
+                  <option value={2026}>2026</option>
+                </select>
+              </div>
+            </div>
+          </Card>
+
+          {/* Driver Allowance Table */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b bg-gradient-to-r from-green-50 to-emerald-50">
+              <h3 className="font-bold text-green-800">
+                {lang === 'th' ? 'เบี้ยเลี้ยงคนขับ' : 'Driver Allowances'} - {monthNames[selectedMonth]} {selectedYear}
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'คนขับ' : 'Driver'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'เที่ยว' : 'Trips'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ค่าเดินทาง' : 'Base'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จุดเพิ่ม' : 'Additional'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'หลัง 7PM' : 'Late'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'วันหยุด' : 'Holiday'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'โบนัส 45+' : '45+ Bonus'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600 bg-green-100">{lang === 'th' ? 'รวม' : 'Total'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {drivers.map(driver => {
+                    const calc = calculateDriverMonthlyAllowance(driver.id, selectedMonth, selectedYear)
+                    return (
+                      <tr key={driver.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{driver.name}</div>
+                          <div className="text-xs text-gray-400">{driver.employeeId}</div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`font-bold ${calc.trips >= 45 ? 'text-green-600' : ''}`}>
+                            {calc.trips}
+                          </span>
+                          {calc.trips >= 45 && <span className="ml-1 text-green-500">🎉</span>}
+                        </td>
+                        <td className="px-4 py-3 text-right">{formatCurrency(calc.baseAllowance)}</td>
+                        <td className="px-4 py-3 text-right text-blue-600">{formatCurrency(calc.additionalAllowance)}</td>
+                        <td className="px-4 py-3 text-right text-orange-600">{calc.lateBonus > 0 ? formatCurrency(calc.lateBonus) : '-'}</td>
+                        <td className="px-4 py-3 text-right text-purple-600">{calc.holidayBonus > 0 ? formatCurrency(calc.holidayBonus) : '-'}</td>
+                        <td className="px-4 py-3 text-right text-green-600">{calc.tripBonus > 0 ? formatCurrency(calc.tripBonus) : '-'}</td>
+                        <td className="px-4 py-3 text-right font-bold text-lg text-green-700 bg-green-50">
+                          {formatCurrency(calc.totalAllowance)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot className="bg-gray-100">
+                  <tr>
+                    <td className="px-4 py-3 font-bold" colSpan="7">{lang === 'th' ? 'รวมทั้งหมด' : 'Grand Total'}</td>
+                    <td className="px-4 py-3 text-right font-bold text-xl text-green-700 bg-green-100">
+                      {formatCurrency(drivers.reduce((sum, d) => sum + calculateDriverMonthlyAllowance(d.id, selectedMonth, selectedYear).totalAllowance, 0))}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </Card>
+
+          {/* Destination Rate Reference */}
+          <Card className="p-4">
+            <h4 className="font-bold mb-3">{lang === 'th' ? 'อัตราค่าเดินทางตามจุดหมาย' : 'Destination Rates'}</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {Object.entries(DESTINATION_RATES).map(([dest, rate]) => (
+                <div key={dest} className="flex justify-between p-2 bg-gray-50 rounded">
+                  <span className="capitalize">{dest.replace('_', ' ')}</span>
+                  <span className="font-bold">฿{rate}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
         </div>
       )}
 
@@ -9653,9 +9874,9 @@ const AdminHub = ({ stores, setStores, categories, setCategories, departments, s
 }
 
 // ============================================
-// MAIN APP COMPONENT (Basic Version)
+// MAIN APP COMPONENT (Basic Version - Not Used)
 // ============================================
-function AppBasic() {
+function AppBasicVersion() {
   // Authentication
   const [currentUser, setCurrentUser] = useState(null)
   const [lang, setLang] = useState('en')
@@ -11896,7 +12117,7 @@ const SalesModuleFull = ({
     { id: 'invoices', label: lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices', icon: Receipt },
     { id: 'payments', label: lang === 'th' ? 'การชำระ' : 'Payments', icon: CreditCard },
     { id: 'aging', label: lang === 'th' ? 'อายุหนี้' : 'AR Aging', icon: Calendar },
-    { id: 'customers', label: lang === 'th' ? 'ลูกค้า' : 'Customers', icon: Building },
+    { id: 'customers', label: lang === 'th' ? 'ลูกค้า' : 'Customers', icon: Building2 },
     { id: 'pricing', label: lang === 'th' ? 'ประวัติราคา' : 'Price History', icon: TrendingUp },
     { id: 'rejections', label: lang === 'th' ? 'การคืนสินค้า' : 'Returns', icon: RotateCcw },
     { id: 'claims', label: lang === 'th' ? 'เคลม' : 'Claims', icon: AlertCircle },
@@ -12039,6 +12260,23 @@ const SalesModuleFull = ({
     newCN.grandTotal = newCN.subtotal + newCN.vat
     
     setCreditNotes([...creditNotes, newCN])
+    
+    // CRITICAL: Apply CN to invoice balance automatically
+    if (invoice) {
+      setInvoices(invoices.map(inv => {
+        if (inv.id === invoice.id) {
+          const newBalance = Math.max(0, (inv.balance || inv.grandTotal) - newCN.grandTotal)
+          return { 
+            ...inv, 
+            balance: newBalance,
+            creditNoteApplied: (inv.creditNoteApplied || 0) + newCN.grandTotal,
+            creditNotes: [...(inv.creditNotes || []), newCN.id]
+          }
+        }
+        return inv
+      }))
+    }
+    
     setRejections(rejections.map(r => r.id === rejection.id ? { ...r, creditNoteId: newCN.id, status: 'resolved', resolutionDate: new Date().toISOString().split('T')[0] } : r))
   }
 
@@ -12675,6 +12913,7 @@ const SalesModuleFull = ({
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'PO ลูกค้า' : 'Customer PO'}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'WO' : 'WO'}</th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ส่งแล้ว' : 'Delivered'}</th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
@@ -12686,6 +12925,7 @@ const SalesModuleFull = ({
                   const totalQty = so.items?.reduce((sum, item) => sum + item.qty, 0) || 0
                   const deliveredQty = so.items?.reduce((sum, item) => sum + (item.qtyDelivered || 0), 0) || 0
                   const hasDO = deliveryOrders?.some(d => d.soId === so.id)
+                  const linkedWO = workOrders?.find(wo => wo.soId === so.id)
                   return (
                     <tr key={so.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-mono text-blue-600">{so.id}</td>
@@ -12693,6 +12933,15 @@ const SalesModuleFull = ({
                       <td className="px-4 py-3 text-sm text-gray-500">{so.customerPO}</td>
                       <td className="px-4 py-3">{formatDate(so.orderDate)}</td>
                       <td className="px-4 py-3 text-right font-medium">{formatCurrency(so.grandTotal)}</td>
+                      <td className="px-4 py-3 text-center">
+                        {linkedWO ? (
+                          <span className="font-mono text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded">
+                            {linkedWO.id}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">-</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-center">
                         <span className={deliveredQty >= totalQty ? 'text-green-600' : 'text-orange-600'}>
                           {deliveredQty}/{totalQty}
@@ -12707,6 +12956,17 @@ const SalesModuleFull = ({
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
+                          {/* Create WO from SO - core business flow */}
+                          {!linkedWO && so.status !== 'delivered' && (
+                            <Button 
+                              size="sm" 
+                              variant="info" 
+                              title={lang === 'th' ? 'สร้าง Work Order' : 'Create Work Order'}
+                              onClick={() => alert(`WO will be created for ${so.id}. Connect to Production module.`)}
+                            >
+                              → WO
+                            </Button>
+                          )}
                           {deliveredQty < totalQty && (
                             <Button size="sm" variant="outline" onClick={() => handleCreateDO(so)}>
                               {lang === 'th' ? '→ DO' : '→ DO'}
@@ -13026,20 +13286,6 @@ const SalesModuleFull = ({
           <Card className="overflow-hidden">
             <div className="p-4 border-b flex justify-between items-center">
               <h3 className="font-bold">{lang === 'th' ? 'รายละเอียดหนี้ค้างชำระ' : 'Outstanding Receivables Detail'}</h3>
-              <div className="text-sm text-gray-500">
-                {lang === 'th' ? 'แสดง' : 'Showing'} {(() => {
-                  let filtered = [...agingData.days120, ...agingData.days90, ...agingData.days60, ...agingData.days30, ...agingData.current]
-                  if (agingCustomerFilter) filtered = filtered.filter(inv => inv.customerId === agingCustomerFilter)
-                  if (agingBucketFilter === 'current') filtered = agingData.current
-                  else if (agingBucketFilter === 'days30') filtered = agingData.days30
-                  else if (agingBucketFilter === 'days60') filtered = agingData.days60
-                  else if (agingBucketFilter === 'days90') filtered = agingData.days90
-                  else if (agingBucketFilter === 'days120') filtered = agingData.days120
-                  else if (agingBucketFilter === 'overdue') filtered = [...agingData.days30, ...agingData.days60, ...agingData.days90, ...agingData.days120]
-                  if (agingCustomerFilter) filtered = filtered.filter(inv => inv.customerId === agingCustomerFilter)
-                  return filtered.length
-                })()} {lang === 'th' ? 'รายการ' : 'items'}
-              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -13047,74 +13293,51 @@ const SalesModuleFull = ({
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoice'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันออก' : 'Issue Date'}</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ครบกำหนด' : 'Due Date'}</th>
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'เกิน (วัน)' : 'Days Over'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Total'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ชำระแล้ว' : 'Paid'}</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดค้าง' : 'Balance'}</th>
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ช่วงอายุ' : 'Bucket'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {(() => {
-                    let filtered = [...agingData.days120, ...agingData.days90, ...agingData.days60, ...agingData.days30, ...agingData.current]
-                    if (agingBucketFilter === 'current') filtered = agingData.current
-                    else if (agingBucketFilter === 'days30') filtered = agingData.days30
-                    else if (agingBucketFilter === 'days60') filtered = agingData.days60
-                    else if (agingBucketFilter === 'days90') filtered = agingData.days90
-                    else if (agingBucketFilter === 'days120') filtered = agingData.days120
-                    else if (agingBucketFilter === 'overdue') filtered = [...agingData.days30, ...agingData.days60, ...agingData.days90, ...agingData.days120]
-                    if (agingCustomerFilter) filtered = filtered.filter(inv => inv.customerId === agingCustomerFilter)
-                    return filtered.map(inv => {
-                      const originalInv = invoices.find(i => i.id === inv.id)
-                      return (
-                        <tr key={inv.id} className={`hover:bg-gray-50 ${inv.daysPast > 60 ? 'bg-red-50' : inv.daysPast > 30 ? 'bg-orange-50' : ''}`}>
-                          <td className="px-4 py-3">
-                            <div className="font-medium">{inv.customerName}</div>
-                            <div className="text-xs text-gray-400">{customers.find(c => c.name === inv.customerName)?.code}</div>
-                          </td>
-                          <td className="px-4 py-3 font-mono text-teal-600">{inv.id}</td>
-                          <td className="px-4 py-3 text-sm">{formatDate(originalInv?.invoiceDate)}</td>
-                          <td className="px-4 py-3 text-sm">{formatDate(inv.dueDate)}</td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={inv.daysPast > 60 ? 'text-red-600 font-bold text-lg' : inv.daysPast > 30 ? 'text-orange-600 font-bold' : ''}>
-                              {inv.daysPast > 0 ? inv.daysPast : '-'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm">{formatCurrency(originalInv?.grandTotal || 0)}</td>
-                          <td className="px-4 py-3 text-right text-sm text-green-600">{formatCurrency(originalInv?.paidAmount || 0)}</td>
-                          <td className="px-4 py-3 text-right font-bold text-red-600">{formatCurrency(inv.balance)}</td>
-                          <td className="px-4 py-3 text-center">
-                            <Badge variant={
-                              inv.daysPast <= 0 ? 'success' :
-                              inv.daysPast <= 30 ? 'warning' :
-                              inv.daysPast <= 60 ? 'warning' :
-                              'danger'
-                            }>
-                              {inv.daysPast <= 0 ? (lang === 'th' ? 'ปัจจุบัน' : 'Current') :
-                               inv.daysPast <= 30 ? '1-30' :
-                               inv.daysPast <= 60 ? '31-60' :
-                               inv.daysPast <= 90 ? '61-90' : '90+'}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <div className="flex justify-center gap-1">
-                              <Button size="sm" variant="ghost" title={lang === 'th' ? 'ดูใบแจ้งหนี้' : 'View Invoice'}
-                                      onClick={() => { setSelectedItem(originalInv); setShowPrintInvoice(true) }}>
-                                <Eye className="w-3 h-3" />
-                              </Button>
-                              <Button size="sm" variant="ghost" title={lang === 'th' ? 'บันทึกชำระ' : 'Record Payment'}
-                                      onClick={() => { setSelectedItem(originalInv); setShowPaymentModal(true) }}>
-                                <CreditCard className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
+                  {[...agingData.days120, ...agingData.days90, ...agingData.days60, ...agingData.days30, ...agingData.current]
+                    .filter(inv => !agingCustomerFilter || inv.customerId === agingCustomerFilter)
+                    .filter(inv => {
+                      if (agingBucketFilter === 'all') return true
+                      if (agingBucketFilter === 'current') return inv.daysPast <= 0
+                      if (agingBucketFilter === 'days30') return inv.daysPast > 0 && inv.daysPast <= 30
+                      if (agingBucketFilter === 'days60') return inv.daysPast > 30 && inv.daysPast <= 60
+                      if (agingBucketFilter === 'days90') return inv.daysPast > 60 && inv.daysPast <= 90
+                      if (agingBucketFilter === 'days120') return inv.daysPast > 90
+                      if (agingBucketFilter === 'overdue') return inv.daysPast > 0
+                      return true
                     })
-                  })()}
+                    .map(inv => (
+                      <tr key={inv.id} className={`hover:bg-gray-50 ${inv.daysPast > 60 ? 'bg-red-50' : inv.daysPast > 30 ? 'bg-orange-50' : ''}`}>
+                        <td className="px-4 py-3 font-medium">{inv.customerName}</td>
+                        <td className="px-4 py-3 font-mono text-teal-600">{inv.id}</td>
+                        <td className="px-4 py-3">{formatDate(inv.dueDate)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={inv.daysPast > 60 ? 'text-red-600 font-bold' : inv.daysPast > 30 ? 'text-orange-600' : ''}>
+                            {inv.daysPast > 0 ? inv.daysPast : '-'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-red-600">{formatCurrency(inv.balance)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <Badge variant={
+                            inv.daysPast <= 0 ? 'success' :
+                            inv.daysPast <= 30 ? 'warning' :
+                            inv.daysPast <= 60 ? 'warning' :
+                            'danger'
+                          }>
+                            {inv.daysPast <= 0 ? (lang === 'th' ? 'ปัจจุบัน' : 'Current') :
+                             inv.daysPast <= 30 ? '1-30' :
+                             inv.daysPast <= 60 ? '31-60' :
+                             inv.daysPast <= 90 ? '61-90' : '90+'}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
                 <tfoot className="bg-gray-100">
                   <tr>
@@ -14416,12 +14639,79 @@ const QuotationForm = ({ quotation, customers, products, onSave, onCancel, lang 
 
       {/* Totals */}
       <div className="flex justify-end">
-        <div className="w-64 space-y-2">
+        <div className="w-80 space-y-2">
           <div className="flex justify-between"><span>{lang === 'th' ? 'รวม' : 'Subtotal'}:</span><span>{formatCurrency(subtotal)}</span></div>
-          <div className="flex justify-between items-center">
-            <span>{lang === 'th' ? 'ส่วนลด' : 'Discount'}:</span>
-            <input type="number" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: parseFloat(e.target.value) || 0 })} className="w-24 px-2 py-1 border rounded text-right" />
+          
+          {/* Discount with CEO Approval Workflow */}
+          <div className="p-3 border rounded-lg bg-orange-50 border-orange-200">
+            <div className="flex justify-between items-center mb-2">
+              <span className="font-medium text-orange-800">{lang === 'th' ? 'ส่วนลด' : 'Discount'}:</span>
+              <input 
+                type="number" 
+                value={formData.discount} 
+                onChange={(e) => setFormData({ ...formData, discount: parseFloat(e.target.value) || 0, discountApproved: false })} 
+                className="w-24 px-2 py-1 border rounded text-right" 
+              />
+            </div>
+            
+            {formData.discount > 0 && (
+              <>
+                {/* Warning */}
+                <div className="flex items-center gap-2 text-red-600 text-sm mb-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>{lang === 'th' ? '⚠️ ส่วนลดทุกรายการต้องได้รับอนุมัติจาก CEO' : '⚠️ ALL discounts require CEO approval'}</span>
+                </div>
+                
+                {/* Discount Reason */}
+                <div className="mb-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    {lang === 'th' ? 'เหตุผลในการให้ส่วนลด *' : 'Reason for Discount *'}
+                  </label>
+                  <select 
+                    value={formData.discountReason} 
+                    onChange={(e) => setFormData({ ...formData, discountReason: e.target.value })}
+                    className="w-full px-2 py-1 border rounded text-sm"
+                    required
+                  >
+                    <option value="">{lang === 'th' ? 'เลือกเหตุผล' : 'Select reason'}</option>
+                    <option value="volume">{lang === 'th' ? 'สั่งซื้อจำนวนมาก' : 'Volume order'}</option>
+                    <option value="long_term">{lang === 'th' ? 'ลูกค้าระยะยาว' : 'Long-term customer'}</option>
+                    <option value="competitive">{lang === 'th' ? 'แข่งขันกับคู่แข่ง' : 'Competitive pricing'}</option>
+                    <option value="negotiation">{lang === 'th' ? 'การเจรจา' : 'Negotiation'}</option>
+                    <option value="promotion">{lang === 'th' ? 'โปรโมชั่น' : 'Promotion'}</option>
+                    <option value="other">{lang === 'th' ? 'อื่นๆ' : 'Other'}</option>
+                  </select>
+                </div>
+                
+                {/* CEO Approval Checkbox */}
+                <div className="flex items-center gap-2 p-2 bg-white rounded border">
+                  <input 
+                    type="checkbox" 
+                    id="discountApproved"
+                    checked={formData.discountApproved || false}
+                    onChange={(e) => setFormData({ ...formData, discountApproved: e.target.checked, discountApprovedBy: e.target.checked ? 'CEO' : '', discountApprovedDate: e.target.checked ? new Date().toISOString().split('T')[0] : '' })}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="discountApproved" className="text-sm font-medium">
+                    {lang === 'th' ? 'ได้รับอนุมัติจาก CEO แล้ว' : 'Approved by CEO'}
+                  </label>
+                  {formData.discountApproved && (
+                    <span className="ml-auto text-green-600 text-sm">✓ {formData.discountApprovedDate}</span>
+                  )}
+                </div>
+                
+                {/* Approval Status Badge */}
+                <div className="mt-2 text-center">
+                  <Badge variant={formData.discountApproved ? 'success' : 'danger'}>
+                    {formData.discountApproved 
+                      ? (lang === 'th' ? 'อนุมัติแล้ว' : 'APPROVED') 
+                      : (lang === 'th' ? 'รออนุมัติ' : 'PENDING APPROVAL')}
+                  </Badge>
+                </div>
+              </>
+            )}
           </div>
+          
           <div className="flex justify-between"><span>VAT 7%:</span><span>{formatCurrency(vat)}</span></div>
           <div className="flex justify-between font-bold text-lg border-t pt-2"><span>{lang === 'th' ? 'รวมทั้งสิ้น' : 'Grand Total'}:</span><span>{formatCurrency(grandTotal)}</span></div>
         </div>
@@ -14434,7 +14724,18 @@ const QuotationForm = ({ quotation, customers, products, onSave, onCancel, lang 
 
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button type="button" variant="ghost" onClick={onCancel}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
-        <Button type="submit" icon={Save}>{lang === 'th' ? 'บันทึก' : 'Save'}</Button>
+        <Button 
+          type="submit" 
+          icon={Save}
+          disabled={formData.discount > 0 && !formData.discountApproved}
+        >
+          {lang === 'th' ? 'บันทึก' : 'Save'}
+        </Button>
+        {formData.discount > 0 && !formData.discountApproved && (
+          <span className="text-sm text-red-500 self-center">
+            {lang === 'th' ? 'ต้องอนุมัติส่วนลดก่อน' : 'Discount approval required'}
+          </span>
+        )}
       </div>
     </form>
   )
@@ -17028,10 +17329,6 @@ const AppFull = () => {
   )
 }
 
-// Use the full version as the default export
-// Uncomment the line below to switch to full version
-// export default AppFull
-
 // ============================================
 // PURCHASE DASHBOARD COMPONENT
 // ============================================
@@ -18404,5 +18701,4 @@ const VersionInfo = ({ lang }) => {
 // ============================================
 // DEFAULT EXPORT
 // ============================================
-const App = AppFull
-export default App
+export default AppFull
