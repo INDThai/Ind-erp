@@ -19,7 +19,7 @@ import {
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '7.5'
+const VERSION = '7.6'
 const VERSION_DATE = '2026-02-01'
 
 // ============================================
@@ -918,6 +918,735 @@ const StatCard = ({ title, value, icon: Icon, color = 'blue', trend, subtitle })
 )
 
 // ============================================
+// ============================================
+// GLOBAL SEARCH (Cmd+K)
+// Search across all records: customers, WOs, invoices, inventory
+// ============================================
+const GlobalSearch = ({ isOpen, onClose, customers, workOrders, salesOrders, invoices, inventory, purchaseOrders, employees, onNavigate, lang }) => {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState({ customers: [], workOrders: [], invoices: [], inventory: [], purchaseOrders: [], employees: [] })
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults({ customers: [], workOrders: [], invoices: [], inventory: [], purchaseOrders: [], employees: [] })
+      return
+    }
+
+    const q = query.toLowerCase()
+    
+    setResults({
+      customers: (customers || []).filter(c => 
+        c.name?.toLowerCase().includes(q) || 
+        c.code?.toLowerCase().includes(q) ||
+        c.nameTh?.includes(query)
+      ).slice(0, 5),
+      workOrders: (workOrders || []).filter(wo => 
+        wo.woNumber?.toLowerCase().includes(q) || 
+        wo.productName?.toLowerCase().includes(q) ||
+        wo.id?.toString().includes(q)
+      ).slice(0, 5),
+      invoices: (invoices || []).filter(inv => 
+        inv.invoiceNumber?.toLowerCase().includes(q) || 
+        inv.customerName?.toLowerCase().includes(q)
+      ).slice(0, 5),
+      inventory: (inventory || []).filter(item => 
+        item.name?.toLowerCase().includes(q) || 
+        item.sku?.toLowerCase().includes(q) ||
+        item.lotNumber?.toLowerCase().includes(q)
+      ).slice(0, 5),
+      purchaseOrders: (purchaseOrders || []).filter(po => 
+        po.poNumber?.toLowerCase().includes(q) || 
+        po.vendorName?.toLowerCase().includes(q)
+      ).slice(0, 5),
+      employees: (employees || []).filter(emp => 
+        emp.name?.toLowerCase().includes(q) || 
+        emp.nameTh?.includes(query) ||
+        emp.empId?.toLowerCase().includes(q)
+      ).slice(0, 5),
+    })
+  }, [query, customers, workOrders, invoices, inventory, purchaseOrders, employees])
+
+  const totalResults = Object.values(results).reduce((sum, arr) => sum + arr.length, 0)
+
+  const handleSelect = (type, item) => {
+    onNavigate(type, item)
+    onClose()
+    setQuery('')
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/50" onClick={onClose}>
+      <div className="w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Search Input */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b">
+          <Search className="w-5 h-5 text-gray-400" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={lang === 'th' ? 'ค้นหาลูกค้า, WO, ใบแจ้งหนี้, สินค้า...' : 'Search customers, WOs, invoices, inventory...'}
+            className="flex-1 text-lg outline-none"
+          />
+          <kbd className="px-2 py-1 text-xs bg-gray-100 rounded border">ESC</kbd>
+        </div>
+
+        {/* Results */}
+        <div className="max-h-96 overflow-y-auto">
+          {!query.trim() ? (
+            <div className="p-8 text-center text-gray-400">
+              <Search className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>{lang === 'th' ? 'พิมพ์เพื่อค้นหา...' : 'Start typing to search...'}</p>
+              <p className="text-sm mt-1">{lang === 'th' ? 'หรือกด Cmd+K เพื่อเปิดใช้งาน' : 'Press Cmd+K anytime to open'}</p>
+            </div>
+          ) : totalResults === 0 ? (
+            <div className="p-8 text-center text-gray-400">
+              <p>{lang === 'th' ? 'ไม่พบผลลัพธ์สำหรับ' : 'No results for'} "{query}"</p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {/* Customers */}
+              {results.customers.length > 0 && (
+                <div className="p-3">
+                  <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-2">
+                    <Building2 className="w-4 h-4" />
+                    {lang === 'th' ? 'ลูกค้า' : 'Customers'}
+                  </div>
+                  {results.customers.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => handleSelect('customer', c)}
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 rounded-lg text-left"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                        {c.code?.substring(0, 2) || c.name?.charAt(0)}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium">{c.name}</div>
+                        <div className="text-xs text-gray-500">{c.code} • {c.city || c.district}</div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-gray-300" />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Work Orders */}
+              {results.workOrders.length > 0 && (
+                <div className="p-3">
+                  <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-2">
+                    <Factory className="w-4 h-4" />
+                    {lang === 'th' ? 'ใบสั่งผลิต' : 'Work Orders'}
+                  </div>
+                  {results.workOrders.map(wo => (
+                    <button
+                      key={wo.id}
+                      onClick={() => handleSelect('workOrder', wo)}
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-orange-50 rounded-lg text-left"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                        <Factory className="w-4 h-4 text-orange-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-mono font-medium text-orange-600">{wo.woNumber || wo.id}</div>
+                        <div className="text-xs text-gray-500">{wo.productName} • {wo.quantity} pcs</div>
+                      </div>
+                      <Badge variant={wo.status === 'completed' ? 'success' : wo.status === 'in_progress' ? 'warning' : 'default'}>
+                        {wo.status}
+                      </Badge>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Invoices */}
+              {results.invoices.length > 0 && (
+                <div className="p-3">
+                  <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-2">
+                    <Receipt className="w-4 h-4" />
+                    {lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices'}
+                  </div>
+                  {results.invoices.map(inv => (
+                    <button
+                      key={inv.id}
+                      onClick={() => handleSelect('invoice', inv)}
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-green-50 rounded-lg text-left"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                        <Receipt className="w-4 h-4 text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-mono font-medium text-green-600">{inv.invoiceNumber}</div>
+                        <div className="text-xs text-gray-500">{inv.customerName}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-medium">฿{(inv.total || 0).toLocaleString()}</div>
+                        <div className="text-xs text-gray-400">{formatDate(inv.date)}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Inventory */}
+              {results.inventory.length > 0 && (
+                <div className="p-3">
+                  <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-2">
+                    <Package className="w-4 h-4" />
+                    {lang === 'th' ? 'สินค้าคงคลัง' : 'Inventory'}
+                  </div>
+                  {results.inventory.map(item => (
+                    <button
+                      key={item.id}
+                      onClick={() => handleSelect('inventory', item)}
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-purple-50 rounded-lg text-left"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                        <Package className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium">{item.name}</div>
+                        <div className="text-xs text-gray-500">{item.sku} • {item.lotNumber}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-medium">{item.quantity} {item.unit}</div>
+                        <div className="text-xs text-gray-400">{item.store}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Purchase Orders */}
+              {results.purchaseOrders.length > 0 && (
+                <div className="p-3">
+                  <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-2">
+                    <ShoppingCart className="w-4 h-4" />
+                    {lang === 'th' ? 'ใบสั่งซื้อ' : 'Purchase Orders'}
+                  </div>
+                  {results.purchaseOrders.map(po => (
+                    <button
+                      key={po.id}
+                      onClick={() => handleSelect('purchaseOrder', po)}
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-yellow-50 rounded-lg text-left"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center">
+                        <ShoppingCart className="w-4 h-4 text-yellow-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-mono font-medium text-yellow-600">{po.poNumber}</div>
+                        <div className="text-xs text-gray-500">{po.vendorName}</div>
+                      </div>
+                      <Badge variant={po.status === 'received' ? 'success' : 'warning'}>
+                        {po.status}
+                      </Badge>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Employees */}
+              {results.employees.length > 0 && (
+                <div className="p-3">
+                  <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    {lang === 'th' ? 'พนักงาน' : 'Employees'}
+                  </div>
+                  {results.employees.map(emp => (
+                    <button
+                      key={emp.id}
+                      onClick={() => handleSelect('employee', emp)}
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-indigo-50 rounded-lg text-left"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm">
+                        {emp.name?.charAt(0)}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium">{emp.name} ({emp.nameTh})</div>
+                        <div className="text-xs text-gray-500">{emp.empId} • {emp.department}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-2 bg-gray-50 border-t text-xs text-gray-500 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-white rounded border">↑↓</kbd> Navigate</span>
+            <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-white rounded border">Enter</kbd> Select</span>
+          </div>
+          <div>{totalResults} {lang === 'th' ? 'ผลลัพธ์' : 'results'}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// NOTIFICATION CENTER
+// Shows pending tasks, approvals, alerts
+// ============================================
+const NotificationCenter = ({ isOpen, onClose, notifications, onAction, lang }) => {
+  const [filter, setFilter] = useState('all')
+
+  if (!isOpen) return null
+
+  const filteredNotifications = notifications.filter(n => 
+    filter === 'all' || n.type === filter
+  )
+
+  const unreadCount = notifications.filter(n => !n.read).length
+
+  return (
+    <div className="absolute right-0 top-12 w-96 bg-white rounded-xl shadow-2xl border z-50 overflow-hidden">
+      {/* Header */}
+      <div className="p-4 border-b bg-gradient-to-r from-[#1A5276] to-[#2ECC40]">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-white flex items-center gap-2">
+            <Bell className="w-5 h-5" />
+            {lang === 'th' ? 'การแจ้งเตือน' : 'Notifications'}
+            {unreadCount > 0 && (
+              <span className="px-2 py-0.5 bg-white/20 rounded-full text-sm">{unreadCount}</span>
+            )}
+          </h3>
+          <button onClick={onClose} className="p-1 hover:bg-white/20 rounded text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        {/* Filters */}
+        <div className="flex gap-2 mt-3">
+          {[
+            { id: 'all', label: lang === 'th' ? 'ทั้งหมด' : 'All' },
+            { id: 'approval', label: lang === 'th' ? 'อนุมัติ' : 'Approvals' },
+            { id: 'alert', label: lang === 'th' ? 'แจ้งเตือน' : 'Alerts' },
+            { id: 'task', label: lang === 'th' ? 'งาน' : 'Tasks' },
+          ].map(f => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                filter === f.id 
+                  ? 'bg-white text-[#1A5276]' 
+                  : 'text-white/80 hover:bg-white/20'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Notifications List */}
+      <div className="max-h-96 overflow-y-auto divide-y">
+        {filteredNotifications.length === 0 ? (
+          <div className="p-8 text-center text-gray-400">
+            <Bell className="w-12 h-12 mx-auto mb-2 opacity-30" />
+            <p>{lang === 'th' ? 'ไม่มีการแจ้งเตือน' : 'No notifications'}</p>
+          </div>
+        ) : (
+          filteredNotifications.map(notif => (
+            <div key={notif.id} className={`p-4 hover:bg-gray-50 ${!notif.read ? 'bg-blue-50/50' : ''}`}>
+              <div className="flex gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  notif.type === 'approval' ? 'bg-purple-100 text-purple-600' :
+                  notif.type === 'alert' ? 'bg-red-100 text-red-600' :
+                  notif.type === 'task' ? 'bg-blue-100 text-blue-600' :
+                  notif.type === 'success' ? 'bg-green-100 text-green-600' :
+                  'bg-gray-100 text-gray-600'
+                }`}>
+                  {notif.type === 'approval' ? <CheckCircle className="w-5 h-5" /> :
+                   notif.type === 'alert' ? <AlertTriangle className="w-5 h-5" /> :
+                   notif.type === 'task' ? <ClipboardList className="w-5 h-5" /> :
+                   notif.type === 'success' ? <Check className="w-5 h-5" /> :
+                   <Bell className="w-5 h-5" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-medium text-gray-800">{notif.title}</div>
+                    {!notif.read && <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-2" />}
+                  </div>
+                  <div className="text-sm text-gray-600 mt-0.5">{notif.message}</div>
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className="text-xs text-gray-400">{notif.time}</span>
+                    {notif.action && (
+                      <button 
+                        onClick={() => onAction(notif)}
+                        className="text-xs font-medium text-[#1A5276] hover:underline"
+                      >
+                        {notif.action}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="p-3 border-t bg-gray-50 flex justify-between items-center">
+        <button className="text-sm text-gray-500 hover:text-gray-700">
+          {lang === 'th' ? 'ทำเครื่องหมายอ่านแล้วทั้งหมด' : 'Mark all as read'}
+        </button>
+        <button className="text-sm text-[#1A5276] font-medium hover:underline">
+          {lang === 'th' ? 'ดูทั้งหมด' : 'View all'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// QUICK ACTIONS MENU
+// Context-aware quick actions
+// ============================================
+const QuickActionsMenu = ({ isOpen, onClose, context, onAction, lang }) => {
+  if (!isOpen) return null
+
+  const actions = {
+    global: [
+      { id: 'new_wo', label: lang === 'th' ? 'สร้าง Work Order' : 'New Work Order', icon: Factory, color: 'orange' },
+      { id: 'new_so', label: lang === 'th' ? 'สร้างใบสั่งขาย' : 'New Sales Order', icon: Receipt, color: 'pink' },
+      { id: 'new_po', label: lang === 'th' ? 'สร้างใบสั่งซื้อ' : 'New Purchase Order', icon: ShoppingCart, color: 'yellow' },
+      { id: 'new_invoice', label: lang === 'th' ? 'สร้างใบแจ้งหนี้' : 'New Invoice', icon: FileText, color: 'green' },
+      { id: 'new_quote', label: lang === 'th' ? 'สร้างใบเสนอราคา' : 'New Quotation', icon: Calculator, color: 'blue' },
+      { id: 'maint_request', label: lang === 'th' ? 'แจ้งซ่อม' : 'Maintenance Request', icon: Wrench, color: 'amber' },
+    ],
+    customer: [
+      { id: 'customer_quote', label: lang === 'th' ? 'สร้างใบเสนอราคา' : 'New Quote', icon: Calculator, color: 'blue' },
+      { id: 'customer_so', label: lang === 'th' ? 'สร้างใบสั่งขาย' : 'New Sales Order', icon: Receipt, color: 'pink' },
+      { id: 'customer_invoices', label: lang === 'th' ? 'ดูใบแจ้งหนี้' : 'View Invoices', icon: FileText, color: 'green' },
+      { id: 'customer_wos', label: lang === 'th' ? 'ดู Work Orders' : 'View Work Orders', icon: Factory, color: 'orange' },
+      { id: 'customer_statement', label: lang === 'th' ? 'Statement' : 'Account Statement', icon: BarChart3, color: 'purple' },
+    ],
+    workOrder: [
+      { id: 'wo_issue', label: lang === 'th' ? 'เบิกวัสดุ' : 'Issue Materials', icon: Package, color: 'purple' },
+      { id: 'wo_print_label', label: lang === 'th' ? 'พิมพ์ฉลาก' : 'Print Labels', icon: Printer, color: 'blue' },
+      { id: 'wo_move_next', label: lang === 'th' ? 'ส่งแผนกถัดไป' : 'Move to Next Dept', icon: ChevronRight, color: 'green' },
+      { id: 'wo_qc', label: lang === 'th' ? 'QC ตรวจสอบ' : 'QC Check', icon: CheckCircle, color: 'emerald' },
+      { id: 'wo_invoice', label: lang === 'th' ? 'สร้างใบแจ้งหนี้' : 'Generate Invoice', icon: Receipt, color: 'pink' },
+    ],
+  }
+
+  const currentActions = actions[context] || actions.global
+
+  return (
+    <div className="absolute right-0 top-12 w-72 bg-white rounded-xl shadow-2xl border z-50 overflow-hidden">
+      <div className="p-3 border-b bg-gray-50">
+        <h3 className="font-bold text-gray-700 flex items-center gap-2">
+          <Zap className="w-4 h-4 text-yellow-500" />
+          {lang === 'th' ? 'ทางลัด' : 'Quick Actions'}
+        </h3>
+      </div>
+      <div className="p-2">
+        {currentActions.map(action => (
+          <button
+            key={action.id}
+            onClick={() => { onAction(action.id); onClose() }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 rounded-lg text-left transition-colors"
+          >
+            <div className={`w-8 h-8 rounded-lg bg-${action.color}-100 flex items-center justify-center`}>
+              <action.icon className={`w-4 h-4 text-${action.color}-600`} />
+            </div>
+            <span className="font-medium text-gray-700">{action.label}</span>
+          </button>
+        ))}
+      </div>
+      <div className="p-2 border-t bg-gray-50">
+        <div className="text-xs text-gray-400 text-center">
+          {lang === 'th' ? 'กด Q เพื่อเปิดเมนูทางลัด' : 'Press Q to open quick actions'}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// KANBAN BOARD for Production
+// Drag-drop WOs between departments
+// ============================================
+const KanbanBoard = ({ workOrders, setWorkOrders, departments, customers, lang }) => {
+  const [draggedWO, setDraggedWO] = useState(null)
+  
+  const DEPT_FLOW = ['C1', 'C2', 'P1', 'P2', 'P3', 'ASM1', 'ASM2', 'OVN', 'QC', 'FG']
+  
+  const DEPT_COLORS = {
+    C1: { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-700', header: 'bg-red-100' },
+    C2: { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-700', header: 'bg-orange-100' },
+    P1: { bg: 'bg-yellow-50', border: 'border-yellow-300', text: 'text-yellow-700', header: 'bg-yellow-100' },
+    P2: { bg: 'bg-lime-50', border: 'border-lime-300', text: 'text-lime-700', header: 'bg-lime-100' },
+    P3: { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700', header: 'bg-green-100' },
+    ASM1: { bg: 'bg-teal-50', border: 'border-teal-300', text: 'text-teal-700', header: 'bg-teal-100' },
+    ASM2: { bg: 'bg-cyan-50', border: 'border-cyan-300', text: 'text-cyan-700', header: 'bg-cyan-100' },
+    OVN: { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700', header: 'bg-blue-100' },
+    QC: { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700', header: 'bg-purple-100' },
+    FG: { bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-700', header: 'bg-emerald-100' },
+  }
+
+  const getWOsForDept = (deptCode) => {
+    return workOrders.filter(wo => {
+      const currentDept = wo.currentDept || wo.department || 'C1'
+      return currentDept === deptCode && wo.status !== 'completed'
+    })
+  }
+
+  const handleDragStart = (e, wo) => {
+    setDraggedWO(wo)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  const handleDrop = (e, targetDept) => {
+    e.preventDefault()
+    if (!draggedWO) return
+
+    const currentDeptIdx = DEPT_FLOW.indexOf(draggedWO.currentDept || draggedWO.department || 'C1')
+    const targetDeptIdx = DEPT_FLOW.indexOf(targetDept)
+
+    // Only allow moving forward or one step back
+    if (targetDeptIdx < currentDeptIdx - 1) return
+
+    setWorkOrders(workOrders.map(wo => 
+      wo.id === draggedWO.id 
+        ? { 
+            ...wo, 
+            currentDept: targetDept, 
+            status: targetDept === 'FG' ? 'completed' : 'in_progress',
+            deptHistory: [...(wo.deptHistory || []), { dept: targetDept, time: new Date().toISOString() }]
+          } 
+        : wo
+    ))
+    setDraggedWO(null)
+  }
+
+  return (
+    <div className="h-full overflow-x-auto">
+      <div className="flex gap-3 p-4 min-w-max">
+        {DEPT_FLOW.map(deptCode => {
+          const wos = getWOsForDept(deptCode)
+          const colors = DEPT_COLORS[deptCode]
+          
+          return (
+            <div 
+              key={deptCode}
+              className={`w-56 flex-shrink-0 rounded-xl border-2 ${colors.border} ${colors.bg} overflow-hidden`}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, deptCode)}
+            >
+              {/* Column Header */}
+              <div className={`p-3 ${colors.header} border-b ${colors.border}`}>
+                <div className="flex items-center justify-between">
+                  <div className={`font-bold ${colors.text}`}>{deptCode}</div>
+                  <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
+                    {wos.length}
+                  </div>
+                </div>
+              </div>
+
+              {/* Cards */}
+              <div className="p-2 space-y-2 min-h-64 max-h-96 overflow-y-auto">
+                {wos.map(wo => {
+                  const customer = customers?.find(c => c.id === wo.customerId)
+                  return (
+                    <div
+                      key={wo.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, wo)}
+                      className="bg-white rounded-lg shadow-sm border p-3 cursor-move hover:shadow-md transition-shadow"
+                    >
+                      <div className="font-mono text-sm font-bold text-[#1A5276]">{wo.woNumber || wo.id}</div>
+                      <div className="text-sm mt-1 truncate">{wo.productName}</div>
+                      <div className="text-xs text-gray-500 mt-1">{customer?.name}</div>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-xs font-medium text-gray-700">{wo.quantity} pcs</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                          wo.priority === 'high' ? 'bg-red-100 text-red-700' :
+                          wo.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {wo.priority || 'normal'}
+                        </span>
+                      </div>
+                      {wo.targetDate && (
+                        <div className={`text-xs mt-1 ${
+                          new Date(wo.targetDate) < new Date() ? 'text-red-600 font-medium' : 'text-gray-400'
+                        }`}>
+                          Due: {formatDate(wo.targetDate)}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+                {wos.length === 0 && (
+                  <div className={`p-4 text-center ${colors.text} opacity-50 text-sm`}>
+                    {lang === 'th' ? 'ว่าง' : 'Empty'}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// DOCUMENT FLOW VISUALIZATION
+// Shows the flow: SO → WO → DN → Invoice
+// ============================================
+const DocumentFlow = ({ document, type, relatedDocs, onNavigate, lang }) => {
+  const flowSteps = [
+    { id: 'so', label: lang === 'th' ? 'ใบสั่งขาย' : 'Sales Order', icon: Receipt, color: 'pink' },
+    { id: 'wo', label: lang === 'th' ? 'ใบผลิต' : 'Work Order', icon: Factory, color: 'orange' },
+    { id: 'dn', label: lang === 'th' ? 'ใบส่งของ' : 'Delivery', icon: Truck, color: 'cyan' },
+    { id: 'inv', label: lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoice', icon: FileText, color: 'green' },
+    { id: 'pay', label: lang === 'th' ? 'ชำระเงิน' : 'Payment', icon: DollarSign, color: 'emerald' },
+  ]
+
+  return (
+    <div className="p-4 bg-gray-50 rounded-lg">
+      <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
+        <Activity className="w-4 h-4" />
+        {lang === 'th' ? 'เอกสารที่เกี่ยวข้อง' : 'Document Flow'}
+      </h4>
+      <div className="flex items-center gap-2 overflow-x-auto pb-2">
+        {flowSteps.map((step, idx) => {
+          const doc = relatedDocs?.[step.id]
+          const isActive = doc != null
+          const isCurrent = type === step.id
+          
+          return (
+            <React.Fragment key={step.id}>
+              <button
+                onClick={() => doc && onNavigate(step.id, doc)}
+                disabled={!isActive}
+                className={`flex-shrink-0 p-3 rounded-lg border-2 transition-all ${
+                  isCurrent 
+                    ? `bg-${step.color}-100 border-${step.color}-500 ring-2 ring-${step.color}-200` 
+                    : isActive 
+                      ? `bg-${step.color}-50 border-${step.color}-300 hover:bg-${step.color}-100 cursor-pointer` 
+                      : 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <step.icon className={`w-5 h-5 mx-auto ${isActive ? `text-${step.color}-600` : 'text-gray-400'}`} />
+                <div className={`text-xs mt-1 font-medium ${isActive ? `text-${step.color}-700` : 'text-gray-400'}`}>
+                  {step.label}
+                </div>
+                {doc && (
+                  <div className={`text-xs mt-0.5 ${isActive ? `text-${step.color}-500` : 'text-gray-400'}`}>
+                    {doc.number || doc.id}
+                  </div>
+                )}
+              </button>
+              {idx < flowSteps.length - 1 && (
+                <ChevronRight className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-gray-400' : 'text-gray-300'}`} />
+              )}
+            </React.Fragment>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// ACTIVITY LOG (Chatter)
+// Timeline of actions on a record
+// ============================================
+const ActivityLog = ({ activities, onAddComment, lang }) => {
+  const [newComment, setNewComment] = useState('')
+
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <div className="p-3 border-b bg-gray-50 flex items-center justify-between">
+        <h4 className="font-medium text-gray-700 flex items-center gap-2">
+          <Clock className="w-4 h-4" />
+          {lang === 'th' ? 'ประวัติการทำงาน' : 'Activity Log'}
+        </h4>
+        <span className="text-xs text-gray-400">{activities?.length || 0} {lang === 'th' ? 'รายการ' : 'entries'}</span>
+      </div>
+      
+      {/* Add Comment */}
+      <div className="p-3 border-b bg-blue-50">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder={lang === 'th' ? 'เพิ่มความคิดเห็น...' : 'Add a comment...'}
+            className="flex-1 px-3 py-2 border rounded-lg text-sm"
+          />
+          <button 
+            onClick={() => { onAddComment?.(newComment); setNewComment('') }}
+            disabled={!newComment.trim()}
+            className="px-4 py-2 bg-[#1A5276] text-white rounded-lg text-sm font-medium disabled:opacity-50"
+          >
+            {lang === 'th' ? 'ส่ง' : 'Send'}
+          </button>
+        </div>
+      </div>
+
+      {/* Timeline */}
+      <div className="max-h-64 overflow-y-auto">
+        {(!activities || activities.length === 0) ? (
+          <div className="p-6 text-center text-gray-400 text-sm">
+            {lang === 'th' ? 'ยังไม่มีกิจกรรม' : 'No activities yet'}
+          </div>
+        ) : (
+          <div className="p-3 space-y-3">
+            {activities.map((activity, idx) => (
+              <div key={idx} className="flex gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  activity.type === 'create' ? 'bg-green-100 text-green-600' :
+                  activity.type === 'update' ? 'bg-blue-100 text-blue-600' :
+                  activity.type === 'move' ? 'bg-purple-100 text-purple-600' :
+                  activity.type === 'comment' ? 'bg-gray-100 text-gray-600' :
+                  'bg-gray-100 text-gray-600'
+                }`}>
+                  {activity.type === 'create' ? <Plus className="w-4 h-4" /> :
+                   activity.type === 'update' ? <Edit3 className="w-4 h-4" /> :
+                   activity.type === 'move' ? <ArrowRight className="w-4 h-4" /> :
+                   activity.type === 'comment' ? <MessageCircle className="w-4 h-4" /> :
+                   <Activity className="w-4 h-4" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm">
+                    <span className="font-medium">{activity.user}</span>
+                    <span className="text-gray-600"> {activity.action}</span>
+                  </div>
+                  {activity.details && (
+                    <div className="text-xs text-gray-500 mt-0.5">{activity.details}</div>
+                  )}
+                  <div className="text-xs text-gray-400 mt-1">{activity.time}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // LOGIN SCREEN
 // ============================================
 const LoginScreen = ({ onLogin, lang, setLang }) => {
@@ -2123,61 +2852,187 @@ const TransportModule = ({ deliveries, setDeliveries, trucks, setTrucks, employe
 }
 
 // ============================================
-// MAINTENANCE MODULE - ENHANCED v7.4
-// Store: Spare parts, Tools, Diesel (~8L weekly)
+// MAINTENANCE MODULE - ENHANCED v7.5
+// Types: Equipment, Vehicle, Building/Facility
+// Features: Add Equipment, Request Form, Store Integration
 // MWO Format: MWO-YYMMDD-XXX
-// Equipment registry + Vehicle maintenance
 // ============================================
 const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenanceStore, setMaintenanceStore, trucks, employees, lang }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [showMWOModal, setShowMWOModal] = useState(false)
-  const [showDieselModal, setShowDieselModal] = useState(false)
-  const [showIssueModal, setShowIssueModal] = useState(false)
+  const [showAddEquipmentModal, setShowAddEquipmentModal] = useState(false)
+  const [showRequestModal, setShowRequestModal] = useState(false)
+  const [showIssuePartsModal, setShowIssuePartsModal] = useState(false)
+  const [showAddStoreItemModal, setShowAddStoreItemModal] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
+  const [selectedEquipment, setSelectedEquipment] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
-  const [filterPriority, setFilterPriority] = useState('all')
+  const [filterCategory, setFilterCategory] = useState('all')
+  const [filterType, setFilterType] = useState('all')
+
+  // New equipment form state
+  const [newEquipment, setNewEquipment] = useState({
+    name: '', type: 'machine', category: 'equipment', location: '', 
+    brand: '', model: '', serialNo: '', purchaseDate: '', warrantyExpiry: '',
+    serviceInterval: 90, notes: ''
+  })
+
+  // New request form state
+  const [newRequest, setNewRequest] = useState({
+    department: '', requestedBy: '', category: 'equipment', 
+    subject: '', description: '', priority: 'medium', assetId: ''
+  })
 
   const tabs = [
     { id: 'dashboard', label: lang === 'th' ? 'หน้าหลัก' : 'Dashboard', icon: Home },
+    { id: 'requests', label: lang === 'th' ? 'คำขอซ่อม' : 'Requests', icon: Bell },
     { id: 'mwo', label: lang === 'th' ? 'ใบงาน' : 'Work Orders', icon: ClipboardList },
-    { id: 'equipment', label: lang === 'th' ? 'อุปกรณ์' : 'Equipment', icon: Cog },
+    { id: 'equipment', label: lang === 'th' ? 'เครื่องจักร' : 'Equipment', icon: Cog },
+    { id: 'building', label: lang === 'th' ? 'อาคาร' : 'Building', icon: Building2 },
     { id: 'vehicles', label: lang === 'th' ? 'ยานพาหนะ' : 'Vehicles', icon: Car },
     { id: 'store', label: lang === 'th' ? 'คลังอะไหล่' : 'Parts Store', icon: Package },
-    { id: 'diesel', label: lang === 'th' ? 'น้ำมัน' : 'Diesel', icon: Fuel },
     { id: 'pm', label: lang === 'th' ? 'PM Schedule' : 'PM Schedule', icon: Calendar },
   ]
 
-  // Initial data
-  const tasksList = tasks || []
-  const equipmentList = equipment || [
-    { id: 'EQ-001', name: 'Forklift 1', type: 'forklift', location: 'Warehouse', status: 'operational', lastService: '2026-01-15', nextService: '2026-04-15', hoursUsed: 1250 },
-    { id: 'EQ-002', name: 'Forklift 2', type: 'forklift', location: 'Production', status: 'operational', lastService: '2026-01-10', nextService: '2026-04-10', hoursUsed: 980 },
-    { id: 'EQ-003', name: 'Table Saw 1', type: 'machine', location: 'C1', status: 'operational', lastService: '2025-12-20', nextService: '2026-03-20' },
-    { id: 'EQ-004', name: 'Heat Treatment Oven', type: 'oven', location: 'OVN', status: 'operational', lastService: '2026-01-05', nextService: '2026-07-05' },
-    { id: 'EQ-005', name: 'Air Compressor', type: 'compressor', location: 'Production', status: 'maintenance', lastService: '2025-11-15', nextService: '2026-02-15' },
+  // Maintenance Categories
+  const MAINT_CATEGORIES = {
+    equipment: { label: lang === 'th' ? 'เครื่องจักร/อุปกรณ์' : 'Equipment/Machinery', color: 'blue', icon: Cog },
+    vehicle: { label: lang === 'th' ? 'ยานพาหนะ' : 'Vehicle', color: 'green', icon: Car },
+    building: { label: lang === 'th' ? 'อาคาร/สิ่งปลูกสร้าง' : 'Building/Facility', color: 'purple', icon: Building2 },
+    electrical: { label: lang === 'th' ? 'ไฟฟ้า' : 'Electrical', color: 'yellow', icon: Zap },
+    plumbing: { label: lang === 'th' ? 'ประปา' : 'Plumbing', color: 'cyan', icon: Activity },
+  }
+
+  // Equipment Types
+  const EQUIPMENT_TYPES = [
+    { id: 'machine', label: lang === 'th' ? 'เครื่องจักร' : 'Machine' },
+    { id: 'forklift', label: lang === 'th' ? 'รถยก' : 'Forklift' },
+    { id: 'oven', label: lang === 'th' ? 'เตาอบ' : 'Oven/Kiln' },
+    { id: 'compressor', label: lang === 'th' ? 'ปั๊มลม' : 'Compressor' },
+    { id: 'saw', label: lang === 'th' ? 'เลื่อย' : 'Saw' },
+    { id: 'drill', label: lang === 'th' ? 'สว่าน' : 'Drill' },
+    { id: 'welder', label: lang === 'th' ? 'เครื่องเชื่อม' : 'Welder' },
+    { id: 'pump', label: lang === 'th' ? 'ปั๊ม' : 'Pump' },
+    { id: 'generator', label: lang === 'th' ? 'เครื่องปั่นไฟ' : 'Generator' },
+    { id: 'tool', label: lang === 'th' ? 'เครื่องมือ' : 'Tool' },
+    { id: 'other', label: lang === 'th' ? 'อื่นๆ' : 'Other' },
   ]
 
-  const storeItems = maintenanceStore || [
-    { id: 'MS-001', name: 'Motor Oil 15W-40', category: 'Lubricants', qty: 24, unit: 'L', minQty: 10, location: 'Shelf A1' },
-    { id: 'MS-002', name: 'Hydraulic Fluid', category: 'Lubricants', qty: 15, unit: 'L', minQty: 5, location: 'Shelf A2' },
-    { id: 'MS-003', name: 'V-Belt A68', category: 'Belts', qty: 4, unit: 'pcs', minQty: 2, location: 'Shelf B1' },
-    { id: 'MS-004', name: 'Bearing 6205', category: 'Bearings', qty: 8, unit: 'pcs', minQty: 4, location: 'Shelf B2' },
-    { id: 'MS-005', name: 'Diesel', category: 'Fuel', qty: 50, unit: 'L', minQty: 20, location: 'Tank' },
-    { id: 'MS-006', name: 'Welding Rod 2.6mm', category: 'Consumables', qty: 100, unit: 'pcs', minQty: 50, location: 'Shelf C1' },
-    { id: 'MS-007', name: 'Forklift Tire', category: 'Tires', qty: 2, unit: 'pcs', minQty: 1, location: 'Floor' },
+  // Building/Facility Areas
+  const BUILDING_AREAS = [
+    { id: 'office', label: lang === 'th' ? 'สำนักงาน' : 'Office' },
+    { id: 'production', label: lang === 'th' ? 'โรงงานผลิต' : 'Production Area' },
+    { id: 'warehouse', label: lang === 'th' ? 'โกดัง' : 'Warehouse' },
+    { id: 'housing', label: lang === 'th' ? 'หอพัก' : 'Staff Housing' },
+    { id: 'parking', label: lang === 'th' ? 'ที่จอดรถ' : 'Parking' },
+    { id: 'canteen', label: lang === 'th' ? 'โรงอาหาร' : 'Canteen' },
+    { id: 'toilet', label: lang === 'th' ? 'ห้องน้ำ' : 'Toilet/Restroom' },
+    { id: 'fence', label: lang === 'th' ? 'รั้ว/ประตู' : 'Fence/Gate' },
+    { id: 'roof', label: lang === 'th' ? 'หลังคา' : 'Roof' },
+    { id: 'electrical', label: lang === 'th' ? 'ระบบไฟฟ้า' : 'Electrical System' },
+    { id: 'plumbing', label: lang === 'th' ? 'ระบบประปา' : 'Plumbing System' },
+    { id: 'aircon', label: lang === 'th' ? 'แอร์/พัดลม' : 'AC/Ventilation' },
   ]
+
+  // Building Work Types
+  const BUILDING_WORK_TYPES = [
+    { id: 'painting', label: lang === 'th' ? 'ทาสี' : 'Painting' },
+    { id: 'repair', label: lang === 'th' ? 'ซ่อมแซม' : 'Repair' },
+    { id: 'cleaning', label: lang === 'th' ? 'ทำความสะอาด' : 'Deep Cleaning' },
+    { id: 'electrical', label: lang === 'th' ? 'งานไฟฟ้า' : 'Electrical Work' },
+    { id: 'plumbing', label: lang === 'th' ? 'งานประปา' : 'Plumbing Work' },
+    { id: 'carpentry', label: lang === 'th' ? 'งานไม้' : 'Carpentry' },
+    { id: 'welding', label: lang === 'th' ? 'งานเชื่อม' : 'Welding' },
+    { id: 'roofing', label: lang === 'th' ? 'ซ่อมหลังคา' : 'Roofing' },
+    { id: 'pest', label: lang === 'th' ? 'กำจัดแมลง' : 'Pest Control' },
+    { id: 'landscaping', label: lang === 'th' ? 'จัดสวน' : 'Landscaping' },
+  ]
+
+  // Departments that can request maintenance
+  const DEPARTMENTS = [
+    { id: 'C1', label: 'C1 - Cutting 1' },
+    { id: 'C2', label: 'C2 - Cutting 2' },
+    { id: 'P1', label: 'P1 - Processing 1' },
+    { id: 'P2', label: 'P2 - Processing 2' },
+    { id: 'P3', label: 'P3 - Processing 3' },
+    { id: 'ASM1', label: 'ASM1 - Assembly 1' },
+    { id: 'ASM2', label: 'ASM2 - Assembly 2' },
+    { id: 'OVN', label: 'OVN - Oven/HT' },
+    { id: 'QC', label: 'QC - Quality Control' },
+    { id: 'warehouse', label: lang === 'th' ? 'คลังสินค้า' : 'Warehouse' },
+    { id: 'office', label: lang === 'th' ? 'สำนักงาน' : 'Office' },
+    { id: 'transport', label: lang === 'th' ? 'ขนส่ง' : 'Transport' },
+    { id: 'housing', label: lang === 'th' ? 'หอพัก' : 'Staff Housing' },
+  ]
+
+  // Sample equipment data (expanded)
+  const equipmentList = equipment || [
+    { id: 'EQ-001', name: 'Forklift 1', type: 'forklift', category: 'equipment', location: 'Warehouse', status: 'operational', brand: 'Toyota', model: '8FGU25', lastService: '2026-01-15', nextService: '2026-04-15', hoursUsed: 1250 },
+    { id: 'EQ-002', name: 'Forklift 2', type: 'forklift', category: 'equipment', location: 'Production', status: 'operational', brand: 'Toyota', model: '8FGU25', lastService: '2026-01-10', nextService: '2026-04-10', hoursUsed: 980 },
+    { id: 'EQ-003', name: 'Table Saw 1', type: 'saw', category: 'equipment', location: 'C1', status: 'operational', brand: 'Makita', lastService: '2025-12-20', nextService: '2026-03-20' },
+    { id: 'EQ-004', name: 'Table Saw 2', type: 'saw', category: 'equipment', location: 'C2', status: 'operational', brand: 'Makita', lastService: '2025-12-20', nextService: '2026-03-20' },
+    { id: 'EQ-005', name: 'Heat Treatment Oven', type: 'oven', category: 'equipment', location: 'OVN', status: 'operational', brand: 'Custom', lastService: '2026-01-05', nextService: '2026-07-05' },
+    { id: 'EQ-006', name: 'Air Compressor', type: 'compressor', category: 'equipment', location: 'Production', status: 'maintenance', brand: 'Atlas Copco', lastService: '2025-11-15', nextService: '2026-02-15' },
+    { id: 'EQ-007', name: 'Nail Gun 1', type: 'tool', category: 'equipment', location: 'ASM1', status: 'operational', brand: 'Hitachi' },
+    { id: 'EQ-008', name: 'Nail Gun 2', type: 'tool', category: 'equipment', location: 'ASM2', status: 'operational', brand: 'Hitachi' },
+    { id: 'EQ-009', name: 'Welding Machine', type: 'welder', category: 'equipment', location: 'Maintenance', status: 'operational', brand: 'Lincoln' },
+    { id: 'BLD-001', name: 'Production Building', type: 'building', category: 'building', location: 'Main', status: 'operational', lastPaint: '2024-06-01' },
+    { id: 'BLD-002', name: 'Office Building', type: 'building', category: 'building', location: 'Front', status: 'operational', lastPaint: '2024-03-01' },
+    { id: 'BLD-003', name: 'Staff Housing Block A', type: 'building', category: 'building', location: 'Housing', status: 'operational' },
+    { id: 'BLD-004', name: 'Warehouse 1', type: 'building', category: 'building', location: 'MLH Shed', status: 'operational' },
+  ]
+
+  // Sample maintenance requests (from other departments)
+  const [requests, setRequests] = useState([
+    { id: 'REQ-001', date: '2026-02-01', department: 'C1', requestedBy: 'Singh', category: 'equipment', subject: 'Table Saw blade replacement', description: 'Blade is dull, need replacement', priority: 'high', status: 'pending', assetId: 'EQ-003' },
+    { id: 'REQ-002', date: '2026-01-31', department: 'office', requestedBy: 'Noon', category: 'building', subject: 'AC not cooling', description: 'Office AC unit not cooling properly', priority: 'medium', status: 'pending', assetId: '' },
+    { id: 'REQ-003', date: '2026-01-30', department: 'housing', requestedBy: 'Worker', category: 'plumbing', subject: 'Toilet leak Room 5', description: 'Water leaking from toilet in Room 5', priority: 'high', status: 'in_progress', assetId: 'BLD-003' },
+  ])
+
+  // Maintenance store items
+  const storeItems = maintenanceStore || [
+    { id: 'MS-001', name: 'Motor Oil 15W-40', category: 'Lubricants', qty: 24, unit: 'L', minQty: 10, unitCost: 180, location: 'Shelf A1' },
+    { id: 'MS-002', name: 'Hydraulic Fluid', category: 'Lubricants', qty: 15, unit: 'L', minQty: 5, unitCost: 250, location: 'Shelf A2' },
+    { id: 'MS-003', name: 'V-Belt A68', category: 'Belts', qty: 4, unit: 'pcs', minQty: 2, unitCost: 450, location: 'Shelf B1' },
+    { id: 'MS-004', name: 'Bearing 6205', category: 'Bearings', qty: 8, unit: 'pcs', minQty: 4, unitCost: 180, location: 'Shelf B2' },
+    { id: 'MS-005', name: 'Diesel', category: 'Fuel', qty: 50, unit: 'L', minQty: 20, unitCost: 32, location: 'Tank' },
+    { id: 'MS-006', name: 'Welding Rod 2.6mm', category: 'Consumables', qty: 100, unit: 'pcs', minQty: 50, unitCost: 5, location: 'Shelf C1' },
+    { id: 'MS-007', name: 'Forklift Tire', category: 'Tires', qty: 2, unit: 'pcs', minQty: 1, unitCost: 4500, location: 'Floor' },
+    { id: 'MS-008', name: 'Paint - White', category: 'Paint', qty: 20, unit: 'L', minQty: 10, unitCost: 350, location: 'Shelf D1' },
+    { id: 'MS-009', name: 'Paint - Blue (IND)', category: 'Paint', qty: 10, unit: 'L', minQty: 5, unitCost: 380, location: 'Shelf D1' },
+    { id: 'MS-010', name: 'Saw Blade 10"', category: 'Blades', qty: 3, unit: 'pcs', minQty: 2, unitCost: 850, location: 'Shelf B3' },
+    { id: 'MS-011', name: 'Electrical Wire 2.5mm', category: 'Electrical', qty: 100, unit: 'm', minQty: 50, unitCost: 15, location: 'Shelf E1' },
+    { id: 'MS-012', name: 'PVC Pipe 1"', category: 'Plumbing', qty: 20, unit: 'pcs', minQty: 10, unitCost: 85, location: 'Shelf E2' },
+    { id: 'MS-013', name: 'Nails (Maintenance)', category: 'Hardware', qty: 500, unit: 'pcs', minQty: 200, unitCost: 0.5, location: 'Shelf C2' },
+    { id: 'MS-014', name: 'Screws Assorted', category: 'Hardware', qty: 300, unit: 'pcs', minQty: 100, unitCost: 0.8, location: 'Shelf C2' },
+  ]
+
+  // Store categories
+  const STORE_CATEGORIES = ['Lubricants', 'Belts', 'Bearings', 'Fuel', 'Consumables', 'Tires', 'Paint', 'Blades', 'Electrical', 'Plumbing', 'Hardware']
 
   const technicians = employees?.filter(e => e.department === 'maintenance') || [
     { id: 'MT-001', name: 'Chai', nameTh: 'ชัย', status: 'active' },
     { id: 'MT-002', name: 'Som', nameTh: 'สม', status: 'active' },
   ]
 
-  // Generate MWO Number
+  // MWO list (tasks)
+  const tasksList = tasks || []
+
+  // Generate IDs
   const generateMWONumber = () => {
     const now = new Date()
     const dateStr = `${now.getFullYear().toString().slice(-2)}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}`
     const seq = (tasksList.length + 1).toString().padStart(3, '0')
     return `MWO-${dateStr}-${seq}`
+  }
+
+  const generateEquipmentId = () => {
+    const count = equipmentList.filter(e => e.category === 'equipment').length + 1
+    return `EQ-${count.toString().padStart(3, '0')}`
+  }
+
+  const generateRequestId = () => {
+    return `REQ-${(requests.length + 1).toString().padStart(3, '0')}`
   }
 
   // Stats
@@ -2187,24 +3042,70 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
     open: tasksList.filter(t => t.status === 'open').length,
     inProgress: tasksList.filter(t => t.status === 'in_progress').length,
     completed: tasksList.filter(t => t.status === 'completed').length,
-    critical: tasksList.filter(t => t.priority === 'critical' && t.status !== 'completed').length,
-    equipmentCount: equipmentList.length,
-    needsService: equipmentList.filter(e => new Date(e.nextService) <= new Date(today.setMonth(today.getMonth() + 1))).length,
+    pendingRequests: requests.filter(r => r.status === 'pending').length,
+    equipmentCount: equipmentList.filter(e => e.category === 'equipment').length,
+    buildingCount: equipmentList.filter(e => e.category === 'building').length,
+    needsService: equipmentList.filter(e => e.nextService && new Date(e.nextService) <= new Date(Date.now() + 30*24*60*60*1000)).length,
     lowStock: storeItems.filter(i => i.qty <= i.minQty).length,
+    storeValue: storeItems.reduce((sum, i) => sum + (i.qty * (i.unitCost || 0)), 0),
   }
 
-  // Diesel usage tracking
-  const dieselLogs = [
-    { id: 1, date: '2026-01-28', equipment: 'Forklift 1', liters: 8, operator: 'Chai' },
-    { id: 2, date: '2026-01-21', equipment: 'Forklift 2', liters: 6, operator: 'Som' },
-    { id: 3, date: '2026-01-14', equipment: 'Forklift 1', liters: 8, operator: 'Chai' },
-  ]
+  // Convert request to MWO
+  const convertRequestToMWO = (request) => {
+    const newMWO = {
+      id: Date.now(),
+      mwoNumber: generateMWONumber(),
+      requestId: request.id,
+      category: request.category,
+      equipment: request.assetId ? equipmentList.find(e => e.id === request.assetId)?.name : request.subject,
+      description: request.description,
+      priority: request.priority,
+      status: 'open',
+      requestedBy: request.requestedBy,
+      department: request.department,
+      createdAt: new Date().toISOString(),
+    }
+    
+    if (setTasks) {
+      setTasks([...tasksList, newMWO])
+    }
+    
+    // Update request status
+    setRequests(requests.map(r => 
+      r.id === request.id ? { ...r, status: 'converted', mwoNumber: newMWO.mwoNumber } : r
+    ))
+  }
 
-  const filteredTasks = tasksList.filter(t => {
-    const matchStatus = filterStatus === 'all' || t.status === filterStatus
-    const matchPriority = filterPriority === 'all' || t.priority === filterPriority
-    return matchStatus && matchPriority
-  })
+  // Add new equipment
+  const handleAddEquipment = () => {
+    const newEq = {
+      id: newEquipment.category === 'building' ? `BLD-${(equipmentList.filter(e => e.category === 'building').length + 1).toString().padStart(3, '0')}` : generateEquipmentId(),
+      ...newEquipment,
+      status: 'operational',
+      createdAt: new Date().toISOString(),
+    }
+    
+    if (setEquipment) {
+      setEquipment([...equipmentList, newEq])
+    }
+    
+    setNewEquipment({ name: '', type: 'machine', category: 'equipment', location: '', brand: '', model: '', serialNo: '', purchaseDate: '', warrantyExpiry: '', serviceInterval: 90, notes: '' })
+    setShowAddEquipmentModal(false)
+  }
+
+  // Submit maintenance request
+  const handleSubmitRequest = () => {
+    const newReq = {
+      id: generateRequestId(),
+      ...newRequest,
+      date: new Date().toISOString().split('T')[0],
+      status: 'pending',
+    }
+    
+    setRequests([newReq, ...requests])
+    setNewRequest({ department: '', requestedBy: '', category: 'equipment', subject: '', description: '', priority: 'medium', assetId: '' })
+    setShowRequestModal(false)
+  }
 
   const priorityColors = {
     low: 'bg-gray-100 text-gray-700',
@@ -2213,17 +3114,31 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
     critical: 'bg-red-100 text-red-700',
   }
 
+  const statusColors = {
+    pending: 'bg-yellow-100 text-yellow-700',
+    open: 'bg-blue-100 text-blue-700',
+    in_progress: 'bg-purple-100 text-purple-700',
+    completed: 'bg-green-100 text-green-700',
+    converted: 'bg-gray-100 text-gray-700',
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{t('nav.maintenance', lang)}</h1>
-          <p className="text-gray-500">{lang === 'th' ? 'จัดการซ่อมบำรุง อุปกรณ์ และอะไหล่' : 'Manage maintenance, equipment & spare parts'}</p>
+          <p className="text-gray-500">{lang === 'th' ? 'จัดการซ่อมบำรุง เครื่องจักร อาคาร และอะไหล่' : 'Manage maintenance for equipment, building & spare parts'}</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" icon={Fuel} onClick={() => setShowDieselModal(true)}>
-            {lang === 'th' ? 'บันทึกน้ำมัน' : 'Log Diesel'}
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" icon={Bell} onClick={() => setShowRequestModal(true)}>
+            {lang === 'th' ? 'แจ้งซ่อม' : 'Request'}
+            {stats.pendingRequests > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">{stats.pendingRequests}</span>
+            )}
+          </Button>
+          <Button variant="outline" icon={Cog} onClick={() => setShowAddEquipmentModal(true)}>
+            {lang === 'th' ? 'เพิ่มเครื่อง' : 'Add Equipment'}
           </Button>
           <Button icon={Plus} onClick={() => setShowMWOModal(true)}>
             {lang === 'th' ? 'สร้างใบงาน' : 'New MWO'}
@@ -2232,22 +3147,977 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-10 gap-3">
+        <Card className="p-3 border-l-4 border-l-orange-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'คำขอรอ' : 'Pending'}</div>
+          <div className="text-xl font-bold text-orange-600">{stats.pendingRequests}</div>
+        </Card>
         <Card className="p-3 border-l-4 border-l-blue-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'ใบงานทั้งหมด' : 'Total MWO'}</div>
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'ใบงาน' : 'MWO'}</div>
           <div className="text-xl font-bold text-blue-600">{stats.totalMWO}</div>
         </Card>
         <Card className="p-3 border-l-4 border-l-yellow-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'รอดำเนินการ' : 'Open'}</div>
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'รอทำ' : 'Open'}</div>
           <div className="text-xl font-bold text-yellow-600">{stats.open}</div>
         </Card>
         <Card className="p-3 border-l-4 border-l-purple-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'กำลังทำ' : 'In Progress'}</div>
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'กำลังทำ' : 'In Prog'}</div>
           <div className="text-xl font-bold text-purple-600">{stats.inProgress}</div>
         </Card>
         <Card className="p-3 border-l-4 border-l-green-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'เสร็จ' : 'Completed'}</div>
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'เสร็จ' : 'Done'}</div>
           <div className="text-xl font-bold text-green-600">{stats.completed}</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-cyan-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'เครื่องจักร' : 'Equipment'}</div>
+          <div className="text-xl font-bold text-cyan-600">{stats.equipmentCount}</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-indigo-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'อาคาร' : 'Building'}</div>
+          <div className="text-xl font-bold text-indigo-600">{stats.buildingCount}</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-red-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'ถึงบำรุง' : 'Due PM'}</div>
+          <div className="text-xl font-bold text-red-600">{stats.needsService}</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-pink-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'สต็อกต่ำ' : 'Low Stock'}</div>
+          <div className="text-xl font-bold text-pink-600">{stats.lowStock}</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-emerald-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'มูลค่าสต็อก' : 'Stock Value'}</div>
+          <div className="text-lg font-bold text-emerald-600">฿{stats.storeValue.toLocaleString()}</div>
+        </Card>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b overflow-x-auto">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap ${
+              activeTab === tab.id 
+                ? 'border-[#1A5276] text-[#1A5276] bg-blue-50' 
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+            {tab.id === 'requests' && stats.pendingRequests > 0 && (
+              <span className="px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">{stats.pendingRequests}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Dashboard Tab */}
+      {activeTab === 'dashboard' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Pending Requests */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b bg-orange-50 flex items-center justify-between">
+              <h3 className="font-bold text-orange-800 flex items-center gap-2">
+                <Bell className="w-5 h-5" />
+                {lang === 'th' ? 'คำขอซ่อมรอดำเนินการ' : 'Pending Maintenance Requests'}
+              </h3>
+              <Button size="sm" variant="outline" onClick={() => setActiveTab('requests')}>
+                {lang === 'th' ? 'ดูทั้งหมด' : 'View All'}
+              </Button>
+            </div>
+            <div className="divide-y max-h-80 overflow-y-auto">
+              {requests.filter(r => r.status === 'pending').slice(0, 5).map(req => (
+                <div key={req.id} className="p-4 hover:bg-gray-50">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm text-orange-600">{req.id}</span>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${priorityColors[req.priority]}`}>
+                          {req.priority}
+                        </span>
+                      </div>
+                      <div className="font-medium mt-1">{req.subject}</div>
+                      <div className="text-sm text-gray-500">{req.department} • {req.requestedBy}</div>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      onClick={() => convertRequestToMWO(req)}
+                    >
+                      <ArrowRight className="w-4 h-4 mr-1" />
+                      MWO
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {requests.filter(r => r.status === 'pending').length === 0 && (
+                <div className="p-8 text-center text-gray-400">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
+                  <p>{lang === 'th' ? 'ไม่มีคำขอค้าง' : 'No pending requests'}</p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Active Work Orders */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b bg-blue-50">
+              <h3 className="font-bold text-blue-800 flex items-center gap-2">
+                <ClipboardList className="w-5 h-5" />
+                {lang === 'th' ? 'งานที่กำลังดำเนินการ' : 'Active Work Orders'}
+              </h3>
+            </div>
+            <div className="divide-y max-h-80 overflow-y-auto">
+              {tasksList.filter(t => t.status === 'open' || t.status === 'in_progress').slice(0, 5).map(task => (
+                <div key={task.id} className="p-4 hover:bg-gray-50">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-mono text-blue-600">{task.mwoNumber}</div>
+                      <div className="text-sm">{task.equipment || task.description}</div>
+                      <div className="text-xs text-gray-400">{task.department}</div>
+                    </div>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[task.status]}`}>
+                      {task.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {tasksList.filter(t => t.status === 'open' || t.status === 'in_progress').length === 0 && (
+                <div className="p-8 text-center text-gray-400">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
+                  <p>{lang === 'th' ? 'ไม่มีงานค้าง' : 'No active work orders'}</p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Equipment Due Service */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b bg-red-50">
+              <h3 className="font-bold text-red-800 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" />
+                {lang === 'th' ? 'เครื่องจักรถึงกำหนดบำรุง' : 'Equipment Due for Service'}
+              </h3>
+            </div>
+            <div className="divide-y max-h-60 overflow-y-auto">
+              {equipmentList.filter(e => e.nextService && new Date(e.nextService) <= new Date(Date.now() + 30*24*60*60*1000)).map(eq => (
+                <div key={eq.id} className="p-4 hover:bg-gray-50">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="font-medium">{eq.name}</div>
+                      <div className="text-sm text-gray-500">{eq.location} • {eq.type}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-sm font-medium ${new Date(eq.nextService) <= new Date() ? 'text-red-600' : 'text-orange-600'}`}>
+                        {formatDate(eq.nextService)}
+                      </div>
+                      <div className="text-xs text-gray-400">{new Date(eq.nextService) <= new Date() ? 'OVERDUE' : 'Due Soon'}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {equipmentList.filter(e => e.nextService && new Date(e.nextService) <= new Date(Date.now() + 30*24*60*60*1000)).length === 0 && (
+                <div className="p-6 text-center text-gray-400">
+                  <CheckCircle className="w-10 h-10 mx-auto mb-2 text-green-300" />
+                  <p>{lang === 'th' ? 'ไม่มีเครื่องถึงกำหนด' : 'All equipment OK'}</p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Low Stock Alert */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b bg-pink-50 flex items-center justify-between">
+              <h3 className="font-bold text-pink-800 flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                {lang === 'th' ? 'อะไหล่ใกล้หมด' : 'Low Stock Parts'}
+              </h3>
+              <Button size="sm" variant="outline" onClick={() => setActiveTab('store')}>
+                {lang === 'th' ? 'ดูคลัง' : 'View Store'}
+              </Button>
+            </div>
+            <div className="divide-y max-h-60 overflow-y-auto">
+              {storeItems.filter(i => i.qty <= i.minQty).map(item => (
+                <div key={item.id} className="p-4 hover:bg-gray-50">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="font-medium">{item.name}</div>
+                      <div className="text-xs text-gray-500">{item.category} • {item.location}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-red-600">{item.qty} {item.unit}</div>
+                      <div className="text-xs text-gray-500">Min: {item.minQty}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {storeItems.filter(i => i.qty <= i.minQty).length === 0 && (
+                <div className="p-6 text-center text-gray-400">
+                  <CheckCircle className="w-10 h-10 mx-auto mb-2 text-green-300" />
+                  <p>{lang === 'th' ? 'สต็อกเพียงพอ' : 'Stock levels OK'}</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Requests Tab */}
+      {activeTab === 'requests' && (
+        <div className="space-y-4">
+          <Card className="p-4 bg-orange-50 border-orange-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Bell className="w-8 h-8 text-orange-600" />
+                <div>
+                  <h3 className="font-bold text-orange-800">{lang === 'th' ? 'คำขอซ่อมจากแผนกอื่น' : 'Maintenance Requests from Departments'}</h3>
+                  <p className="text-sm text-orange-600">{lang === 'th' ? 'แผนกอื่นสามารถแจ้งซ่อมได้ที่นี่' : 'Other departments can submit repair requests here'}</p>
+                </div>
+              </div>
+              <Button icon={Plus} onClick={() => setShowRequestModal(true)}>
+                {lang === 'th' ? 'แจ้งซ่อมใหม่' : 'New Request'}
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'Request #'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'แผนก' : 'Department'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Category'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เรื่อง' : 'Subject'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ความสำคัญ' : 'Priority'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {requests.map(req => (
+                    <tr key={req.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono text-orange-600">{req.id}</td>
+                      <td className="px-4 py-3 text-sm">{formatDate(req.date)}</td>
+                      <td className="px-4 py-3">{req.department}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded text-xs font-medium bg-${MAINT_CATEGORIES[req.category]?.color || 'gray'}-100 text-${MAINT_CATEGORIES[req.category]?.color || 'gray'}-700`}>
+                          {MAINT_CATEGORIES[req.category]?.label || req.category}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{req.subject}</div>
+                        <div className="text-xs text-gray-500">{req.requestedBy}</div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[req.priority]}`}>
+                          {req.priority}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[req.status]}`}>
+                          {req.status === 'converted' ? `→ ${req.mwoNumber}` : req.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {req.status === 'pending' && (
+                          <Button size="sm" onClick={() => convertRequestToMWO(req)}>
+                            <ArrowRight className="w-4 h-4 mr-1" />
+                            {lang === 'th' ? 'สร้าง MWO' : 'Create MWO'}
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Equipment Tab */}
+      {activeTab === 'equipment' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div className="flex gap-3">
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm"
+              >
+                <option value="all">{lang === 'th' ? 'ทุกประเภท' : 'All Types'}</option>
+                {EQUIPMENT_TYPES.map(t => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+            <Button icon={Plus} onClick={() => { setNewEquipment({...newEquipment, category: 'equipment'}); setShowAddEquipmentModal(true) }}>
+              {lang === 'th' ? 'เพิ่มเครื่องจักร' : 'Add Equipment'}
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {equipmentList
+              .filter(eq => eq.category === 'equipment')
+              .filter(eq => filterType === 'all' || eq.type === filterType)
+              .map(eq => (
+                <Card key={eq.id} className="overflow-hidden">
+                  <div className={`p-4 ${eq.status === 'operational' ? 'bg-green-50' : 'bg-red-50'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Cog className={`w-8 h-8 ${eq.status === 'operational' ? 'text-green-600' : 'text-red-600'}`} />
+                        <div>
+                          <div className="font-bold">{eq.name}</div>
+                          <div className="text-sm text-gray-600">{eq.id}</div>
+                        </div>
+                      </div>
+                      <Badge variant={eq.status === 'operational' ? 'success' : 'danger'}>
+                        {eq.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="p-4 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{lang === 'th' ? 'ประเภท' : 'Type'}</span>
+                      <span className="font-medium capitalize">{eq.type}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{lang === 'th' ? 'ที่ตั้ง' : 'Location'}</span>
+                      <span className="font-medium">{eq.location}</span>
+                    </div>
+                    {eq.brand && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">{lang === 'th' ? 'ยี่ห้อ' : 'Brand'}</span>
+                        <span className="font-medium">{eq.brand} {eq.model}</span>
+                      </div>
+                    )}
+                    {eq.lastService && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">{lang === 'th' ? 'บำรุงล่าสุด' : 'Last Service'}</span>
+                        <span>{formatDate(eq.lastService)}</span>
+                      </div>
+                    )}
+                    {eq.nextService && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">{lang === 'th' ? 'บำรุงถัดไป' : 'Next Service'}</span>
+                        <span className={new Date(eq.nextService) <= new Date() ? 'text-red-500 font-medium' : ''}>
+                          {formatDate(eq.nextService)}
+                        </span>
+                      </div>
+                    )}
+                    {eq.hoursUsed && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">{lang === 'th' ? 'ชั่วโมงใช้งาน' : 'Hours Used'}</span>
+                        <span>{eq.hoursUsed.toLocaleString()} hrs</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3 border-t bg-gray-50 flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1">
+                      <Eye className="w-4 h-4 mr-1" />
+                      {lang === 'th' ? 'ดู' : 'View'}
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1">
+                      <Wrench className="w-4 h-4 mr-1" />
+                      {lang === 'th' ? 'ซ่อม' : 'Repair'}
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Building Tab */}
+      {activeTab === 'building' && (
+        <div className="space-y-4">
+          <Card className="p-4 bg-purple-50 border-purple-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Building2 className="w-8 h-8 text-purple-600" />
+                <div>
+                  <h3 className="font-bold text-purple-800">{lang === 'th' ? 'งานอาคารและสิ่งปลูกสร้าง' : 'Building & Facility Maintenance'}</h3>
+                  <p className="text-sm text-purple-600">{lang === 'th' ? 'ทาสี ซ่อมแซม งานไฟฟ้า ประปา' : 'Painting, repairs, electrical, plumbing'}</p>
+                </div>
+              </div>
+              <Button icon={Plus} onClick={() => { setNewEquipment({...newEquipment, category: 'building', type: 'building'}); setShowAddEquipmentModal(true) }}>
+                {lang === 'th' ? 'เพิ่มพื้นที่' : 'Add Area'}
+              </Button>
+            </div>
+          </Card>
+
+          {/* Building Work Types */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {BUILDING_WORK_TYPES.slice(0, 5).map(work => (
+              <Card key={work.id} className="p-4 text-center hover:bg-purple-50 cursor-pointer transition-colors">
+                <div className="text-2xl mb-2">
+                  {work.id === 'painting' ? '🎨' :
+                   work.id === 'repair' ? '🔧' :
+                   work.id === 'electrical' ? '⚡' :
+                   work.id === 'plumbing' ? '🚿' :
+                   work.id === 'carpentry' ? '🪚' : '🔨'}
+                </div>
+                <div className="font-medium text-sm">{work.label}</div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Building Assets */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {equipmentList.filter(eq => eq.category === 'building').map(bld => (
+              <Card key={bld.id} className="overflow-hidden">
+                <div className="p-4 bg-purple-50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Building2 className="w-8 h-8 text-purple-600" />
+                      <div>
+                        <div className="font-bold">{bld.name}</div>
+                        <div className="text-sm text-gray-600">{bld.id}</div>
+                      </div>
+                    </div>
+                    <Badge variant={bld.status === 'operational' ? 'success' : 'warning'}>
+                      {bld.status}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="p-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">{lang === 'th' ? 'ที่ตั้ง' : 'Location'}</span>
+                    <span className="font-medium">{bld.location}</span>
+                  </div>
+                  {bld.lastPaint && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{lang === 'th' ? 'ทาสีล่าสุด' : 'Last Painted'}</span>
+                      <span>{formatDate(bld.lastPaint)}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="p-3 border-t bg-gray-50">
+                  <Button size="sm" variant="outline" className="w-full" onClick={() => setShowRequestModal(true)}>
+                    <Wrench className="w-4 h-4 mr-1" />
+                    {lang === 'th' ? 'แจ้งซ่อม' : 'Request Repair'}
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* MWO Tab */}
+      {activeTab === 'mwo' && (
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b flex gap-3 flex-wrap">
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-3 py-2 border rounded-lg text-sm"
+            >
+              <option value="all">{lang === 'th' ? 'ทุกสถานะ' : 'All Status'}</option>
+              <option value="open">{lang === 'th' ? 'รอดำเนินการ' : 'Open'}</option>
+              <option value="in_progress">{lang === 'th' ? 'กำลังทำ' : 'In Progress'}</option>
+              <option value="completed">{lang === 'th' ? 'เสร็จ' : 'Completed'}</option>
+            </select>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="px-3 py-2 border rounded-lg text-sm"
+            >
+              <option value="all">{lang === 'th' ? 'ทุกประเภท' : 'All Categories'}</option>
+              {Object.entries(MAINT_CATEGORIES).map(([key, val]) => (
+                <option key={key} value={key}>{val.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'MWO #'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Category'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อุปกรณ์/พื้นที่' : 'Equipment/Area'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายละเอียด' : 'Description'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ความสำคัญ' : 'Priority'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'มอบหมาย' : 'Assigned'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {tasksList
+                  .filter(t => filterStatus === 'all' || t.status === filterStatus)
+                  .filter(t => filterCategory === 'all' || t.category === filterCategory)
+                  .map(task => (
+                    <tr key={task.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono text-[#1A5276]">{task.mwoNumber}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded text-xs bg-${MAINT_CATEGORIES[task.category]?.color || 'gray'}-100 text-${MAINT_CATEGORIES[task.category]?.color || 'gray'}-700`}>
+                          {MAINT_CATEGORIES[task.category]?.label || task.category}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">{task.equipment}</td>
+                      <td className="px-4 py-3 text-sm max-w-xs truncate">{task.description}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[task.priority]}`}>
+                          {task.priority}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">{task.assignedTo || '-'}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[task.status]}`}>
+                          {task.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex gap-1 justify-center">
+                          <button className="p-1 text-blue-600 hover:bg-blue-50 rounded">
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button className="p-1 text-green-600 hover:bg-green-50 rounded">
+                            <Package className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Store Tab */}
+      {activeTab === 'store' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div className="flex gap-3">
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm"
+              >
+                <option value="all">{lang === 'th' ? 'ทุกหมวด' : 'All Categories'}</option>
+                {STORE_CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" icon={Package} onClick={() => setShowIssuePartsModal(true)}>
+                {lang === 'th' ? 'เบิกอะไหล่' : 'Issue Parts'}
+              </Button>
+              <Button icon={Plus} onClick={() => setShowAddStoreItemModal(true)}>
+                {lang === 'th' ? 'เพิ่มรายการ' : 'Add Item'}
+              </Button>
+            </div>
+          </div>
+
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b bg-emerald-50">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-emerald-800 flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  {lang === 'th' ? 'คลังอะไหล่และวัสดุซ่อมบำรุง' : 'Maintenance Parts & Materials Store'}
+                </h3>
+                <div className="text-right">
+                  <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่ารวม' : 'Total Value'}</div>
+                  <div className="text-lg font-bold text-emerald-600">฿{stats.storeValue.toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส' : 'Code'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายการ' : 'Item'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'หมวด' : 'Category'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Qty'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ขั้นต่ำ' : 'Min'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ราคา/หน่วย' : 'Unit Cost'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ที่เก็บ' : 'Location'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {storeItems
+                    .filter(i => filterCategory === 'all' || i.category === filterCategory)
+                    .map(item => (
+                      <tr key={item.id} className={`hover:bg-gray-50 ${item.qty <= item.minQty ? 'bg-red-50' : ''}`}>
+                        <td className="px-4 py-3 font-mono text-sm">{item.id}</td>
+                        <td className="px-4 py-3 font-medium">{item.name}</td>
+                        <td className="px-4 py-3 text-sm">{item.category}</td>
+                        <td className="px-4 py-3 text-right font-medium">{item.qty} {item.unit}</td>
+                        <td className="px-4 py-3 text-right text-gray-500">{item.minQty}</td>
+                        <td className="px-4 py-3 text-right">฿{(item.unitCost || 0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right font-medium">฿{(item.qty * (item.unitCost || 0)).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm">{item.location}</td>
+                        <td className="px-4 py-3 text-center">
+                          {item.qty <= item.minQty ? (
+                            <Badge variant="danger">{lang === 'th' ? 'ต่ำ' : 'Low'}</Badge>
+                          ) : (
+                            <Badge variant="success">{lang === 'th' ? 'ปกติ' : 'OK'}</Badge>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Vehicles Tab */}
+      {activeTab === 'vehicles' && (
+        <Card className="p-6">
+          <div className="text-center py-8">
+            <Car className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+            <h3 className="text-lg font-bold text-gray-600 mb-2">{lang === 'th' ? 'การบำรุงรักษายานพาหนะ' : 'Vehicle Maintenance'}</h3>
+            <p className="text-gray-500 mb-4">{lang === 'th' ? 'เชื่อมต่อกับโมดูลขนส่ง - ดูการบำรุงรักษารถที่นั่น' : 'Linked to Transport module - View vehicle maintenance there'}</p>
+            <Button variant="outline">
+              <ExternalLink className="w-4 h-4 mr-2" />
+              {lang === 'th' ? 'ไปที่โมดูลขนส่ง' : 'Go to Transport Module'}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* PM Schedule Tab */}
+      {activeTab === 'pm' && (
+        <div className="space-y-4">
+          <Card className="p-4 bg-blue-50 border-blue-200">
+            <h3 className="font-bold text-blue-800">{lang === 'th' ? 'ตารางบำรุงรักษาเชิงป้องกัน' : 'Preventive Maintenance Schedule'}</h3>
+            <p className="text-sm text-blue-600">{lang === 'th' ? 'กำหนดการบำรุงรักษาตามเวลาหรือการใช้งาน' : 'Scheduled maintenance based on time or usage'}</p>
+          </Card>
+          
+          <div className="space-y-3">
+            {equipmentList.filter(e => e.nextService).map(eq => (
+              <Card key={eq.id} className="p-4">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-3 h-3 rounded-full ${
+                      new Date(eq.nextService) <= new Date() ? 'bg-red-500' :
+                      new Date(eq.nextService) <= new Date(Date.now() + 7*24*60*60*1000) ? 'bg-orange-500' :
+                      new Date(eq.nextService) <= new Date(Date.now() + 30*24*60*60*1000) ? 'bg-yellow-500' :
+                      'bg-green-500'
+                    }`} />
+                    <div>
+                      <div className="font-medium">{eq.name}</div>
+                      <div className="text-sm text-gray-500">{eq.location} • {eq.type}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-lg font-bold ${
+                      new Date(eq.nextService) <= new Date() ? 'text-red-600' :
+                      new Date(eq.nextService) <= new Date(Date.now() + 7*24*60*60*1000) ? 'text-orange-600' :
+                      'text-gray-700'
+                    }`}>
+                      {formatDate(eq.nextService)}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(eq.nextService) <= new Date() ? 'OVERDUE' : 
+                       `${Math.ceil((new Date(eq.nextService) - new Date()) / (1000*60*60*24))} days`}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add Equipment Modal */}
+      {showAddEquipmentModal && (
+        <Modal isOpen={showAddEquipmentModal} onClose={() => setShowAddEquipmentModal(false)} title={lang === 'th' ? 'เพิ่มเครื่องจักร/อุปกรณ์' : 'Add Equipment'} size="lg">
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภท' : 'Category'}</label>
+                <select
+                  value={newEquipment.category}
+                  onChange={(e) => setNewEquipment({...newEquipment, category: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="equipment">{lang === 'th' ? 'เครื่องจักร/อุปกรณ์' : 'Equipment/Machinery'}</option>
+                  <option value="building">{lang === 'th' ? 'อาคาร/สิ่งปลูกสร้าง' : 'Building/Facility'}</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ชื่อ' : 'Name'} *</label>
+                <input
+                  type="text"
+                  value={newEquipment.name}
+                  onChange={(e) => setNewEquipment({...newEquipment, name: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder={lang === 'th' ? 'เช่น Table Saw 3, Forklift 3' : 'e.g., Table Saw 3, Forklift 3'}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภทย่อย' : 'Type'}</label>
+                <select
+                  value={newEquipment.type}
+                  onChange={(e) => setNewEquipment({...newEquipment, type: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  {newEquipment.category === 'building' 
+                    ? BUILDING_AREAS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)
+                    : EQUIPMENT_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)
+                  }
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ที่ตั้ง' : 'Location'}</label>
+                <input
+                  type="text"
+                  value={newEquipment.location}
+                  onChange={(e) => setNewEquipment({...newEquipment, location: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder={lang === 'th' ? 'เช่น C1, Warehouse' : 'e.g., C1, Warehouse'}
+                />
+              </div>
+              {newEquipment.category === 'equipment' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ยี่ห้อ' : 'Brand'}</label>
+                    <input
+                      type="text"
+                      value={newEquipment.brand}
+                      onChange={(e) => setNewEquipment({...newEquipment, brand: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รุ่น' : 'Model'}</label>
+                    <input
+                      type="text"
+                      value={newEquipment.model}
+                      onChange={(e) => setNewEquipment({...newEquipment, model: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'S/N' : 'Serial No.'}</label>
+                    <input
+                      type="text"
+                      value={newEquipment.serialNo}
+                      onChange={(e) => setNewEquipment({...newEquipment, serialNo: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รอบบำรุง (วัน)' : 'Service Interval (days)'}</label>
+                    <input
+                      type="number"
+                      value={newEquipment.serviceInterval}
+                      onChange={(e) => setNewEquipment({...newEquipment, serviceInterval: parseInt(e.target.value)})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันซื้อ' : 'Purchase Date'}</label>
+                    <input
+                      type="date"
+                      value={newEquipment.purchaseDate}
+                      onChange={(e) => setNewEquipment({...newEquipment, purchaseDate: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'หมดประกัน' : 'Warranty Expiry'}</label>
+                    <input
+                      type="date"
+                      value={newEquipment.warrantyExpiry}
+                      onChange={(e) => setNewEquipment({...newEquipment, warrantyExpiry: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                </>
+              )}
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'หมายเหตุ' : 'Notes'}</label>
+                <textarea
+                  value={newEquipment.notes}
+                  onChange={(e) => setNewEquipment({...newEquipment, notes: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  rows="2"
+                />
+              </div>
+            </div>
+            <div className="flex gap-4 pt-4">
+              <Button variant="outline" className="flex-1" onClick={() => setShowAddEquipmentModal(false)}>
+                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+              </Button>
+              <Button className="flex-1" onClick={handleAddEquipment} disabled={!newEquipment.name}>
+                <Plus className="w-4 h-4 mr-2" />
+                {lang === 'th' ? 'เพิ่ม' : 'Add'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Maintenance Request Modal */}
+      {showRequestModal && (
+        <Modal isOpen={showRequestModal} onClose={() => setShowRequestModal(false)} title={lang === 'th' ? 'แจ้งซ่อม / ขอบริการซ่อมบำรุง' : 'Maintenance Request Form'} size="lg">
+          <div className="space-y-4">
+            <div className="p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-700">
+                {lang === 'th' ? 'แบบฟอร์มนี้สำหรับแผนกอื่นแจ้งซ่อมหรือขอบริการซ่อมบำรุง' : 'Use this form to request maintenance service from other departments'}
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'แผนกที่แจ้ง' : 'Department'} *</label>
+                <select
+                  value={newRequest.department}
+                  onChange={(e) => setNewRequest({...newRequest, department: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="">{lang === 'th' ? '-- เลือกแผนก --' : '-- Select Department --'}</option>
+                  {DEPARTMENTS.map(d => (
+                    <option key={d.id} value={d.id}>{d.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ผู้แจ้ง' : 'Requested By'} *</label>
+                <input
+                  type="text"
+                  value={newRequest.requestedBy}
+                  onChange={(e) => setNewRequest({...newRequest, requestedBy: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder={lang === 'th' ? 'ชื่อผู้แจ้ง' : 'Your name'}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภทงาน' : 'Category'}</label>
+                <select
+                  value={newRequest.category}
+                  onChange={(e) => setNewRequest({...newRequest, category: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  {Object.entries(MAINT_CATEGORIES).map(([key, val]) => (
+                    <option key={key} value={key}>{val.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ความเร่งด่วน' : 'Priority'}</label>
+                <select
+                  value={newRequest.priority}
+                  onChange={(e) => setNewRequest({...newRequest, priority: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="low">{lang === 'th' ? 'ต่ำ' : 'Low'}</option>
+                  <option value="medium">{lang === 'th' ? 'ปานกลาง' : 'Medium'}</option>
+                  <option value="high">{lang === 'th' ? 'สูง' : 'High'}</option>
+                  <option value="critical">{lang === 'th' ? 'วิกฤต (หยุดผลิต)' : 'Critical (Production Stop)'}</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เรื่อง' : 'Subject'} *</label>
+                <input
+                  type="text"
+                  value={newRequest.subject}
+                  onChange={(e) => setNewRequest({...newRequest, subject: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder={lang === 'th' ? 'เช่น เครื่องตัดเสีย, ท่อน้ำรั่ว' : 'e.g., Machine breakdown, Pipe leak'}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รายละเอียด' : 'Description'}</label>
+                <textarea
+                  value={newRequest.description}
+                  onChange={(e) => setNewRequest({...newRequest, description: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  rows="3"
+                  placeholder={lang === 'th' ? 'อธิบายปัญหาหรืองานที่ต้องการ...' : 'Describe the issue or work needed...'}
+                />
+              </div>
+            </div>
+            <div className="flex gap-4 pt-4">
+              <Button variant="outline" className="flex-1" onClick={() => setShowRequestModal(false)}>
+                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+              </Button>
+              <Button 
+                className="flex-1" 
+                onClick={handleSubmitRequest}
+                disabled={!newRequest.department || !newRequest.requestedBy || !newRequest.subject}
+              >
+                <Send className="w-4 h-4 mr-2" />
+                {lang === 'th' ? 'ส่งคำขอ' : 'Submit Request'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* MWO Modal */}
+      {showMWOModal && (
+        <Modal isOpen={showMWOModal} onClose={() => setShowMWOModal(false)} title={lang === 'th' ? 'สร้างใบงานซ่อมบำรุง' : 'Create Maintenance Work Order'} size="lg">
+          <div className="space-y-4">
+            <div className="p-3 bg-blue-50 rounded-lg text-center">
+              <div className="font-mono text-lg font-bold text-blue-700">{generateMWONumber()}</div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภทงาน' : 'Category'}</label>
+                <select className="w-full px-3 py-2 border rounded-lg">
+                  {Object.entries(MAINT_CATEGORIES).map(([key, val]) => (
+                    <option key={key} value={key}>{val.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ความสำคัญ' : 'Priority'}</label>
+                <select className="w-full px-3 py-2 border rounded-lg">
+                  <option value="low">{lang === 'th' ? 'ต่ำ' : 'Low'}</option>
+                  <option value="medium">{lang === 'th' ? 'ปานกลาง' : 'Medium'}</option>
+                  <option value="high">{lang === 'th' ? 'สูง' : 'High'}</option>
+                  <option value="critical">{lang === 'th' ? 'วิกฤต' : 'Critical'}</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'อุปกรณ์/พื้นที่' : 'Equipment/Area'}</label>
+              <select className="w-full px-3 py-2 border rounded-lg">
+                <option value="">{lang === 'th' ? '-- เลือก --' : '-- Select --'}</option>
+                {equipmentList.map(eq => (
+                  <option key={eq.id} value={eq.id}>{eq.name} ({eq.location})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รายละเอียดงาน' : 'Work Description'}</label>
+              <textarea className="w-full px-3 py-2 border rounded-lg" rows="3" placeholder={lang === 'th' ? 'อธิบายงานที่ต้องทำ...' : 'Describe the work required...'}></textarea>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'มอบหมายให้' : 'Assign To'}</label>
+              <select className="w-full px-3 py-2 border rounded-lg">
+                <option value="">{lang === 'th' ? '-- เลือกช่าง --' : '-- Select Technician --'}</option>
+                {technicians.map(t => (
+                  <option key={t.id} value={t.id}>{t.name} ({t.nameTh})</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-4 pt-4">
+              <Button variant="outline" className="flex-1" onClick={() => setShowMWOModal(false)}>
+                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+              </Button>
+              <Button className="flex-1">
+                {lang === 'th' ? 'สร้างใบงาน' : 'Create MWO'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  )
+}
         </Card>
         <Card className="p-3 border-l-4 border-l-red-500">
           <div className="text-xs text-gray-500">{lang === 'th' ? 'วิกฤต' : 'Critical'}</div>
@@ -14512,9 +16382,159 @@ const AppFull = () => {
   const [maintenanceTasks, setMaintenanceTasks] = useState(INITIAL_MAINTENANCE_TASKS)
 
   const [quotations, setQuotations] = useState([]) // Sales quotations
+  
   // UI State
   const [activeModule, setActiveModule] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  
+  // New Feature States
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [showQuickActions, setShowQuickActions] = useState(false)
+  const [productionView, setProductionView] = useState('tabs') // 'tabs' or 'kanban'
+
+  // Generate dynamic notifications based on current data
+  const notifications = [
+    // Overdue WOs
+    ...workOrders.filter(wo => {
+      const dueDate = new Date(wo.targetDate)
+      return dueDate < new Date() && wo.status !== 'completed'
+    }).slice(0, 3).map(wo => ({
+      id: `wo-overdue-${wo.id}`,
+      type: 'alert',
+      title: lang === 'th' ? 'WO เลยกำหนด' : 'WO Overdue',
+      message: `${wo.woNumber || wo.id} - ${wo.productName}`,
+      time: formatDate(wo.targetDate),
+      action: lang === 'th' ? 'ดูรายละเอียด' : 'View Details',
+      read: false,
+    })),
+    // WOs at QC (need labels)
+    ...workOrders.filter(wo => wo.currentDept === 'QC' && !wo.labelsPrinted).slice(0, 2).map(wo => ({
+      id: `wo-qc-${wo.id}`,
+      type: 'task',
+      title: lang === 'th' ? 'WO ถึง QC - พิมพ์ฉลาก' : 'WO at QC - Print Labels',
+      message: `${wo.woNumber || wo.id} ${lang === 'th' ? 'รอพิมพ์ฉลาก' : 'needs labels'}`,
+      time: lang === 'th' ? 'เมื่อสักครู่' : 'Just now',
+      action: lang === 'th' ? 'พิมพ์ฉลาก' : 'Print Labels',
+      read: false,
+    })),
+    // Low inventory alerts
+    ...inventory.filter(item => item.quantity <= (item.minQty || 10)).slice(0, 2).map(item => ({
+      id: `inv-low-${item.id}`,
+      type: 'alert',
+      title: lang === 'th' ? 'สต็อกต่ำ' : 'Low Stock Alert',
+      message: `${item.name}: ${item.quantity} ${item.unit} ${lang === 'th' ? 'เหลือ' : 'remaining'}`,
+      time: lang === 'th' ? '1 ชั่วโมงที่แล้ว' : '1 hour ago',
+      action: lang === 'th' ? 'สร้าง PR' : 'Create PR',
+      read: false,
+    })),
+    // Pending PO approvals
+    ...purchaseOrders.filter(po => po.status === 'pending' && (po.totalAmount || 0) > 50000).slice(0, 2).map(po => ({
+      id: `po-approval-${po.id}`,
+      type: 'approval',
+      title: lang === 'th' ? 'รออนุมัติ PO' : 'PO Pending Approval',
+      message: `${po.poNumber} - ฿${(po.totalAmount || 0).toLocaleString()}`,
+      time: formatDate(po.date),
+      action: lang === 'th' ? 'อนุมัติ' : 'Approve',
+      read: false,
+    })),
+    // Maintenance requests
+    { 
+      id: 'maint-1', 
+      type: 'task', 
+      title: lang === 'th' ? 'แจ้งซ่อมใหม่' : 'New Maintenance Request',
+      message: lang === 'th' ? 'C1 - Table Saw เสียง' : 'C1 - Table Saw noise',
+      time: lang === 'th' ? '30 นาทีที่แล้ว' : '30 minutes ago',
+      action: lang === 'th' ? 'ดูคำขอ' : 'View Request',
+      read: false,
+    },
+  ]
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Cmd+K or Ctrl+K for global search
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setShowGlobalSearch(true)
+        setShowNotifications(false)
+        setShowQuickActions(false)
+      }
+      // Q for quick actions (when not in input)
+      if (e.key === 'q' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+        e.preventDefault()
+        setShowQuickActions(!showQuickActions)
+        setShowNotifications(false)
+      }
+      // Escape to close
+      if (e.key === 'Escape') {
+        setShowGlobalSearch(false)
+        setShowNotifications(false)
+        setShowQuickActions(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showQuickActions])
+
+  // Handle search navigation
+  const handleSearchNavigate = (type, item) => {
+    switch(type) {
+      case 'customer':
+        setActiveModule('sales')
+        break
+      case 'workOrder':
+        setActiveModule('production')
+        break
+      case 'invoice':
+        setActiveModule('sales')
+        break
+      case 'inventory':
+        setActiveModule('inventory')
+        break
+      case 'purchaseOrder':
+        setActiveModule('purchase')
+        break
+      case 'employee':
+        setActiveModule('hr')
+        break
+    }
+  }
+
+  // Handle quick actions
+  const handleQuickAction = (actionId) => {
+    switch(actionId) {
+      case 'new_wo':
+        setActiveModule('production')
+        break
+      case 'new_so':
+      case 'new_invoice':
+      case 'new_quote':
+        setActiveModule('sales')
+        break
+      case 'new_po':
+        setActiveModule('purchase')
+        break
+      case 'maint_request':
+        setActiveModule('maintenance')
+        break
+    }
+  }
+
+  // Handle notification action
+  const handleNotificationAction = (notif) => {
+    if (notif.id.startsWith('wo-')) {
+      setActiveModule('production')
+    } else if (notif.id.startsWith('inv-')) {
+      setActiveModule('inventory')
+    } else if (notif.id.startsWith('po-')) {
+      setActiveModule('purchase')
+    } else if (notif.id.startsWith('maint-')) {
+      setActiveModule('maintenance')
+    }
+    setShowNotifications(false)
+  }
 
   // Auth handlers
   const handleLogin = (user) => {
@@ -14635,15 +16655,76 @@ const AppFull = () => {
                   </h1>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                {/* Global Search Button */}
+                <button 
+                  onClick={() => setShowGlobalSearch(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-600 transition-colors"
+                >
+                  <Search className="w-4 h-4" />
+                  <span className="hidden md:inline">{lang === 'th' ? 'ค้นหา...' : 'Search...'}</span>
+                  <kbd className="hidden md:inline px-1.5 py-0.5 text-xs bg-white rounded border shadow-sm">⌘K</kbd>
+                </button>
+
+                {/* Quick Actions Button */}
+                <div className="relative">
+                  <button 
+                    onClick={() => { setShowQuickActions(!showQuickActions); setShowNotifications(false) }}
+                    className="p-2 hover:bg-gray-100 rounded-lg relative"
+                    title={lang === 'th' ? 'ทางลัด (Q)' : 'Quick Actions (Q)'}
+                  >
+                    <Zap className="w-5 h-5 text-yellow-500" />
+                  </button>
+                  <QuickActionsMenu 
+                    isOpen={showQuickActions} 
+                    onClose={() => setShowQuickActions(false)}
+                    context="global"
+                    onAction={handleQuickAction}
+                    lang={lang}
+                  />
+                </div>
+
                 <LanguageSwitcher />
                 <Badge variant={currentUser.entity}>{currentUser.entity}</Badge>
-                <button className="p-2 hover:bg-gray-100 rounded-lg relative">
-                  <Bell className="w-5 h-5 text-gray-500" />
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-                </button>
+
+                {/* Notifications Bell */}
+                <div className="relative">
+                  <button 
+                    onClick={() => { setShowNotifications(!showNotifications); setShowQuickActions(false) }}
+                    className="p-2 hover:bg-gray-100 rounded-lg relative"
+                  >
+                    <Bell className="w-5 h-5 text-gray-500" />
+                    {notifications.filter(n => !n.read).length > 0 && (
+                      <span className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
+                        {notifications.filter(n => !n.read).length}
+                      </span>
+                    )}
+                  </button>
+                  <NotificationCenter 
+                    isOpen={showNotifications} 
+                    onClose={() => setShowNotifications(false)}
+                    notifications={notifications}
+                    onAction={handleNotificationAction}
+                    lang={lang}
+                  />
+                </div>
               </div>
             </header>
+
+            {/* Global Search Modal */}
+            <GlobalSearch 
+              isOpen={showGlobalSearch}
+              onClose={() => setShowGlobalSearch(false)}
+              customers={customers}
+              workOrders={workOrders}
+              salesOrders={salesOrders}
+              invoices={invoices}
+              inventory={inventory}
+              purchaseOrders={purchaseOrders}
+              employees={employees}
+              onNavigate={handleSearchNavigate}
+              lang={lang}
+            />
 
             {/* Content Area - All Modules */}
             <div className="flex-1 overflow-auto">
@@ -14696,19 +16777,62 @@ const AppFull = () => {
                 />
               )}
               {activeModule === 'production' && (
-                <ProductionModule
-                  workOrders={workOrders}
-                  setWorkOrders={setWorkOrders}
-                  departments={departments}
-                  customers={customers}
-                  inventory={inventory}
-                  setInventory={setInventory}
-                  categories={categories}
-                  stores={stores}
-                  salesOrders={salesOrders}
-                  setSalesOrders={setSalesOrders}
-                  lang={lang}
-                />
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  {/* View Toggle */}
+                  <div className="px-6 pt-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setProductionView('tabs')}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          productionView === 'tabs' 
+                            ? 'bg-[#1A5276] text-white' 
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        <ClipboardList className="w-4 h-4" />
+                        {lang === 'th' ? 'แท็บ' : 'Tabs'}
+                      </button>
+                      <button
+                        onClick={() => setProductionView('kanban')}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          productionView === 'kanban' 
+                            ? 'bg-[#1A5276] text-white' 
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        <Layers className="w-4 h-4" />
+                        {lang === 'th' ? 'Kanban' : 'Kanban'}
+                      </button>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {workOrders.filter(wo => wo.status !== 'completed').length} {lang === 'th' ? 'งานกำลังดำเนินการ' : 'active work orders'}
+                    </div>
+                  </div>
+                  {/* Content based on view */}
+                  {productionView === 'kanban' ? (
+                    <KanbanBoard
+                      workOrders={workOrders}
+                      setWorkOrders={setWorkOrders}
+                      departments={departments}
+                      customers={customers}
+                      lang={lang}
+                    />
+                  ) : (
+                    <ProductionModule
+                      workOrders={workOrders}
+                      setWorkOrders={setWorkOrders}
+                      departments={departments}
+                      customers={customers}
+                      inventory={inventory}
+                      setInventory={setInventory}
+                      categories={categories}
+                      stores={stores}
+                      salesOrders={salesOrders}
+                      setSalesOrders={setSalesOrders}
+                      lang={lang}
+                    />
+                  )}
+                </div>
               )}
               {activeModule === 'sales' && (
                 <SalesModule
@@ -16174,10 +18298,15 @@ const VersionInfo = ({ lang }) => {
 //
 // MAINTENANCE MODULE:
 //   - MWO Format: MWO-YYMMDD-XXX
+//   - Add Equipment form (machines, tools, building assets)
+//   - Maintenance Request form (other depts can submit requests)
+//   - Categories: Equipment, Vehicle, Building/Facility, Electrical, Plumbing
+//   - Building work: Painting, Repair, Electrical, Plumbing, Carpentry
+//   - Request tracking: Pending → Converted to MWO
+//   - Spare parts store with low stock alerts and stock value
+//   - PM Schedule calendar with service due tracking
 //   - Equipment registry with service intervals
-//   - Spare parts store with low stock alerts
 //   - Diesel tracking (~8L/week for forklifts)
-//   - PM Schedule calendar
 //   - Vehicle maintenance linked to Transport
 //
 // SALES MODULE:
@@ -16189,6 +18318,14 @@ const VersionInfo = ({ lang }) => {
 //
 // Languages: EN, TH, MY, KH, ZH, JP
 // Roles: Admin, Sales, Production, Warehouse, HR, Accounting, Transport, Maintenance
+//
+// v7.6 NEW FEATURES (Inspired by Odoo, ClickUp, ERPNext):
+// 1. GLOBAL SEARCH (Cmd+K) - Search all records: customers, WOs, invoices, inventory, POs, employees
+// 2. NOTIFICATION CENTER - Overdue WOs, Low stock, Pending approvals, Maintenance requests
+// 3. QUICK ACTIONS (Q) - Context-aware shortcuts: New WO, SO, PO, Invoice, Quote, Maintenance
+// 4. KANBAN BOARD - Drag-drop WOs between departments (C1→P1→ASM→OVN→QC→FG)
+// 5. DOCUMENT FLOW - Visual: SO → WO → DN → Invoice → Payment
+// 6. ACTIVITY LOG - Timeline of actions on records with comments
 
 // ============================================
 // DEFAULT EXPORT - MUST BE AT END OF FILE
