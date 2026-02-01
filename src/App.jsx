@@ -7273,9 +7273,9 @@ const AdminHub = ({ stores, setStores, categories, setCategories, departments, s
 }
 
 // ============================================
-// MAIN APP COMPONENT
+// MAIN APP COMPONENT (Basic Version)
 // ============================================
-function App() {
+function AppBasic() {
   // Authentication
   const [currentUser, setCurrentUser] = useState(null)
   const [lang, setLang] = useState('en')
@@ -11309,5 +11309,4 @@ const VersionInfo = ({ lang }) => {
 // DEFAULT EXPORT
 // ============================================
 const App = AppFull
-export { App, AppFull }
 export default App
