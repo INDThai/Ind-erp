@@ -19,8 +19,8 @@ import {
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '7.4'
-const VERSION_DATE = '2026-01-31'
+const VERSION = '7.5'
+const VERSION_DATE = '2026-02-01'
 
 // ============================================
 // IND LOGO (SVG as base64)
@@ -1419,22 +1419,97 @@ const SmartDocumentUploadModal = ({ isOpen, onClose, module, lang, onProcessed, 
 // Total lines so far: ~1,450
 
 // ============================================
-// TRANSPORT MODULE (DEEP - WITH CALENDAR)
+// TRANSPORT MODULE - ENHANCED v7.4
+// Fleet: 4 trucks (3 operational), Drivers: Mayo, W, T, C
+// Allowance: 100% furthest + 50% additional stops
+// Bonus: 45+ trips=฿500, after 7PM=฿50, holiday=฿50
 // ============================================
-const TransportModule = ({ deliveries, setDeliveries, trucks, employees, salesOrders, lang }) => {
-  const [activeTab, setActiveTab] = useState('calendar')
+const TransportModule = ({ deliveries, setDeliveries, trucks, setTrucks, employees, salesOrders, lang }) => {
+  const [activeTab, setActiveTab] = useState('dashboard')
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const [showScheduleModal, setShowScheduleModal] = useState(false)
+  const [showTripModal, setShowTripModal] = useState(false)
+  const [showFuelModal, setShowFuelModal] = useState(false)
   const [selectedDelivery, setSelectedDelivery] = useState(null)
+  const [filterDriver, setFilterDriver] = useState('all')
+  const [filterMonth, setFilterMonth] = useState(new Date().getMonth())
 
-  const tabs = [
-    { id: 'calendar', label: lang === 'th' ? 'ปฏิทิน' : 'Calendar', icon: CalendarDays },
-    { id: 'deliveries', label: lang === 'th' ? 'รายการส่ง' : 'Deliveries', icon: Truck },
-    { id: 'vehicles', label: lang === 'th' ? 'ยานพาหนะ' : 'Vehicles', icon: Car },
-    { id: 'routes', label: lang === 'th' ? 'เส้นทาง' : 'Routes', icon: Navigation },
+  // IND Fleet Data
+  const IND_TRUCKS = trucks || [
+    { id: 'TRK-001', plate: 'ชบ-1234', name: 'Truck 1', status: 'available', mileage: 125000, nextService: 130000 },
+    { id: 'TRK-002', plate: 'ชบ-5678', name: 'Truck 2', status: 'available', mileage: 98000, nextService: 100000 },
+    { id: 'TRK-003', plate: 'ชบ-9012', name: 'Truck 3', status: 'available', mileage: 156000, nextService: 160000 },
+    { id: 'TRK-004', plate: 'ชบ-3456', name: 'Truck 4', status: 'maintenance', mileage: 203000, nextService: 210000 },
   ]
 
-  const drivers = employees?.filter(e => e.department === 'transport') || []
+  // IND Drivers
+  const IND_DRIVERS = [
+    { id: 'DRV-001', name: 'Mayo', nameTh: 'มาโย', status: 'active' },
+    { id: 'DRV-002', name: 'W', nameTh: 'ดับเบิ้ลยู', status: 'active' },
+    { id: 'DRV-003', name: 'T', nameTh: 'ที', status: 'active' },
+    { id: 'DRV-004', name: 'C', nameTh: 'ซี', status: 'active' },
+  ]
+
+  // Allowance rates per locked specs
+  const ALLOWANCE_RATES = {
+    // Distance-based allowances (example rates)
+    chonburi: 150,
+    rayong: 250,
+    bangkok: 400,
+    eastern: 300,
+    other: 350,
+  }
+
+  const tabs = [
+    { id: 'dashboard', label: lang === 'th' ? 'หน้าหลัก' : 'Dashboard', icon: Home },
+    { id: 'trips', label: lang === 'th' ? 'เที่ยวรถ' : 'Trips', icon: Truck },
+    { id: 'schedule', label: lang === 'th' ? 'ตารางงาน' : 'Schedule', icon: Calendar },
+    { id: 'fleet', label: lang === 'th' ? 'ยานพาหนะ' : 'Fleet', icon: Car },
+    { id: 'drivers', label: lang === 'th' ? 'คนขับ' : 'Drivers', icon: Users },
+    { id: 'fuel', label: lang === 'th' ? 'น้ำมัน' : 'Fuel Log', icon: Fuel },
+    { id: 'allowances', label: lang === 'th' ? 'ค่าเที่ยว' : 'Allowances', icon: Banknote },
+  ]
+
+  // Calculate monthly stats per driver
+  const getDriverMonthlyStats = (driverId, month) => {
+    const monthDeliveries = (deliveries || []).filter(d => {
+      const delDate = new Date(d.date)
+      return d.driverId === driverId && delDate.getMonth() === month
+    })
+    
+    const trips = monthDeliveries.length
+    const afterSevenPM = monthDeliveries.filter(d => d.returnTime && parseInt(d.returnTime.split(':')[0]) >= 19).length
+    const holidayTrips = monthDeliveries.filter(d => d.isHoliday).length
+    
+    // Calculate allowances
+    let tripAllowance = 0
+    monthDeliveries.forEach(d => {
+      if (d.stops && d.stops.length > 0) {
+        // 100% of furthest + 50% of others
+        const sortedStops = [...d.stops].sort((a, b) => (b.distance || 0) - (a.distance || 0))
+        const furthest = sortedStops[0]?.allowance || 0
+        const others = sortedStops.slice(1).reduce((sum, s) => sum + (s.allowance || 0) * 0.5, 0)
+        tripAllowance += furthest + others
+      } else {
+        tripAllowance += d.allowance || 0
+      }
+    })
+    
+    // Bonuses per locked specs
+    const tripBonus = trips >= 45 ? 500 : 0
+    const lateBonus = afterSevenPM * 50
+    const holidayBonus = holidayTrips * 50
+    
+    return {
+      trips,
+      afterSevenPM,
+      holidayTrips,
+      tripAllowance,
+      tripBonus,
+      lateBonus,
+      holidayBonus,
+      total: tripAllowance + tripBonus + lateBonus + holidayBonus,
+    }
+  }
 
   // Calendar helpers
   const getDaysInMonth = (date) => {
@@ -1444,12 +1519,10 @@ const TransportModule = ({ deliveries, setDeliveries, trucks, employees, salesOr
     const lastDay = new Date(year, month + 1, 0)
     const days = []
     
-    // Add empty days for alignment
     for (let i = 0; i < firstDay.getDay(); i++) {
       days.push(null)
     }
     
-    // Add actual days
     for (let i = 1; i <= lastDay.getDate(); i++) {
       days.push(new Date(year, month, i))
     }
@@ -1460,43 +1533,594 @@ const TransportModule = ({ deliveries, setDeliveries, trucks, employees, salesOr
   const getDeliveriesForDate = (date) => {
     if (!date) return []
     const dateStr = date.toISOString().split('T')[0]
-    return deliveries?.filter(d => d.date === dateStr) || []
+    return (deliveries || []).filter(d => d.date === dateStr)
   }
 
   const stats = {
-    total: deliveries?.length || 0,
-    scheduled: deliveries?.filter(d => d.status === 'scheduled').length || 0,
-    inTransit: deliveries?.filter(d => d.status === 'in_transit').length || 0,
-    delivered: deliveries?.filter(d => d.status === 'delivered').length || 0,
-    pendingDriver: deliveries?.filter(d => d.status === 'pending_driver').length || 0,
-    availableTrucks: trucks?.filter(t => t.status === 'available').length || 0,
+    totalTrips: (deliveries || []).length,
+    todayTrips: getDeliveriesForDate(new Date()).length,
+    scheduled: (deliveries || []).filter(d => d.status === 'scheduled').length,
+    inTransit: (deliveries || []).filter(d => d.status === 'in_transit').length,
+    completed: (deliveries || []).filter(d => d.status === 'delivered').length,
+    availableTrucks: IND_TRUCKS.filter(t => t.status === 'available').length,
+    totalTrucks: IND_TRUCKS.length,
   }
 
   const monthNames = lang === 'th' 
-    ? ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
-    : ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    ? ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+    : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-  const dayNames = lang === 'th'
-    ? ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
-    : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const dayNames = lang === 'th' ? ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{t('nav.transport', lang)}</h1>
-          <p className="text-gray-500">{lang === 'th' ? 'จัดการการจัดส่งและยานพาหนะ' : 'Manage deliveries and vehicles'}</p>
+          <p className="text-gray-500">{lang === 'th' ? 'จัดการเที่ยวรถ ค่าเที่ยว และยานพาหนะ' : 'Manage trips, allowances & fleet'}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" icon={Upload}>
-            {lang === 'th' ? 'อัพโหลด' : 'Upload'}
+          <Button variant="outline" icon={Fuel} onClick={() => setShowFuelModal(true)}>
+            {lang === 'th' ? 'บันทึกน้ำมัน' : 'Log Fuel'}
           </Button>
-          <Button icon={Plus} onClick={() => setShowScheduleModal(true)}>
-            {lang === 'th' ? 'กำหนดการส่ง' : 'Schedule Delivery'}
+          <Button icon={Plus} onClick={() => setShowTripModal(true)}>
+            {lang === 'th' ? 'สร้างเที่ยว' : 'New Trip'}
           </Button>
         </div>
       </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <Card className="p-3 border-l-4 border-l-blue-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'เที่ยวทั้งหมด' : 'Total Trips'}</div>
+          <div className="text-xl font-bold text-blue-600">{stats.totalTrips}</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-green-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'วันนี้' : 'Today'}</div>
+          <div className="text-xl font-bold text-green-600">{stats.todayTrips}</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-yellow-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'กำลังส่ง' : 'In Transit'}</div>
+          <div className="text-xl font-bold text-yellow-600">{stats.inTransit}</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-purple-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'นัดหมาย' : 'Scheduled'}</div>
+          <div className="text-xl font-bold text-purple-600">{stats.scheduled}</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-emerald-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'ส่งแล้ว' : 'Delivered'}</div>
+          <div className="text-xl font-bold text-emerald-600">{stats.completed}</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-cyan-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'รถว่าง' : 'Available'}</div>
+          <div className="text-xl font-bold text-cyan-600">{stats.availableTrucks}/{stats.totalTrucks}</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-orange-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'คนขับ' : 'Drivers'}</div>
+          <div className="text-xl font-bold text-orange-600">{IND_DRIVERS.filter(d => d.status === 'active').length}</div>
+        </Card>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b overflow-x-auto">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap ${
+              activeTab === tab.id 
+                ? 'border-[#1A5276] text-[#1A5276] bg-blue-50' 
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Dashboard Tab */}
+      {activeTab === 'dashboard' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Today's Trips */}
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Truck className="w-5 h-5 text-blue-500" />
+              {lang === 'th' ? 'เที่ยววันนี้' : "Today's Trips"}
+            </h3>
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {getDeliveriesForDate(new Date()).map(del => {
+                const driver = IND_DRIVERS.find(d => d.id === del.driverId)
+                const truck = IND_TRUCKS.find(t => t.id === del.truckId)
+                return (
+                  <div key={del.id} className="p-3 bg-gray-50 rounded-lg border">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-medium">{del.customer}</div>
+                        <div className="text-sm text-gray-500">{del.destination}</div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          🚛 {truck?.plate} • 👤 {driver?.name}
+                        </div>
+                      </div>
+                      <Badge variant={
+                        del.status === 'delivered' ? 'success' :
+                        del.status === 'in_transit' ? 'warning' : 'default'
+                      }>
+                        {del.status}
+                      </Badge>
+                    </div>
+                  </div>
+                )
+              })}
+              {getDeliveriesForDate(new Date()).length === 0 && (
+                <p className="text-gray-400 text-center py-4">{lang === 'th' ? 'ไม่มีเที่ยววันนี้' : 'No trips today'}</p>
+              )}
+            </div>
+          </Card>
+
+          {/* Fleet Status */}
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Car className="w-5 h-5 text-green-500" />
+              {lang === 'th' ? 'สถานะรถ' : 'Fleet Status'}
+            </h3>
+            <div className="space-y-3">
+              {IND_TRUCKS.map(truck => (
+                <div key={truck.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${
+                      truck.status === 'available' ? 'bg-green-500' :
+                      truck.status === 'in_use' ? 'bg-yellow-500' : 'bg-red-500'
+                    }`} />
+                    <div>
+                      <div className="font-medium">{truck.plate}</div>
+                      <div className="text-xs text-gray-500">{truck.name}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm">{truck.mileage.toLocaleString()} km</div>
+                    {truck.mileage > truck.nextService - 2000 && (
+                      <div className="text-xs text-orange-500">⚠️ Service soon</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Driver Summary */}
+          <Card className="p-5 lg:col-span-2">
+            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Users className="w-5 h-5 text-purple-500" />
+              {lang === 'th' ? 'สรุปคนขับเดือนนี้' : 'Driver Summary This Month'}
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'คนขับ' : 'Driver'}</th>
+                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'เที่ยว' : 'Trips'}</th>
+                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ค่าเที่ยว' : 'Allowance'}</th>
+                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'หลัง19:00' : 'After 7PM'}</th>
+                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'วันหยุด' : 'Holiday'}</th>
+                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'โบนัส45+' : '45+ Bonus'}</th>
+                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600 bg-green-50">{lang === 'th' ? 'รวม' : 'Total'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {IND_DRIVERS.map(driver => {
+                    const stats = getDriverMonthlyStats(driver.id, new Date().getMonth())
+                    return (
+                      <tr key={driver.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium">{driver.name} ({driver.nameTh})</td>
+                        <td className="px-4 py-3 text-right">{stats.trips}</td>
+                        <td className="px-4 py-3 text-right">฿{stats.tripAllowance.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right">{stats.afterSevenPM} (฿{stats.lateBonus})</td>
+                        <td className="px-4 py-3 text-right">{stats.holidayTrips} (฿{stats.holidayBonus})</td>
+                        <td className="px-4 py-3 text-right">
+                          {stats.tripBonus > 0 ? (
+                            <span className="text-green-600">฿{stats.tripBonus}</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-green-600 bg-green-50">฿{stats.total.toLocaleString()}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+              <strong>{lang === 'th' ? 'กฎค่าเที่ยว:' : 'Allowance Rules:'}</strong>
+              <ul className="mt-1 list-disc list-inside">
+                <li>{lang === 'th' ? '100% จุดไกลสุด + 50% จุดอื่นๆ' : '100% of furthest + 50% of other stops'}</li>
+                <li>{lang === 'th' ? 'โบนัส 45+ เที่ยว = ฿500' : '45+ trips bonus = ฿500'}</li>
+                <li>{lang === 'th' ? 'หลัง 19:00 = ฿50/เที่ยว' : 'After 7PM = ฿50/trip'}</li>
+                <li>{lang === 'th' ? 'วันหยุด = ฿50/เที่ยว' : 'Holiday = ฿50/trip'}</li>
+              </ul>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Trips Tab */}
+      {activeTab === 'trips' && (
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b flex gap-3 flex-wrap">
+            <select
+              value={filterDriver}
+              onChange={(e) => setFilterDriver(e.target.value)}
+              className="px-3 py-2 border rounded-lg text-sm"
+            >
+              <option value="all">{lang === 'th' ? 'คนขับทั้งหมด' : 'All Drivers'}</option>
+              {IND_DRIVERS.map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+            <select
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(parseInt(e.target.value))}
+              className="px-3 py-2 border rounded-lg text-sm"
+            >
+              {monthNames.map((m, idx) => (
+                <option key={idx} value={idx}>{m}</option>
+              ))}
+            </select>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รถ' : 'Truck'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'คนขับ' : 'Driver'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ปลายทาง' : 'Destination'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ระยะทาง' : 'Distance'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'เวลากลับ' : 'Return'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ค่าเที่ยว' : 'Allowance'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {(deliveries || [])
+                  .filter(d => filterDriver === 'all' || d.driverId === filterDriver)
+                  .filter(d => new Date(d.date).getMonth() === filterMonth)
+                  .map(del => {
+                    const driver = IND_DRIVERS.find(d => d.id === del.driverId)
+                    const truck = IND_TRUCKS.find(t => t.id === del.truckId)
+                    const isLate = del.returnTime && parseInt(del.returnTime.split(':')[0]) >= 19
+                    return (
+                      <tr key={del.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm">{formatDate(del.date)}</td>
+                        <td className="px-4 py-3 text-sm">{truck?.plate}</td>
+                        <td className="px-4 py-3 text-sm">{driver?.name}</td>
+                        <td className="px-4 py-3 text-sm font-medium">{del.customer}</td>
+                        <td className="px-4 py-3 text-sm">{del.destination}</td>
+                        <td className="px-4 py-3 text-sm text-right">{del.distance || '-'} km</td>
+                        <td className="px-4 py-3 text-sm text-center">
+                          {del.returnTime || '-'}
+                          {isLate && <span className="ml-1 text-orange-500">🌙</span>}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-medium">฿{(del.allowance || 0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-center">
+                          <Badge variant={del.status === 'delivered' ? 'success' : del.status === 'in_transit' ? 'warning' : 'default'}>
+                            {del.status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    )
+                  })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Schedule Tab */}
+      {activeTab === 'schedule' && (
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b flex items-center justify-between">
+            <button 
+              onClick={() => setSelectedDate(d => { const nd = new Date(d); nd.setMonth(nd.getMonth() - 1); return nd })}
+              className="p-2 hover:bg-gray-100 rounded"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <h3 className="font-bold text-lg">
+              {selectedDate.toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US', { month: 'long', year: 'numeric' })}
+            </h3>
+            <button 
+              onClick={() => setSelectedDate(d => { const nd = new Date(d); nd.setMonth(nd.getMonth() + 1); return nd })}
+              className="p-2 hover:bg-gray-100 rounded"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="grid grid-cols-7 divide-x border-b bg-gray-50">
+            {dayNames.map(day => (
+              <div key={day} className="p-2 text-center text-sm font-medium text-gray-600">{day}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 divide-x">
+            {getDaysInMonth(selectedDate).map((day, idx) => {
+              const dayDeliveries = day ? getDeliveriesForDate(day) : []
+              const isToday = day && day.toDateString() === new Date().toDateString()
+              return (
+                <div 
+                  key={idx} 
+                  className={`min-h-[100px] p-1 border-b ${!day ? 'bg-gray-50' : ''} ${isToday ? 'bg-blue-50' : ''}`}
+                >
+                  {day && (
+                    <>
+                      <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>
+                        {day.getDate()}
+                      </div>
+                      <div className="space-y-1">
+                        {dayDeliveries.slice(0, 2).map(del => (
+                          <div 
+                            key={del.id}
+                            className={`text-xs p-1 rounded truncate ${
+                              del.status === 'delivered' ? 'bg-green-100 text-green-700' :
+                              del.status === 'in_transit' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-blue-100 text-blue-700'
+                            }`}
+                          >
+                            {del.customer}
+                          </div>
+                        ))}
+                        {dayDeliveries.length > 2 && (
+                          <div className="text-xs text-gray-400">+{dayDeliveries.length - 2} more</div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* Fleet Tab */}
+      {activeTab === 'fleet' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {IND_TRUCKS.map(truck => (
+            <Card key={truck.id} className="overflow-hidden">
+              <div className={`p-4 ${
+                truck.status === 'available' ? 'bg-green-50' :
+                truck.status === 'in_use' ? 'bg-yellow-50' : 'bg-red-50'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Car className={`w-8 h-8 ${
+                      truck.status === 'available' ? 'text-green-600' :
+                      truck.status === 'in_use' ? 'text-yellow-600' : 'text-red-600'
+                    }`} />
+                    <div>
+                      <div className="font-bold text-lg">{truck.plate}</div>
+                      <div className="text-sm text-gray-600">{truck.name}</div>
+                    </div>
+                  </div>
+                  <Badge variant={
+                    truck.status === 'available' ? 'success' :
+                    truck.status === 'in_use' ? 'warning' : 'danger'
+                  }>
+                    {truck.status}
+                  </Badge>
+                </div>
+              </div>
+              <div className="p-4 space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">{lang === 'th' ? 'ระยะทาง' : 'Mileage'}</span>
+                  <span className="font-medium">{truck.mileage.toLocaleString()} km</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">{lang === 'th' ? 'ถึงบำรุง' : 'Next Service'}</span>
+                  <span className={`font-medium ${truck.mileage > truck.nextService - 2000 ? 'text-orange-500' : ''}`}>
+                    {truck.nextService.toLocaleString()} km
+                  </span>
+                </div>
+                <div className="pt-2">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>{lang === 'th' ? 'ใกล้ถึงบำรุง' : 'Service Progress'}</span>
+                    <span>{Math.min(100, Math.round((truck.mileage / truck.nextService) * 100))}%</span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full ${truck.mileage > truck.nextService - 2000 ? 'bg-orange-500' : 'bg-green-500'}`}
+                      style={{ width: `${Math.min(100, (truck.mileage / truck.nextService) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Drivers Tab */}
+      {activeTab === 'drivers' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {IND_DRIVERS.map(driver => {
+            const stats = getDriverMonthlyStats(driver.id, new Date().getMonth())
+            return (
+              <Card key={driver.id} className="p-5">
+                <div className="text-center mb-4">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#1A5276] to-[#2ECC40] flex items-center justify-center mx-auto mb-2">
+                    <span className="text-2xl font-bold text-white">{driver.name[0]}</span>
+                  </div>
+                  <div className="font-bold text-lg">{driver.name}</div>
+                  <div className="text-sm text-gray-500">{driver.nameTh}</div>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">{lang === 'th' ? 'เที่ยวเดือนนี้' : 'Trips This Month'}</span>
+                    <span className="font-medium">{stats.trips}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">{lang === 'th' ? 'รายได้เดือนนี้' : 'Earnings This Month'}</span>
+                    <span className="font-medium text-green-600">฿{stats.total.toLocaleString()}</span>
+                  </div>
+                  {stats.trips >= 45 && (
+                    <div className="mt-2 p-2 bg-green-100 rounded text-center text-green-700 text-xs font-medium">
+                      🎉 45+ Bonus Achieved!
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Fuel Log Tab */}
+      {activeTab === 'fuel' && (
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b bg-orange-50">
+            <h3 className="font-bold text-orange-800 flex items-center gap-2">
+              <Fuel className="w-5 h-5" />
+              {lang === 'th' ? 'บันทึกการเติมน้ำมัน (Fleet Card)' : 'Fuel Log (Fleet Card)'}
+            </h3>
+            <p className="text-sm text-orange-600 mt-1">
+              {lang === 'th' ? 'ใช้ Fleet Card เท่านั้น - ไม่รับเงินสด' : 'Fleet Card only - No cash'}
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รถ' : 'Truck'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'คนขับ' : 'Driver'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ลิตร' : 'Liters'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ราคา/ลิตร' : 'Price/L'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'รวม' : 'Total'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขไมล์' : 'Odometer'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                <tr className="text-center text-gray-400 py-8">
+                  <td colSpan="7" className="py-8">{lang === 'th' ? 'ไม่มีข้อมูล' : 'No fuel logs yet'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Allowances Tab */}
+      {activeTab === 'allowances' && (
+        <div className="space-y-6">
+          <Card className="p-4 bg-blue-50 border-blue-200">
+            <h3 className="font-bold text-blue-800 mb-3">{lang === 'th' ? 'กฎค่าเที่ยว IND' : 'IND Allowance Rules'}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-3 bg-white rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">100%</div>
+                <div className="text-sm text-gray-600">{lang === 'th' ? 'จุดไกลสุด' : 'Furthest Stop'}</div>
+              </div>
+              <div className="p-3 bg-white rounded-lg">
+                <div className="text-2xl font-bold text-purple-600">50%</div>
+                <div className="text-sm text-gray-600">{lang === 'th' ? 'จุดอื่นๆ' : 'Other Stops'}</div>
+              </div>
+              <div className="p-3 bg-white rounded-lg">
+                <div className="text-2xl font-bold text-green-600">฿500</div>
+                <div className="text-sm text-gray-600">{lang === 'th' ? 'โบนัส 45+ เที่ยว' : '45+ Trips Bonus'}</div>
+              </div>
+              <div className="p-3 bg-white rounded-lg">
+                <div className="text-2xl font-bold text-orange-600">฿50</div>
+                <div className="text-sm text-gray-600">{lang === 'th' ? 'หลัง 19:00 / วันหยุด' : 'After 7PM / Holiday'}</div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b">
+              <h3 className="font-bold">{lang === 'th' ? 'สรุปค่าเที่ยวรายเดือน' : 'Monthly Allowance Summary'}</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'คนขับ' : 'Driver'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'เที่ยว' : 'Trips'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ค่าเที่ยว' : 'Trip Allow.'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ค่าอาหาร' : 'Food (7PM)'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'วันหยุด' : 'Holiday'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'โบนัส45+' : '45+ Bonus'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600 bg-green-50">{lang === 'th' ? 'รวมทั้งหมด' : 'Grand Total'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {IND_DRIVERS.map(driver => {
+                    const stats = getDriverMonthlyStats(driver.id, new Date().getMonth())
+                    return (
+                      <tr key={driver.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium">{driver.name} ({driver.nameTh})</td>
+                        <td className="px-4 py-3 text-right">{stats.trips}</td>
+                        <td className="px-4 py-3 text-right">฿{stats.tripAllowance.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right">฿{stats.lateBonus.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right">฿{stats.holidayBonus.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right">
+                          {stats.tripBonus > 0 ? `฿${stats.tripBonus}` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-green-600 bg-green-50">฿{stats.total.toLocaleString()}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Trip Modal */}
+      {showTripModal && (
+        <Modal isOpen={showTripModal} onClose={() => setShowTripModal(false)} title={lang === 'th' ? 'สร้างเที่ยวรถ' : 'Create Trip'} size="lg">
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันที่' : 'Date'}</label>
+                <input type="date" className="w-full px-3 py-2 border rounded-lg" defaultValue={new Date().toISOString().split('T')[0]} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รถ' : 'Truck'}</label>
+                <select className="w-full px-3 py-2 border rounded-lg">
+                  {IND_TRUCKS.filter(t => t.status === 'available').map(t => (
+                    <option key={t.id} value={t.id}>{t.plate} - {t.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'คนขับ' : 'Driver'}</label>
+              <select className="w-full px-3 py-2 border rounded-lg">
+                {IND_DRIVERS.filter(d => d.status === 'active').map(d => (
+                  <option key={d.id} value={d.id}>{d.name} ({d.nameTh})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ลูกค้า / ปลายทาง' : 'Customer / Destination'}</label>
+              <input type="text" className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., Polyplex - Rayong" />
+            </div>
+            <div className="flex gap-4 pt-4">
+              <Button variant="outline" className="flex-1" onClick={() => setShowTripModal(false)}>
+                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+              </Button>
+              <Button className="flex-1">
+                {lang === 'th' ? 'สร้างเที่ยว' : 'Create Trip'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  )
+}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
@@ -1773,81 +2397,159 @@ const TransportModule = ({ deliveries, setDeliveries, trucks, employees, salesOr
 }
 
 // ============================================
-// MAINTENANCE MODULE
+// MAINTENANCE MODULE - ENHANCED v7.4
+// Store: Spare parts, Tools, Diesel (~8L weekly)
+// MWO Format: MWO-YYMMDD-XXX
+// Equipment registry + Vehicle maintenance
 // ============================================
-const MaintenanceModule = ({ tasks, setTasks, equipment, employees, lang }) => {
-  const [activeTab, setActiveTab] = useState('tasks')
-  const [showTaskModal, setShowTaskModal] = useState(false)
+const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenanceStore, setMaintenanceStore, trucks, employees, lang }) => {
+  const [activeTab, setActiveTab] = useState('dashboard')
+  const [showMWOModal, setShowMWOModal] = useState(false)
+  const [showDieselModal, setShowDieselModal] = useState(false)
+  const [showIssueModal, setShowIssueModal] = useState(false)
+  const [selectedTask, setSelectedTask] = useState(null)
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterPriority, setFilterPriority] = useState('all')
 
   const tabs = [
-    { id: 'tasks', label: lang === 'th' ? 'งานซ่อมบำรุง' : 'Tasks', icon: Wrench },
+    { id: 'dashboard', label: lang === 'th' ? 'หน้าหลัก' : 'Dashboard', icon: Home },
+    { id: 'mwo', label: lang === 'th' ? 'ใบงาน' : 'Work Orders', icon: ClipboardList },
     { id: 'equipment', label: lang === 'th' ? 'อุปกรณ์' : 'Equipment', icon: Cog },
-    { id: 'schedule', label: lang === 'th' ? 'ตารางบำรุงรักษา' : 'PM Schedule', icon: Calendar },
+    { id: 'vehicles', label: lang === 'th' ? 'ยานพาหนะ' : 'Vehicles', icon: Car },
+    { id: 'store', label: lang === 'th' ? 'คลังอะไหล่' : 'Parts Store', icon: Package },
+    { id: 'diesel', label: lang === 'th' ? 'น้ำมัน' : 'Diesel', icon: Fuel },
+    { id: 'pm', label: lang === 'th' ? 'PM Schedule' : 'PM Schedule', icon: Calendar },
   ]
 
-  const tasksList = tasks || INITIAL_MAINTENANCE_TASKS
-  const equipmentList = equipment || INITIAL_EQUIPMENT
-  const technicians = employees?.filter(e => e.department === 'maintenance') || []
+  // Initial data
+  const tasksList = tasks || []
+  const equipmentList = equipment || [
+    { id: 'EQ-001', name: 'Forklift 1', type: 'forklift', location: 'Warehouse', status: 'operational', lastService: '2026-01-15', nextService: '2026-04-15', hoursUsed: 1250 },
+    { id: 'EQ-002', name: 'Forklift 2', type: 'forklift', location: 'Production', status: 'operational', lastService: '2026-01-10', nextService: '2026-04-10', hoursUsed: 980 },
+    { id: 'EQ-003', name: 'Table Saw 1', type: 'machine', location: 'C1', status: 'operational', lastService: '2025-12-20', nextService: '2026-03-20' },
+    { id: 'EQ-004', name: 'Heat Treatment Oven', type: 'oven', location: 'OVN', status: 'operational', lastService: '2026-01-05', nextService: '2026-07-05' },
+    { id: 'EQ-005', name: 'Air Compressor', type: 'compressor', location: 'Production', status: 'maintenance', lastService: '2025-11-15', nextService: '2026-02-15' },
+  ]
 
+  const storeItems = maintenanceStore || [
+    { id: 'MS-001', name: 'Motor Oil 15W-40', category: 'Lubricants', qty: 24, unit: 'L', minQty: 10, location: 'Shelf A1' },
+    { id: 'MS-002', name: 'Hydraulic Fluid', category: 'Lubricants', qty: 15, unit: 'L', minQty: 5, location: 'Shelf A2' },
+    { id: 'MS-003', name: 'V-Belt A68', category: 'Belts', qty: 4, unit: 'pcs', minQty: 2, location: 'Shelf B1' },
+    { id: 'MS-004', name: 'Bearing 6205', category: 'Bearings', qty: 8, unit: 'pcs', minQty: 4, location: 'Shelf B2' },
+    { id: 'MS-005', name: 'Diesel', category: 'Fuel', qty: 50, unit: 'L', minQty: 20, location: 'Tank' },
+    { id: 'MS-006', name: 'Welding Rod 2.6mm', category: 'Consumables', qty: 100, unit: 'pcs', minQty: 50, location: 'Shelf C1' },
+    { id: 'MS-007', name: 'Forklift Tire', category: 'Tires', qty: 2, unit: 'pcs', minQty: 1, location: 'Floor' },
+  ]
+
+  const technicians = employees?.filter(e => e.department === 'maintenance') || [
+    { id: 'MT-001', name: 'Chai', nameTh: 'ชัย', status: 'active' },
+    { id: 'MT-002', name: 'Som', nameTh: 'สม', status: 'active' },
+  ]
+
+  // Generate MWO Number
+  const generateMWONumber = () => {
+    const now = new Date()
+    const dateStr = `${now.getFullYear().toString().slice(-2)}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}`
+    const seq = (tasksList.length + 1).toString().padStart(3, '0')
+    return `MWO-${dateStr}-${seq}`
+  }
+
+  // Stats
+  const today = new Date()
   const stats = {
-    total: tasksList.length,
+    totalMWO: tasksList.length,
+    open: tasksList.filter(t => t.status === 'open').length,
     inProgress: tasksList.filter(t => t.status === 'in_progress').length,
-    scheduled: tasksList.filter(t => t.status === 'scheduled').length,
     completed: tasksList.filter(t => t.status === 'completed').length,
-    highPriority: tasksList.filter(t => t.priority === 'high').length,
+    critical: tasksList.filter(t => t.priority === 'critical' && t.status !== 'completed').length,
+    equipmentCount: equipmentList.length,
+    needsService: equipmentList.filter(e => new Date(e.nextService) <= new Date(today.setMonth(today.getMonth() + 1))).length,
+    lowStock: storeItems.filter(i => i.qty <= i.minQty).length,
+  }
+
+  // Diesel usage tracking
+  const dieselLogs = [
+    { id: 1, date: '2026-01-28', equipment: 'Forklift 1', liters: 8, operator: 'Chai' },
+    { id: 2, date: '2026-01-21', equipment: 'Forklift 2', liters: 6, operator: 'Som' },
+    { id: 3, date: '2026-01-14', equipment: 'Forklift 1', liters: 8, operator: 'Chai' },
+  ]
+
+  const filteredTasks = tasksList.filter(t => {
+    const matchStatus = filterStatus === 'all' || t.status === filterStatus
+    const matchPriority = filterPriority === 'all' || t.priority === filterPriority
+    return matchStatus && matchPriority
+  })
+
+  const priorityColors = {
+    low: 'bg-gray-100 text-gray-700',
+    medium: 'bg-yellow-100 text-yellow-700',
+    high: 'bg-orange-100 text-orange-700',
+    critical: 'bg-red-100 text-red-700',
   }
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{t('nav.maintenance', lang)}</h1>
-          <p className="text-gray-500">{lang === 'th' ? 'จัดการงานซ่อมบำรุงและอุปกรณ์' : 'Manage maintenance tasks and equipment'}</p>
+          <p className="text-gray-500">{lang === 'th' ? 'จัดการซ่อมบำรุง อุปกรณ์ และอะไหล่' : 'Manage maintenance, equipment & spare parts'}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" icon={Upload}>
-            {lang === 'th' ? 'อัพโหลด' : 'Upload'}
+          <Button variant="outline" icon={Fuel} onClick={() => setShowDieselModal(true)}>
+            {lang === 'th' ? 'บันทึกน้ำมัน' : 'Log Diesel'}
           </Button>
-          <Button icon={Plus} onClick={() => setShowTaskModal(true)}>
-            {lang === 'th' ? 'สร้างงาน' : 'New Task'}
+          <Button icon={Plus} onClick={() => setShowMWOModal(true)}>
+            {lang === 'th' ? 'สร้างใบงาน' : 'New MWO'}
           </Button>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card className="p-4">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'งานทั้งหมด' : 'Total Tasks'}</div>
-          <div className="text-2xl font-bold text-gray-800">{stats.total}</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        <Card className="p-3 border-l-4 border-l-blue-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'ใบงานทั้งหมด' : 'Total MWO'}</div>
+          <div className="text-xl font-bold text-blue-600">{stats.totalMWO}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-orange-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'กำลังดำเนินการ' : 'In Progress'}</div>
-          <div className="text-2xl font-bold text-orange-600">{stats.inProgress}</div>
+        <Card className="p-3 border-l-4 border-l-yellow-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'รอดำเนินการ' : 'Open'}</div>
+          <div className="text-xl font-bold text-yellow-600">{stats.open}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-blue-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'กำหนดการ' : 'Scheduled'}</div>
-          <div className="text-2xl font-bold text-blue-600">{stats.scheduled}</div>
+        <Card className="p-3 border-l-4 border-l-purple-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'กำลังทำ' : 'In Progress'}</div>
+          <div className="text-xl font-bold text-purple-600">{stats.inProgress}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-green-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'เสร็จสิ้น' : 'Completed'}</div>
-          <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
+        <Card className="p-3 border-l-4 border-l-green-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'เสร็จ' : 'Completed'}</div>
+          <div className="text-xl font-bold text-green-600">{stats.completed}</div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-red-500">
-          <div className="text-sm text-gray-500">{lang === 'th' ? 'เร่งด่วน' : 'High Priority'}</div>
-          <div className="text-2xl font-bold text-red-600">{stats.highPriority}</div>
+        <Card className="p-3 border-l-4 border-l-red-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'วิกฤต' : 'Critical'}</div>
+          <div className="text-xl font-bold text-red-600">{stats.critical}</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-cyan-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'อุปกรณ์' : 'Equipment'}</div>
+          <div className="text-xl font-bold text-cyan-600">{stats.equipmentCount}</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-orange-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'ถึงบำรุง' : 'Due Service'}</div>
+          <div className="text-xl font-bold text-orange-600">{stats.needsService}</div>
+        </Card>
+        <Card className="p-3 border-l-4 border-l-pink-500">
+          <div className="text-xs text-gray-500">{lang === 'th' ? 'สต็อกต่ำ' : 'Low Stock'}</div>
+          <div className="text-xl font-bold text-pink-600">{stats.lowStock}</div>
         </Card>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b">
+      <div className="flex gap-1 border-b overflow-x-auto">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap ${
               activeTab === tab.id 
-                ? 'border-[#1A5276] text-[#1A5276]' 
+                ? 'border-[#1A5276] text-[#1A5276] bg-blue-50' 
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -1857,134 +2559,465 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, employees, lang }) => {
         ))}
       </div>
 
-      {/* Tasks List */}
-      {activeTab === 'tasks' && (
+      {/* Dashboard Tab */}
+      {activeTab === 'dashboard' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Critical/Open MWOs */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b bg-red-50">
+              <h3 className="font-bold text-red-800 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" />
+                {lang === 'th' ? 'งานเร่งด่วน' : 'Urgent Work Orders'}
+              </h3>
+            </div>
+            <div className="divide-y max-h-80 overflow-y-auto">
+              {tasksList.filter(t => (t.priority === 'critical' || t.priority === 'high') && t.status !== 'completed').map(task => (
+                <div key={task.id} className="p-4 hover:bg-gray-50">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-mono text-sm font-medium">{task.mwoNumber}</div>
+                      <div className="text-sm text-gray-600">{task.description}</div>
+                      <div className="text-xs text-gray-400 mt-1">{task.equipment}</div>
+                    </div>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[task.priority]}`}>
+                      {task.priority}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {tasksList.filter(t => (t.priority === 'critical' || t.priority === 'high') && t.status !== 'completed').length === 0 && (
+                <div className="p-8 text-center text-gray-400">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
+                  <p>{lang === 'th' ? 'ไม่มีงานเร่งด่วน' : 'No urgent work orders'}</p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Equipment Status */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b bg-blue-50">
+              <h3 className="font-bold text-blue-800 flex items-center gap-2">
+                <Cog className="w-5 h-5" />
+                {lang === 'th' ? 'สถานะอุปกรณ์' : 'Equipment Status'}
+              </h3>
+            </div>
+            <div className="divide-y max-h-80 overflow-y-auto">
+              {equipmentList.map(eq => (
+                <div key={eq.id} className="p-4 hover:bg-gray-50">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        eq.status === 'operational' ? 'bg-green-500' : 'bg-red-500'
+                      }`} />
+                      <div>
+                        <div className="font-medium">{eq.name}</div>
+                        <div className="text-xs text-gray-500">{eq.location}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-gray-500">{lang === 'th' ? 'ถัดไป' : 'Next Service'}</div>
+                      <div className={`text-sm ${new Date(eq.nextService) <= new Date() ? 'text-red-500 font-medium' : ''}`}>
+                        {formatDate(eq.nextService)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Low Stock Alert */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b bg-orange-50">
+              <h3 className="font-bold text-orange-800 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5" />
+                {lang === 'th' ? 'อะไหล่ใกล้หมด' : 'Low Stock Parts'}
+              </h3>
+            </div>
+            <div className="divide-y max-h-60 overflow-y-auto">
+              {storeItems.filter(i => i.qty <= i.minQty).map(item => (
+                <div key={item.id} className="p-4 hover:bg-gray-50">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="font-medium">{item.name}</div>
+                      <div className="text-xs text-gray-500">{item.category}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-red-600">{item.qty} {item.unit}</div>
+                      <div className="text-xs text-gray-500">Min: {item.minQty}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {storeItems.filter(i => i.qty <= i.minQty).length === 0 && (
+                <div className="p-8 text-center text-gray-400">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
+                  <p>{lang === 'th' ? 'สต็อกเพียงพอ' : 'Stock levels OK'}</p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Diesel Usage */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b bg-yellow-50">
+              <h3 className="font-bold text-yellow-800 flex items-center gap-2">
+                <Fuel className="w-5 h-5" />
+                {lang === 'th' ? 'การใช้น้ำมันดีเซล' : 'Diesel Usage'}
+              </h3>
+            </div>
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-3xl font-bold text-yellow-600">{storeItems.find(i => i.name === 'Diesel')?.qty || 0} L</div>
+                  <div className="text-sm text-gray-500">{lang === 'th' ? 'คงเหลือ' : 'Remaining'}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl font-medium">~8 L</div>
+                  <div className="text-sm text-gray-500">{lang === 'th' ? '/สัปดาห์' : '/week'}</div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {dieselLogs.slice(0, 3).map(log => (
+                  <div key={log.id} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
+                    <span>{formatDate(log.date)}</span>
+                    <span>{log.equipment}</span>
+                    <span className="font-medium">{log.liters} L</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* MWO Tab */}
+      {activeTab === 'mwo' && (
         <Card className="overflow-hidden">
+          <div className="p-4 border-b flex gap-3 flex-wrap">
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-3 py-2 border rounded-lg text-sm"
+            >
+              <option value="all">{lang === 'th' ? 'ทุกสถานะ' : 'All Status'}</option>
+              <option value="open">{lang === 'th' ? 'รอดำเนินการ' : 'Open'}</option>
+              <option value="in_progress">{lang === 'th' ? 'กำลังทำ' : 'In Progress'}</option>
+              <option value="completed">{lang === 'th' ? 'เสร็จ' : 'Completed'}</option>
+            </select>
+            <select
+              value={filterPriority}
+              onChange={(e) => setFilterPriority(e.target.value)}
+              className="px-3 py-2 border rounded-lg text-sm"
+            >
+              <option value="all">{lang === 'th' ? 'ทุกความสำคัญ' : 'All Priority'}</option>
+              <option value="critical">{lang === 'th' ? 'วิกฤต' : 'Critical'}</option>
+              <option value="high">{lang === 'th' ? 'สูง' : 'High'}</option>
+              <option value="medium">{lang === 'th' ? 'ปานกลาง' : 'Medium'}</option>
+              <option value="low">{lang === 'th' ? 'ต่ำ' : 'Low'}</option>
+            </select>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส' : 'ID'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'MWO #'}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อุปกรณ์' : 'Equipment'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายละเอียด' : 'Description'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ผู้รับผิดชอบ' : 'Assigned'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'กำหนด' : 'Due'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ปัญหา' : 'Issue'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ความสำคัญ' : 'Priority'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'มอบหมาย' : 'Assigned'}</th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {tasksList.map(task => {
-                  const assignee = employees?.find(e => e.id === task.assignedTo)
-                  return (
+                {filteredTasks.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="px-4 py-8 text-center text-gray-400">
+                      {lang === 'th' ? 'ไม่มีใบงาน' : 'No work orders'}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredTasks.map(task => (
                     <tr key={task.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-mono text-[#1A5276]">{task.id}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <Hammer className="w-4 h-4 text-gray-400" />
-                          <span className="font-medium">{task.equipment}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant={task.type === 'repair' ? 'danger' : 'info'}>
-                          {task.type === 'repair' ? (lang === 'th' ? 'ซ่อม' : 'Repair') : (lang === 'th' ? 'บำรุงรักษา' : 'Preventive')}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{task.description}</td>
-                      <td className="px-4 py-3">{assignee?.name || '-'}</td>
-                      <td className="px-4 py-3 text-sm">{formatDate(task.scheduledDate)}</td>
+                      <td className="px-4 py-3 font-mono text-[#1A5276]">{task.mwoNumber}</td>
+                      <td className="px-4 py-3">{task.equipment}</td>
+                      <td className="px-4 py-3 text-sm">{task.description}</td>
                       <td className="px-4 py-3 text-center">
-                        <Badge variant={
-                          task.priority === 'high' ? 'danger' :
-                          task.priority === 'medium' ? 'warning' :
-                          'default'
-                        }>
-                          {task.priority === 'high' ? (lang === 'th' ? 'สูง' : 'High') :
-                           task.priority === 'medium' ? (lang === 'th' ? 'กลาง' : 'Medium') :
-                           (lang === 'th' ? 'ต่ำ' : 'Low')}
+                        <Badge variant={task.type === 'corrective' ? 'warning' : 'info'}>
+                          {task.type}
                         </Badge>
                       </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[task.priority]}`}>
+                          {task.priority}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">{task.assignedTo || '-'}</td>
                       <td className="px-4 py-3 text-center">
                         <Badge variant={
                           task.status === 'completed' ? 'success' :
-                          task.status === 'in_progress' ? 'orange' :
-                          'info'
+                          task.status === 'in_progress' ? 'warning' : 'default'
                         }>
-                          {task.status === 'completed' ? (lang === 'th' ? 'เสร็จ' : 'Done') :
-                           task.status === 'in_progress' ? (lang === 'th' ? 'ดำเนินการ' : 'In Progress') :
-                           (lang === 'th' ? 'กำหนด' : 'Scheduled')}
+                          {task.status}
                         </Badge>
                       </td>
+                      <td className="px-4 py-3 text-center">
+                        <button className="p-1 text-blue-600 hover:bg-blue-50 rounded">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </td>
                     </tr>
-                  )
-                })}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </Card>
       )}
 
-      {/* Equipment List */}
+      {/* Equipment Tab */}
       {activeTab === 'equipment' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {equipmentList.map(eq => (
-            <Card key={eq.id} className="p-5">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    eq.status === 'operational' ? 'bg-green-100' :
-                    eq.status === 'under_repair' ? 'bg-orange-100' :
-                    'bg-red-100'
-                  }`}>
-                    <Cog className={`w-6 h-6 ${
-                      eq.status === 'operational' ? 'text-green-600' :
-                      eq.status === 'under_repair' ? 'text-orange-600' :
-                      'text-red-600'
-                    }`} />
+            <Card key={eq.id} className="overflow-hidden">
+              <div className={`p-4 ${eq.status === 'operational' ? 'bg-green-50' : 'bg-red-50'}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Cog className={`w-8 h-8 ${eq.status === 'operational' ? 'text-green-600' : 'text-red-600'}`} />
+                    <div>
+                      <div className="font-bold">{eq.name}</div>
+                      <div className="text-sm text-gray-600">{eq.id}</div>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-gray-800">{eq.name}</h3>
-                    <p className="text-sm text-gray-500">{eq.code}</p>
-                  </div>
+                  <Badge variant={eq.status === 'operational' ? 'success' : 'danger'}>
+                    {eq.status}
+                  </Badge>
                 </div>
-                <Badge variant={
-                  eq.status === 'operational' ? 'success' :
-                  eq.status === 'under_repair' ? 'orange' :
-                  'danger'
-                }>
-                  {eq.status === 'operational' ? (lang === 'th' ? 'ใช้งานได้' : 'OK') :
-                   eq.status === 'under_repair' ? (lang === 'th' ? 'ซ่อม' : 'Repair') :
-                   (lang === 'th' ? 'หยุด' : 'Down')}
-                </Badge>
               </div>
-              <div className="space-y-2 text-sm">
+              <div className="p-4 space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">{lang === 'th' ? 'ตำแหน่ง' : 'Location'}</span>
+                  <span className="text-gray-500">{lang === 'th' ? 'ประเภท' : 'Type'}</span>
+                  <span className="font-medium capitalize">{eq.type}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">{lang === 'th' ? 'ที่ตั้ง' : 'Location'}</span>
                   <span className="font-medium">{eq.location}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">{lang === 'th' ? 'บำรุงล่าสุด' : 'Last PM'}</span>
-                  <span className="font-medium">{formatDate(eq.lastMaintenance)}</span>
+                  <span className="text-gray-500">{lang === 'th' ? 'บำรุงล่าสุด' : 'Last Service'}</span>
+                  <span>{formatDate(eq.lastService)}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">{lang === 'th' ? 'บำรุงถัดไป' : 'Next Service'}</span>
+                  <span className={new Date(eq.nextService) <= new Date() ? 'text-red-500 font-medium' : ''}>
+                    {formatDate(eq.nextService)}
+                  </span>
+                </div>
+                {eq.hoursUsed && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">{lang === 'th' ? 'ชั่วโมงใช้งาน' : 'Hours Used'}</span>
+                    <span>{eq.hoursUsed.toLocaleString()} hrs</span>
+                  </div>
+                )}
               </div>
             </Card>
           ))}
         </div>
       )}
 
-      {/* PM Schedule */}
-      {activeTab === 'schedule' && (
+      {/* Parts Store Tab */}
+      {activeTab === 'store' && (
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b">
+            <h3 className="font-bold">{lang === 'th' ? 'คลังอะไหล่และวัสดุ' : 'Spare Parts & Materials Store'}</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส' : 'Code'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายการ' : 'Item'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'หมวด' : 'Category'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Qty'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ขั้นต่ำ' : 'Min'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ที่เก็บ' : 'Location'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {storeItems.map(item => (
+                  <tr key={item.id} className={`hover:bg-gray-50 ${item.qty <= item.minQty ? 'bg-red-50' : ''}`}>
+                    <td className="px-4 py-3 font-mono text-sm">{item.id}</td>
+                    <td className="px-4 py-3 font-medium">{item.name}</td>
+                    <td className="px-4 py-3 text-sm">{item.category}</td>
+                    <td className="px-4 py-3 text-right font-medium">{item.qty} {item.unit}</td>
+                    <td className="px-4 py-3 text-right text-gray-500">{item.minQty}</td>
+                    <td className="px-4 py-3 text-sm">{item.location}</td>
+                    <td className="px-4 py-3 text-center">
+                      {item.qty <= item.minQty ? (
+                        <Badge variant="danger">{lang === 'th' ? 'ต่ำ' : 'Low'}</Badge>
+                      ) : (
+                        <Badge variant="success">{lang === 'th' ? 'ปกติ' : 'OK'}</Badge>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Diesel Tab */}
+      {activeTab === 'diesel' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="p-5 text-center">
+              <Fuel className="w-12 h-12 mx-auto mb-2 text-yellow-500" />
+              <div className="text-3xl font-bold text-yellow-600">{storeItems.find(i => i.name === 'Diesel')?.qty || 0} L</div>
+              <div className="text-gray-500">{lang === 'th' ? 'คงเหลือในถัง' : 'Current Stock'}</div>
+            </Card>
+            <Card className="p-5 text-center">
+              <Activity className="w-12 h-12 mx-auto mb-2 text-blue-500" />
+              <div className="text-3xl font-bold text-blue-600">~8 L</div>
+              <div className="text-gray-500">{lang === 'th' ? 'ใช้ต่อสัปดาห์' : 'Weekly Usage'}</div>
+            </Card>
+            <Card className="p-5 text-center">
+              <Calendar className="w-12 h-12 mx-auto mb-2 text-green-500" />
+              <div className="text-3xl font-bold text-green-600">~6 wks</div>
+              <div className="text-gray-500">{lang === 'th' ? 'เหลือใช้ได้' : 'Remaining'}</div>
+            </Card>
+          </div>
+
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b">
+              <h3 className="font-bold">{lang === 'th' ? 'ประวัติการเติมน้ำมัน' : 'Diesel Usage Log'}</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อุปกรณ์' : 'Equipment'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ลิตร' : 'Liters'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ผู้เบิก' : 'Operator'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {dieselLogs.map(log => (
+                    <tr key={log.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">{formatDate(log.date)}</td>
+                      <td className="px-4 py-3">{log.equipment}</td>
+                      <td className="px-4 py-3 text-right font-medium">{log.liters} L</td>
+                      <td className="px-4 py-3">{log.operator}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* PM Schedule Tab */}
+      {activeTab === 'pm' && (
+        <Card className="p-6">
+          <h3 className="font-bold mb-4">{lang === 'th' ? 'ตารางบำรุงรักษาเชิงป้องกัน' : 'Preventive Maintenance Schedule'}</h3>
+          <div className="space-y-4">
+            {equipmentList.map(eq => (
+              <div key={eq.id} className="p-4 border rounded-lg">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <div className="font-medium">{eq.name}</div>
+                    <div className="text-sm text-gray-500">{eq.location}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-lg font-bold ${
+                      new Date(eq.nextService) <= new Date() ? 'text-red-500' :
+                      new Date(eq.nextService) <= new Date(Date.now() + 30*24*60*60*1000) ? 'text-orange-500' :
+                      'text-green-500'
+                    }`}>
+                      {formatDate(eq.nextService)}
+                    </div>
+                    <div className="text-xs text-gray-500">{lang === 'th' ? 'บำรุงถัดไป' : 'Next Service'}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Vehicles Tab */}
+      {activeTab === 'vehicles' && (
         <Card className="p-6">
           <p className="text-gray-500 text-center py-12">
-            {lang === 'th' ? 'ปฏิทินบำรุงรักษาเชิงป้องกัน กำลังพัฒนา' : 'Preventive Maintenance Calendar - Coming Soon'}
+            {lang === 'th' ? 'เชื่อมต่อกับโมดูลขนส่ง - ดูการบำรุงรักษารถที่นั่น' : 'Linked to Transport module - View vehicle maintenance there'}
           </p>
         </Card>
+      )}
+
+      {/* MWO Modal */}
+      {showMWOModal && (
+        <Modal isOpen={showMWOModal} onClose={() => setShowMWOModal(false)} title={lang === 'th' ? 'สร้างใบงานซ่อมบำรุง' : 'Create Maintenance Work Order'} size="lg">
+          <div className="space-y-4">
+            <div className="p-3 bg-blue-50 rounded-lg text-center">
+              <div className="font-mono text-lg font-bold text-blue-700">{generateMWONumber()}</div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'อุปกรณ์' : 'Equipment'}</label>
+              <select className="w-full px-3 py-2 border rounded-lg">
+                {equipmentList.map(eq => (
+                  <option key={eq.id} value={eq.id}>{eq.name} ({eq.location})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภท' : 'Type'}</label>
+              <select className="w-full px-3 py-2 border rounded-lg">
+                <option value="corrective">{lang === 'th' ? 'แก้ไข (Breakdown)' : 'Corrective (Breakdown)'}</option>
+                <option value="preventive">{lang === 'th' ? 'ป้องกัน (Scheduled)' : 'Preventive (Scheduled)'}</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ความสำคัญ' : 'Priority'}</label>
+              <select className="w-full px-3 py-2 border rounded-lg">
+                <option value="low">{lang === 'th' ? 'ต่ำ' : 'Low'}</option>
+                <option value="medium">{lang === 'th' ? 'ปานกลาง' : 'Medium'}</option>
+                <option value="high">{lang === 'th' ? 'สูง' : 'High'}</option>
+                <option value="critical">{lang === 'th' ? 'วิกฤต' : 'Critical'}</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รายละเอียดปัญหา' : 'Issue Description'}</label>
+              <textarea className="w-full px-3 py-2 border rounded-lg" rows="3" placeholder="Describe the issue..."></textarea>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'มอบหมายให้' : 'Assign To'}</label>
+              <select className="w-full px-3 py-2 border rounded-lg">
+                <option value="">{lang === 'th' ? '-- เลือกช่าง --' : '-- Select Technician --'}</option>
+                {technicians.map(t => (
+                  <option key={t.id} value={t.id}>{t.name} ({t.nameTh})</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-4 pt-4">
+              <Button variant="outline" className="flex-1" onClick={() => setShowMWOModal(false)}>
+                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+              </Button>
+              <Button className="flex-1">
+                {lang === 'th' ? 'สร้างใบงาน' : 'Create MWO'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   )
 }
-
 // ============================================
 // HR MODULE
 // ============================================
@@ -5332,19 +6365,72 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
   )
 }
 // ============================================
-// PRODUCTION MODULE - ENHANCED v7.3
+// PRODUCTION MODULE - ENHANCED v7.5
 // Full WO Flow: C1/C2 → P1/P2/P3 → ASM1/ASM2 → OVN → QC → FG
+// + Label Printing, QC Checklist, Dept View, BOM
 // ============================================
-const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, inventory, setInventory, categories, stores, salesOrders, setSalesOrders, lang }) => {
+const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, inventory, setInventory, categories, stores, salesOrders, setSalesOrders, products, lang, currentUser }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [showWOModal, setShowWOModal] = useState(false)
   const [showIssueModal, setShowIssueModal] = useState(false)
   const [showQCModal, setShowQCModal] = useState(false)
   const [showHTModal, setShowHTModal] = useState(false)
   const [showFGTransferModal, setShowFGTransferModal] = useState(false)
+  const [showLabelModal, setShowLabelModal] = useState(false)
+  const [showBOMModal, setShowBOMModal] = useState(false)
+  const [showChecklistConfigModal, setShowChecklistConfigModal] = useState(false)
   const [selectedWO, setSelectedWO] = useState(null)
   const [filterDept, setFilterDept] = useState('all')
   const [selectedDate, setSelectedDate] = useState(new Date())
+  const [myDept, setMyDept] = useState('C1') // User's department
+  
+  // QC Checklists per product (configurable)
+  const [qcChecklists, setQcChecklists] = useState({
+    'default': [
+      { id: 1, item: 'Dimensions correct', required: true },
+      { id: 2, item: 'No visible defects', required: true },
+      { id: 3, item: 'Proper assembly', required: true },
+      { id: 4, item: 'Surface finish OK', required: true },
+      { id: 5, item: 'Labels attached', required: false },
+    ],
+    'pallet': [
+      { id: 1, item: 'Dimensions per spec', required: true },
+      { id: 2, item: 'No cracks or splits', required: true },
+      { id: 3, item: 'Nail heads flush', required: true },
+      { id: 4, item: 'Heat treatment mark visible', required: true },
+      { id: 5, item: 'Stacking test passed', required: true },
+      { id: 6, item: 'Weight within tolerance', required: false },
+    ],
+    'crate': [
+      { id: 1, item: 'Dimensions per spec', required: true },
+      { id: 2, item: 'Joint strength OK', required: true },
+      { id: 3, item: 'No protruding nails', required: true },
+      { id: 4, item: 'Hinges/latches work', required: false },
+      { id: 5, item: 'Interior clean', required: true },
+    ],
+  })
+
+  // BOM Templates per product type
+  const bomTemplates = {
+    'pallet-standard': [
+      { material: 'Stringer (90x90x1200)', qty: 3, unit: 'pcs', category: 'MLH' },
+      { material: 'Top Board (20x100x1000)', qty: 7, unit: 'pcs', category: 'MLH' },
+      { material: 'Bottom Board (20x100x1000)', qty: 3, unit: 'pcs', category: 'MLH' },
+      { material: 'Nails 3"', qty: 50, unit: 'pcs', category: 'Consumables' },
+    ],
+    'pallet-ht': [
+      { material: 'Stringer HT (90x90x1200)', qty: 3, unit: 'pcs', category: 'MLH' },
+      { material: 'Top Board HT (20x100x1000)', qty: 7, unit: 'pcs', category: 'MLH' },
+      { material: 'Bottom Board HT (20x100x1000)', qty: 3, unit: 'pcs', category: 'MLH' },
+      { material: 'Nails 3"', qty: 50, unit: 'pcs', category: 'Consumables' },
+    ],
+    'crate-standard': [
+      { material: 'Plywood 12mm', qty: 2, unit: 'sheets', category: 'Plywood' },
+      { material: 'Frame Wood (40x40)', qty: 12, unit: 'm', category: 'MLH' },
+      { material: 'Screws', qty: 100, unit: 'pcs', category: 'Consumables' },
+      { material: 'Corner Brackets', qty: 8, unit: 'pcs', category: 'Consumables' },
+    ],
+  }
 
   // Department flow order
   const DEPT_FLOW = ['C1', 'C2', 'P1', 'P2', 'P3', 'ASM1', 'ASM2', 'OVN', 'QC', 'FG']
@@ -5365,9 +6451,12 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
 
   const tabs = [
     { id: 'dashboard', label: lang === 'th' ? 'หน้าหลัก' : 'Dashboard', icon: Home },
+    { id: 'mydept', label: lang === 'th' ? 'แผนกฉัน' : 'My Dept', icon: User },
     { id: 'schedule', label: lang === 'th' ? 'ตารางงาน' : 'Schedule', icon: Calendar },
     { id: 'orders', label: lang === 'th' ? 'ใบสั่งผลิต' : 'Work Orders', icon: ClipboardList },
     { id: 'floor', label: lang === 'th' ? 'หน้างาน' : 'Floor View', icon: Factory },
+    { id: 'labels', label: lang === 'th' ? 'ฉลาก' : 'Labels', icon: Tag },
+    { id: 'bom', label: lang === 'th' ? 'BOM' : 'BOM', icon: Layers },
     { id: 'qc', label: lang === 'th' ? 'QC' : 'QC Check', icon: CheckCircle },
     { id: 'ht', label: lang === 'th' ? 'ใบ HT' : 'HT Certs', icon: FileText },
     { id: 'costing', label: lang === 'th' ? 'ต้นทุน' : 'Costing', icon: Calculator },
@@ -5997,9 +7086,343 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
         </div>
       )}
 
+      {/* My Department Tab - Shows only WOs for user's department */}
+      {activeTab === 'mydept' && (
+        <div className="space-y-4">
+          {/* Department Selector */}
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <label className="font-medium">{lang === 'th' ? 'แผนกของฉัน:' : 'My Department:'}</label>
+                <select
+                  value={myDept}
+                  onChange={(e) => setMyDept(e.target.value)}
+                  className="px-4 py-2 border rounded-lg text-lg font-bold"
+                >
+                  {DEPT_FLOW.slice(0, -1).map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </div>
+              <div className={`px-4 py-2 rounded-lg font-bold text-lg ${DEPT_COLORS[myDept]}`}>
+                {workOrders.filter(wo => (wo.currentDept === myDept || (!wo.currentDept && wo.department === myDept)) && wo.status !== 'completed').length} {lang === 'th' ? 'งาน' : 'jobs'}
+              </div>
+            </div>
+          </Card>
+
+          {/* WOs for My Department */}
+          <Card className="overflow-hidden">
+            <div className={`p-4 border-b ${DEPT_COLORS[myDept]}`}>
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                <Factory className="w-5 h-5" />
+                {lang === 'th' ? `งานในแผนก ${myDept}` : `Work Orders in ${myDept}`}
+              </h3>
+            </div>
+            <div className="divide-y">
+              {workOrders
+                .filter(wo => (wo.currentDept === myDept || (!wo.currentDept && wo.department === myDept)) && wo.status !== 'completed')
+                .map(wo => {
+                  const customer = customers?.find(c => c.id === wo.customerId)
+                  const nextDeptIdx = DEPT_FLOW.indexOf(myDept) + 1
+                  const nextDept = DEPT_FLOW[nextDeptIdx] || 'FG'
+                  return (
+                    <div key={wo.id} className="p-4 hover:bg-gray-50">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <div className="font-mono text-lg font-bold text-[#1A5276]">{wo.woNumber || wo.id}</div>
+                            <Badge variant={wo.status === 'in_progress' ? 'warning' : 'default'}>{wo.status}</Badge>
+                          </div>
+                          <div className="text-gray-600 mt-1">{wo.productName}</div>
+                          <div className="text-sm text-gray-500">{customer?.name} • {wo.quantity} pcs</div>
+                          <div className="text-xs text-gray-400 mt-1">Due: {formatDate(wo.targetDate)}</div>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Button 
+                            size="sm"
+                            onClick={() => handleIssue(wo)}
+                            variant="outline"
+                          >
+                            <Package className="w-4 h-4 mr-1" />
+                            {lang === 'th' ? 'เบิกวัสดุ' : 'Issue'}
+                          </Button>
+                          <Button 
+                            size="sm"
+                            onClick={() => moveToNextDept(wo)}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            <ChevronRight className="w-4 h-4 mr-1" />
+                            {lang === 'th' ? `ส่งไป ${nextDept}` : `To ${nextDept}`}
+                          </Button>
+                        </div>
+                      </div>
+                      {/* BOM Preview */}
+                      {wo.bom && wo.bom.length > 0 && (
+                        <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
+                          <div className="font-medium mb-1">{lang === 'th' ? 'วัสดุที่ต้องใช้:' : 'Materials Required:'}</div>
+                          {wo.bom.slice(0, 3).map((item, idx) => (
+                            <div key={idx} className="text-gray-600">• {item.material}: {item.qty} {item.unit}</div>
+                          ))}
+                          {wo.bom.length > 3 && <div className="text-gray-400">+{wo.bom.length - 3} more...</div>}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              {workOrders.filter(wo => (wo.currentDept === myDept || (!wo.currentDept && wo.department === myDept)) && wo.status !== 'completed').length === 0 && (
+                <div className="p-8 text-center text-gray-400">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
+                  <p>{lang === 'th' ? 'ไม่มีงานในแผนกนี้' : 'No jobs in this department'}</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Labels Tab - Sales prints labels for QC to paste */}
+      {activeTab === 'labels' && (
+        <div className="space-y-6">
+          <Card className="p-4 bg-blue-50 border-blue-200">
+            <div className="flex items-center gap-3">
+              <Tag className="w-8 h-8 text-blue-600" />
+              <div>
+                <h3 className="font-bold text-blue-800">{lang === 'th' ? 'ฉลากสินค้า' : 'Product Labels'}</h3>
+                <p className="text-sm text-blue-600">{lang === 'th' ? 'Sales พิมพ์ฉลาก → QC ติดที่สินค้า' : 'Sales prints labels → QC pastes on products'}</p>
+              </div>
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Pending Labels */}
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b bg-orange-50">
+                <h3 className="font-bold text-orange-800 flex items-center gap-2">
+                  <Clock className="w-5 h-5" />
+                  {lang === 'th' ? 'รอพิมพ์ฉลาก' : 'Pending Labels'}
+                </h3>
+              </div>
+              <div className="divide-y max-h-96 overflow-y-auto">
+                {workOrders.filter(wo => !wo.labelsPrinted && wo.status !== 'completed').map(wo => {
+                  const customer = customers?.find(c => c.id === wo.customerId)
+                  return (
+                    <div key={wo.id} className="p-4 hover:bg-gray-50">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-mono font-medium">{wo.woNumber || wo.id}</div>
+                          <div className="text-sm text-gray-600">{wo.productName}</div>
+                          <div className="text-xs text-gray-400">{customer?.name} • {wo.quantity} pcs</div>
+                          {customer?.code === 'PPT' && (
+                            <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded mt-1 inline-block">Polyplex 4-Column</span>
+                          )}
+                          {customer?.code === 'ALZ' && (
+                            <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded mt-1 inline-block">Allianz QR</span>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => { setSelectedWO(wo); setShowLabelModal(true) }}
+                        >
+                          <Printer className="w-4 h-4 mr-1" />
+                          {lang === 'th' ? 'พิมพ์' : 'Print'}
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+                {workOrders.filter(wo => !wo.labelsPrinted && wo.status !== 'completed').length === 0 && (
+                  <div className="p-8 text-center text-gray-400">
+                    <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
+                    <p>{lang === 'th' ? 'พิมพ์ฉลากครบแล้ว' : 'All labels printed'}</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Label Formats */}
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b bg-green-50">
+                <h3 className="font-bold text-green-800 flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  {lang === 'th' ? 'รูปแบบฉลาก' : 'Label Formats'}
+                </h3>
+              </div>
+              <div className="p-4 space-y-4">
+                {/* Polyplex Format */}
+                <div className="p-3 border rounded-lg">
+                  <div className="font-bold text-orange-700 mb-2">Polyplex - 4 Column Format</div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="p-1 border">ITEM CODE</th>
+                          <th className="p-1 border">DESCRIPTION</th>
+                          <th className="p-1 border">ORDER NO / DEL LOC</th>
+                          <th className="p-1 border">PO NO</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="p-1 border">21028562</td>
+                          <td className="p-1 border">PT 700X1250</td>
+                          <td className="p-1 border bg-white">FILM</td>
+                          <td className="p-1 border">25-263106062</td>
+                        </tr>
+                        <tr>
+                          <td className="p-1 border">21040305</td>
+                          <td className="p-1 border">PT 1100X1100</td>
+                          <td className="p-1 border" style={{backgroundColor: '#FFDAB9'}}>CPP</td>
+                          <td className="p-1 border">25-263103642</td>
+                        </tr>
+                        <tr>
+                          <td className="p-1 border">21040306</td>
+                          <td className="p-1 border">PT 1200X1000</td>
+                          <td className="p-1 border" style={{backgroundColor: '#FF6B6B'}}>LINE 10</td>
+                          <td className="p-1 border">25-263103643</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    Colors: FILM=White, CPP=Peach, Line10=Red
+                  </div>
+                </div>
+
+                {/* Allianz Format */}
+                <div className="p-3 border rounded-lg">
+                  <div className="font-bold text-blue-700 mb-2">Allianz - QR Code Label</div>
+                  <div className="flex gap-4">
+                    <div className="flex-1 p-2 bg-gray-50 rounded text-xs">
+                      <div className="font-medium mb-1">Invoice QR:</div>
+                      <code className="text-blue-600">PO#$INV#$VendorCode</code>
+                      <div className="mt-1 text-gray-500">Example: 5100026898$IVT-202601185$115050</div>
+                    </div>
+                    <div className="flex-1 p-2 bg-gray-50 rounded text-xs">
+                      <div className="font-medium mb-1">Package QR:</div>
+                      <code className="text-blue-600">PartNo$Qty$PO#$VendorCode</code>
+                      <div className="mt-1 text-gray-500">Example: 70653302$10$5100026898$115050</div>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-orange-600">
+                    ⚠️ Allianz also requires HT Certificate (TH-0950)
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* BOM Tab - Materials required per WO */}
+      {activeTab === 'bom' && (
+        <div className="space-y-6">
+          <Card className="p-4 bg-purple-50 border-purple-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Layers className="w-8 h-8 text-purple-600" />
+                <div>
+                  <h3 className="font-bold text-purple-800">{lang === 'th' ? 'รายการวัสดุ (BOM)' : 'Bill of Materials'}</h3>
+                  <p className="text-sm text-purple-600">{lang === 'th' ? 'วัสดุที่ต้องใช้ต่อ Work Order' : 'Materials required per Work Order'}</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm">
+                <Plus className="w-4 h-4 mr-1" />
+                {lang === 'th' ? 'เพิ่ม BOM Template' : 'Add BOM Template'}
+              </Button>
+            </div>
+          </Card>
+
+          {/* BOM Templates */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(bomTemplates).map(([key, items]) => (
+              <Card key={key} className="overflow-hidden">
+                <div className="p-3 border-b bg-gray-50">
+                  <div className="font-bold capitalize">{key.replace('-', ' ')}</div>
+                </div>
+                <div className="p-3">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-xs text-gray-500">
+                        <th className="text-left pb-2">{lang === 'th' ? 'วัสดุ' : 'Material'}</th>
+                        <th className="text-right pb-2">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {items.map((item, idx) => (
+                        <tr key={idx}>
+                          <td className="py-1">{item.material}</td>
+                          <td className="py-1 text-right">{item.qty} {item.unit}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* WOs with BOM */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b">
+              <h3 className="font-bold">{lang === 'th' ? 'BOM ตาม Work Order' : 'BOM by Work Order'}</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'WO #' : 'WO #'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วัสดุหลัก' : 'Main Material'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'เบิกแล้ว' : 'Issued'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {workOrders.filter(wo => wo.status !== 'completed').slice(0, 10).map(wo => (
+                    <tr key={wo.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono text-[#1A5276]">{wo.woNumber || wo.id}</td>
+                      <td className="px-4 py-3">{wo.productName}</td>
+                      <td className="px-4 py-3 text-right">{wo.quantity}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {wo.bom?.[0]?.material || 'MLH / Plywood'}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {wo.materialsIssued?.length > 0 ? (
+                          <Badge variant="success">{lang === 'th' ? 'เบิกแล้ว' : 'Issued'}</Badge>
+                        ) : (
+                          <Badge variant="default">{lang === 'th' ? 'ยังไม่เบิก' : 'Not Issued'}</Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => { setSelectedWO(wo); setShowBOMModal(true) }}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* QC Tab */}
       {activeTab === 'qc' && (
         <div className="space-y-6">
+          {/* QC Checklist Config Button */}
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setShowChecklistConfigModal(true)}>
+              <Settings className="w-4 h-4 mr-1" />
+              {lang === 'th' ? 'ตั้งค่า Checklist' : 'Configure Checklists'}
+            </Button>
+          </div>
+          
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Pending QC */}
             <Card className="overflow-hidden">
@@ -6240,6 +7663,221 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
             onIssue={handleMaterialIssue}
             onCancel={() => setShowIssueModal(false)}
           />
+        </Modal>
+      )}
+
+      {/* Label Print Modal */}
+      {showLabelModal && selectedWO && (
+        <Modal isOpen={showLabelModal} onClose={() => setShowLabelModal(false)} title={lang === 'th' ? 'พิมพ์ฉลาก' : 'Print Labels'} size="lg">
+          <div className="space-y-4">
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="font-mono text-lg font-bold">{selectedWO.woNumber || selectedWO.id}</div>
+              <div className="text-gray-600">{selectedWO.productName}</div>
+              <div className="text-sm text-gray-500">{selectedWO.quantity} pcs</div>
+            </div>
+
+            {/* Label Format Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{lang === 'th' ? 'รูปแบบฉลาก' : 'Label Format'}</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button className="p-3 border-2 rounded-lg text-left hover:border-blue-500 focus:border-blue-500">
+                  <div className="font-medium">Standard Label</div>
+                  <div className="text-xs text-gray-500">Basic product label</div>
+                </button>
+                <button className="p-3 border-2 rounded-lg text-left hover:border-orange-500 focus:border-orange-500">
+                  <div className="font-medium text-orange-600">Polyplex 4-Column</div>
+                  <div className="text-xs text-gray-500">Color-coded sheet</div>
+                </button>
+                <button className="p-3 border-2 rounded-lg text-left hover:border-blue-500 focus:border-blue-500">
+                  <div className="font-medium text-blue-600">Allianz QR Code</div>
+                  <div className="text-xs text-gray-500">QR with part info</div>
+                </button>
+                <button className="p-3 border-2 rounded-lg text-left hover:border-gray-500 focus:border-gray-500">
+                  <div className="font-medium">Custom</div>
+                  <div className="text-xs text-gray-500">Configure manually</div>
+                </button>
+              </div>
+            </div>
+
+            {/* Quantity */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'จำนวนฉลาก' : 'Label Quantity'}</label>
+              <input 
+                type="number" 
+                className="w-full px-3 py-2 border rounded-lg" 
+                defaultValue={selectedWO.quantity}
+              />
+            </div>
+
+            {/* Preview */}
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="text-sm text-yellow-800">
+                <strong>{lang === 'th' ? 'ขั้นตอน:' : 'Process:'}</strong>
+                <ol className="mt-1 list-decimal list-inside">
+                  <li>{lang === 'th' ? 'Sales พิมพ์ฉลากจากที่นี่' : 'Sales prints labels from here'}</li>
+                  <li>{lang === 'th' ? 'ส่งฉลากให้ QC' : 'Pass labels to QC'}</li>
+                  <li>{lang === 'th' ? 'QC ติดฉลากระหว่างตรวจสอบ' : 'QC pastes labels during inspection'}</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="flex gap-4 pt-4">
+              <Button variant="outline" className="flex-1" onClick={() => setShowLabelModal(false)}>
+                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+              </Button>
+              <Button 
+                className="flex-1" 
+                onClick={() => {
+                  setWorkOrders(workOrders.map(wo => 
+                    wo.id === selectedWO.id ? { ...wo, labelsPrinted: true, labelsPrintedAt: new Date().toISOString() } : wo
+                  ))
+                  setShowLabelModal(false)
+                }}
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                {lang === 'th' ? 'พิมพ์ฉลาก' : 'Print Labels'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* BOM Modal */}
+      {showBOMModal && selectedWO && (
+        <Modal isOpen={showBOMModal} onClose={() => setShowBOMModal(false)} title={lang === 'th' ? 'รายการวัสดุ (BOM)' : 'Bill of Materials'} size="lg">
+          <div className="space-y-4">
+            <div className="p-4 bg-purple-50 rounded-lg">
+              <div className="font-mono text-lg font-bold text-purple-700">{selectedWO.woNumber || selectedWO.id}</div>
+              <div className="text-gray-600">{selectedWO.productName}</div>
+              <div className="text-sm text-gray-500">{selectedWO.quantity} pcs</div>
+            </div>
+
+            {/* BOM Table */}
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">#</th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วัสดุ' : 'Material'}</th>
+                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ต่อหน่วย' : 'Per Unit'}</th>
+                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'รวม' : 'Total'}</th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'หมวด' : 'Category'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {(selectedWO.bom || [
+                    { material: 'Stringer (90x90x1200)', qty: 3, unit: 'pcs', category: 'MLH' },
+                    { material: 'Top Board (20x100x1000)', qty: 7, unit: 'pcs', category: 'MLH' },
+                    { material: 'Bottom Board (20x100x1000)', qty: 3, unit: 'pcs', category: 'MLH' },
+                    { material: 'Nails 3"', qty: 50, unit: 'pcs', category: 'Consumables' },
+                  ]).map((item, idx) => (
+                    <tr key={idx}>
+                      <td className="px-4 py-2 text-gray-400">{idx + 1}</td>
+                      <td className="px-4 py-2 font-medium">{item.material}</td>
+                      <td className="px-4 py-2 text-right">{item.qty} {item.unit}</td>
+                      <td className="px-4 py-2 text-right font-medium">{item.qty * selectedWO.quantity} {item.unit}</td>
+                      <td className="px-4 py-2 text-sm text-gray-500">{item.category}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Material Status */}
+            <div className="p-3 bg-green-50 rounded-lg">
+              <div className="flex items-center gap-2 text-green-800">
+                <CheckCircle className="w-5 h-5" />
+                <span className="font-medium">{lang === 'th' ? 'สถานะวัสดุ:' : 'Material Status:'}</span>
+                {selectedWO.materialsIssued?.length > 0 ? (
+                  <span className="text-green-600">{lang === 'th' ? 'เบิกแล้ว' : 'Issued'}</span>
+                ) : (
+                  <span className="text-orange-600">{lang === 'th' ? 'ยังไม่เบิก' : 'Not yet issued'}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-4 pt-4">
+              <Button variant="outline" className="flex-1" onClick={() => setShowBOMModal(false)}>
+                {lang === 'th' ? 'ปิด' : 'Close'}
+              </Button>
+              {!selectedWO.materialsIssued?.length && (
+                <Button 
+                  className="flex-1"
+                  onClick={() => {
+                    setShowBOMModal(false)
+                    handleIssue(selectedWO)
+                  }}
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  {lang === 'th' ? 'เบิกวัสดุ' : 'Issue Materials'}
+                </Button>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Checklist Config Modal */}
+      {showChecklistConfigModal && (
+        <Modal isOpen={showChecklistConfigModal} onClose={() => setShowChecklistConfigModal(false)} title={lang === 'th' ? 'ตั้งค่า QC Checklist' : 'Configure QC Checklists'} size="lg">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              {lang === 'th' ? 'กำหนดรายการตรวจสอบ QC สำหรับแต่ละประเภทสินค้า' : 'Define QC checklist items for each product type'}
+            </p>
+
+            {Object.entries(qcChecklists).map(([productType, items]) => (
+              <div key={productType} className="border rounded-lg overflow-hidden">
+                <div className="p-3 bg-gray-50 border-b">
+                  <div className="font-bold capitalize">{productType}</div>
+                </div>
+                <div className="p-3">
+                  {items.map((item, idx) => (
+                    <div key={item.id} className="flex items-center gap-3 py-2">
+                      <span className="text-gray-400 w-6">{idx + 1}.</span>
+                      <input 
+                        type="text" 
+                        value={item.item} 
+                        className="flex-1 px-2 py-1 border rounded"
+                        onChange={(e) => {
+                          const newChecklists = { ...qcChecklists }
+                          newChecklists[productType][idx].item = e.target.value
+                          setQcChecklists(newChecklists)
+                        }}
+                      />
+                      <label className="flex items-center gap-1 text-sm">
+                        <input 
+                          type="checkbox" 
+                          checked={item.required}
+                          onChange={(e) => {
+                            const newChecklists = { ...qcChecklists }
+                            newChecklists[productType][idx].required = e.target.checked
+                            setQcChecklists(newChecklists)
+                          }}
+                        />
+                        {lang === 'th' ? 'บังคับ' : 'Required'}
+                      </label>
+                      <button className="p-1 text-red-500 hover:bg-red-50 rounded">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button className="mt-2 text-sm text-blue-600 hover:underline">
+                    + {lang === 'th' ? 'เพิ่มรายการ' : 'Add Item'}
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <div className="flex gap-4 pt-4">
+              <Button variant="outline" className="flex-1" onClick={() => setShowChecklistConfigModal(false)}>
+                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+              </Button>
+              <Button className="flex-1" onClick={() => setShowChecklistConfigModal(false)}>
+                <Save className="w-4 h-4 mr-2" />
+                {lang === 'th' ? 'บันทึก' : 'Save'}
+              </Button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>
@@ -14785,16 +16423,44 @@ const VersionInfo = ({ lang }) => {
   )
 }
 
-// End of IND ERP v7.4 - Enhanced Production Module
+// End of IND ERP v7.5 - Full Module Enhancement
 // Total Features: 9 Modules, 6 Stores, 12 Categories, 13 Import Cost Types
-// NEW in v7.4: 
-//   - Production Dashboard with Daily Tasks & Alerts
-//   - Department Schedule (Calendar view by dept)
-//   - WO Flow: C1/C2 → P1/P2/P3 → ASM1/ASM2 → OVN → QC → FG
+// 
+// v7.5 ENHANCEMENTS:
+// PRODUCTION MODULE:
+//   - Dashboard with Daily Tasks & Alerts
+//   - My Department View (each dept sees only their WOs)
+//   - Department Schedule (Calendar view by dept: C1/C2/P1/P2/P3/ASM1/ASM2/OVN/QC)
+//   - WO Flow tracking through departments
 //   - Floor View (All depts at a glance)
-//   - QC Tab (Pending/Failed tracking)
-//   - HT Certificates (TH-0950, ISPM15)
-//   - Move WO through departments
+//   - Labels Tab (Sales prints → QC pastes: Polyplex 4-col, Allianz QR)
+//   - BOM Integration (materials required per WO, templates)
+//   - QC Tab (Pass/Fail with CONFIGURABLE checklist per product)
+//   - HT Certificates (TH-0950, ISPM15, cert# YYMMDD+seq)
+//
+// TRANSPORT MODULE:
+//   - Fleet: 4 trucks, Drivers: Mayo, W, T, C
+//   - Trip Allowance: 100% furthest + 50% additional stops
+//   - Bonuses: 45+ trips=฿500, after 7PM=฿50, holiday=฿50
+//   - Fleet Card fuel tracking (no cash)
+//   - Mileage-based maintenance alerts
+//   - Monthly driver allowance summary for payroll
+//
+// MAINTENANCE MODULE:
+//   - MWO Format: MWO-YYMMDD-XXX
+//   - Equipment registry with service intervals
+//   - Spare parts store with low stock alerts
+//   - Diesel tracking (~8L/week for forklifts)
+//   - PM Schedule calendar
+//   - Vehicle maintenance linked to Transport
+//
+// SALES MODULE:
+//   - Dashboard with weekly calendar
+//   - Operations (Production Plan view)
+//   - Dispatch (FG→DO→Invoice)
+//   - Customer delivery locations
+//   - Document formats: IVT-YYYYMMXXX, BN-YYYYMMXXX, RE-YYYYMMXXX, QO-YYYYMMXXX
+//
 // Languages: EN, TH, MY, KH, ZH, JP
 // Roles: Admin, Sales, Production, Warehouse, HR, Accounting, Transport, Maintenance
 
