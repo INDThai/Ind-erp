@@ -1845,6 +1845,9 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
     building: { label: lang === 'th' ? 'อาคาร' : 'Building', color: 'purple' },
     electrical: { label: lang === 'th' ? 'ไฟฟ้า' : 'Electrical', color: 'yellow' },
     plumbing: { label: lang === 'th' ? 'ประปา' : 'Plumbing', color: 'cyan' },
+    hvac: { label: lang === 'th' ? 'แอร์/ระบายอากาศ' : 'HVAC/AC', color: 'sky' },
+    safety: { label: lang === 'th' ? 'ความปลอดภัย' : 'Safety', color: 'red' },
+    other: { label: lang === 'th' ? 'อื่นๆ' : 'Other', color: 'gray' },
   }
 
   // Equipment Types
@@ -2729,6 +2732,156 @@ const QuickActionsMenu = ({ isOpen, onClose, onAction, lang }) => {
 // v7.6 FEATURES - KANBAN BOARD for Production
 // ============================================
 const KanbanBoard = ({ workOrders, setWorkOrders, customers, lang }) => {
+
+// ============================================
+// GLOBAL MAINTENANCE REQUEST MODAL
+// Accessible from all departments via header button or Q shortcut
+// ============================================
+const GlobalMaintenanceRequestModal = ({ isOpen, onClose, onSubmit, currentUser, lang }) => {
+  const [formData, setFormData] = useState({
+    department: currentUser?.department || '',
+    requestedBy: currentUser?.name || '',
+    category: 'equipment',
+    subject: '',
+    description: '',
+    priority: 'medium',
+  })
+
+  const DEPARTMENTS = [
+    { id: 'C1', label: 'C1 - Cutting 1' },
+    { id: 'C2', label: 'C2 - Cutting 2' },
+    { id: 'P1', label: 'P1 - Processing 1' },
+    { id: 'P2', label: 'P2 - Processing 2' },
+    { id: 'P3', label: 'P3 - Processing 3' },
+    { id: 'ASM1', label: 'ASM1 - Assembly 1' },
+    { id: 'ASM2', label: 'ASM2 - Assembly 2' },
+    { id: 'OVN', label: 'OVN - Oven/HT' },
+    { id: 'QC', label: 'QC - Quality Control' },
+    { id: 'FG', label: 'FG - Finished Goods' },
+    { id: 'warehouse', label: lang === 'th' ? 'คลังสินค้า' : 'Warehouse' },
+    { id: 'office', label: lang === 'th' ? 'สำนักงาน' : 'Office' },
+    { id: 'housing', label: lang === 'th' ? 'หอพัก' : 'Staff Housing' },
+  ]
+
+  const CATEGORIES = [
+    { id: 'equipment', label: lang === 'th' ? 'เครื่องจักร/อุปกรณ์' : 'Equipment/Machinery', icon: '⚙️' },
+    { id: 'electrical', label: lang === 'th' ? 'ไฟฟ้า' : 'Electrical', icon: '⚡' },
+    { id: 'plumbing', label: lang === 'th' ? 'ประปา' : 'Plumbing', icon: '🚿' },
+    { id: 'building', label: lang === 'th' ? 'อาคาร/โครงสร้าง' : 'Building/Structure', icon: '🏢' },
+    { id: 'hvac', label: lang === 'th' ? 'แอร์/ระบายอากาศ' : 'HVAC/AC', icon: '❄️' },
+    { id: 'vehicle', label: lang === 'th' ? 'ยานพาหนะ' : 'Vehicle', icon: '🚛' },
+    { id: 'safety', label: lang === 'th' ? 'ความปลอดภัย' : 'Safety', icon: '🦺' },
+    { id: 'other', label: lang === 'th' ? 'อื่นๆ' : 'Other', icon: '📋' },
+  ]
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!formData.department || !formData.subject) return
+    onSubmit(formData)
+    setFormData({ department: currentUser?.department || '', requestedBy: currentUser?.name || '', category: 'equipment', subject: '', description: '', priority: 'medium' })
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <Wrench className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">{lang === 'th' ? 'แจ้งซ่อม / แจ้งปัญหา' : 'Report Issue / Request Repair'}</h2>
+                <p className="text-amber-100 text-sm">{lang === 'th' ? 'แผนกซ่อมบำรุงจะได้รับคำขอนี้' : 'Maintenance team will receive this request'}</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg text-white"><X className="w-5 h-5" /></button>
+          </div>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {/* Category Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{lang === 'th' ? 'ประเภทปัญหา' : 'Issue Category'}</label>
+            <div className="grid grid-cols-4 gap-2">
+              {CATEGORIES.map(cat => (
+                <button key={cat.id} type="button" onClick={() => setFormData({...formData, category: cat.id})}
+                  className={`p-3 rounded-xl border-2 text-center transition-all ${formData.category === cat.id ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <div className="text-xl mb-1">{cat.icon}</div>
+                  <div className="text-xs font-medium text-gray-700">{cat.label.split('/')[0]}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Department & Requester */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'แผนกที่แจ้ง' : 'Your Department'} *</label>
+              <select value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value})} className="w-full px-3 py-2 border rounded-lg" required>
+                <option value="">{lang === 'th' ? '-- เลือกแผนก --' : '-- Select --'}</option>
+                {DEPARTMENTS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ชื่อผู้แจ้ง' : 'Your Name'} *</label>
+              <input type="text" value={formData.requestedBy} onChange={(e) => setFormData({...formData, requestedBy: e.target.value})} 
+                className="w-full px-3 py-2 border rounded-lg" placeholder={lang === 'th' ? 'ชื่อของคุณ' : 'Your name'} required />
+            </div>
+          </div>
+
+          {/* Subject */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เรื่อง / ปัญหา' : 'Subject / Issue'} *</label>
+            <input type="text" value={formData.subject} onChange={(e) => setFormData({...formData, subject: e.target.value})} 
+              className="w-full px-3 py-2 border rounded-lg" placeholder={lang === 'th' ? 'เช่น เครื่องตัดมีเสียงดัง, ท่อน้ำรั่ว, แอร์ไม่เย็น' : 'e.g., Machine making noise, Water leak, AC not cooling'} required />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รายละเอียดเพิ่มเติม' : 'Additional Details'}</label>
+            <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} 
+              className="w-full px-3 py-2 border rounded-lg" rows="3" placeholder={lang === 'th' ? 'อธิบายปัญหาเพิ่มเติม...' : 'Describe the issue in more detail...'} />
+          </div>
+
+          {/* Priority */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{lang === 'th' ? 'ความเร่งด่วน' : 'Priority'}</label>
+            <div className="flex gap-3">
+              {[
+                { id: 'low', label: lang === 'th' ? 'ต่ำ' : 'Low', color: 'bg-gray-100 border-gray-300 text-gray-700' },
+                { id: 'medium', label: lang === 'th' ? 'ปานกลาง' : 'Medium', color: 'bg-yellow-100 border-yellow-400 text-yellow-700' },
+                { id: 'high', label: lang === 'th' ? 'สูง' : 'High', color: 'bg-orange-100 border-orange-400 text-orange-700' },
+                { id: 'critical', label: lang === 'th' ? 'วิกฤต' : 'Critical', color: 'bg-red-100 border-red-400 text-red-700' },
+              ].map(p => (
+                <button key={p.id} type="button" onClick={() => setFormData({...formData, priority: p.id})}
+                  className={`flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition-all ${formData.priority === p.id ? p.color + ' ring-2 ring-offset-1' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">
+              {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+            </button>
+            <button type="submit" disabled={!formData.department || !formData.subject} 
+              className="flex-1 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg font-medium hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+              <Send className="w-4 h-4" />
+              {lang === 'th' ? 'ส่งคำขอ' : 'Submit Request'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
   const [draggedWO, setDraggedWO] = useState(null)
   const DEPT_FLOW = ['C1', 'C2', 'P1', 'P2', 'P3', 'ASM1', 'ASM2', 'OVN', 'QC', 'FG']
   const DEPT_COLORS = {
@@ -10561,6 +10714,25 @@ const AppFull = () => {
   const [showNotifications, setShowNotifications] = useState(false)
   const [showQuickActions, setShowQuickActions] = useState(false)
   const [productionView, setProductionView] = useState('tabs') // 'tabs' or 'kanban'
+  const [showMaintenanceRequest, setShowMaintenanceRequest] = useState(false)
+  
+  // Global maintenance requests (shared across all modules)
+  const [maintenanceRequests, setMaintenanceRequests] = useState([
+    { id: 'REQ-001', date: '2026-02-01', department: 'C1', requestedBy: 'Singh', category: 'equipment', subject: 'Table Saw blade worn', description: 'Blade needs replacement', priority: 'high', status: 'pending' },
+    { id: 'REQ-002', date: '2026-01-31', department: 'office', requestedBy: 'Noon', category: 'building', subject: 'AC not cooling', description: 'Office AC unit not working properly', priority: 'medium', status: 'pending' },
+  ])
+
+  // Submit maintenance request from anywhere
+  const handleSubmitMaintenanceRequest = (request) => {
+    const newRequest = {
+      id: `REQ-${(maintenanceRequests.length + 1).toString().padStart(3, '0')}`,
+      ...request,
+      date: new Date().toISOString().split('T')[0],
+      status: 'pending',
+    }
+    setMaintenanceRequests([newRequest, ...maintenanceRequests])
+    setShowMaintenanceRequest(false)
+  }
 
   // Generate notifications from data
   const notifications = [
@@ -10623,7 +10795,7 @@ const AppFull = () => {
       case 'new_so': setActiveModule('sales'); break
       case 'new_po': setActiveModule('purchase'); break
       case 'new_invoice': setActiveModule('sales'); break
-      case 'maint_request': setActiveModule('maintenance'); break
+      case 'maint_request': setShowMaintenanceRequest(true); break // Opens global modal instead of navigating
     }
   }
 
@@ -10633,6 +10805,7 @@ const AppFull = () => {
     if (notif.id.startsWith('wo-')) setActiveModule('production')
     else if (notif.id.startsWith('inv-')) setActiveModule('inventory')
     else if (notif.id.startsWith('po-')) setActiveModule('purchase')
+    else if (notif.id.startsWith('maint-')) setActiveModule('maintenance')
   }
 
   // Auth handlers
@@ -10782,6 +10955,16 @@ const AppFull = () => {
                   />
                 </div>
                 
+                {/* Report Issue Button - Visible to ALL departments */}
+                <button 
+                  onClick={() => setShowMaintenanceRequest(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg text-sm font-medium transition-colors"
+                  title={lang === 'th' ? 'แจ้งซ่อม / แจ้งปัญหา' : 'Report Issue / Request Repair'}
+                >
+                  <Wrench className="w-4 h-4" />
+                  <span className="hidden lg:inline">{lang === 'th' ? 'แจ้งซ่อม' : 'Report Issue'}</span>
+                </button>
+                
                 {/* Notifications */}
                 <div className="relative">
                   <button 
@@ -10821,6 +11004,15 @@ const AppFull = () => {
               purchaseOrders={purchaseOrders}
               employees={employees}
               onNavigate={handleSearchNavigate}
+              lang={lang}
+            />
+            
+            {/* Global Maintenance Request Modal - Accessible from ALL departments */}
+            <GlobalMaintenanceRequestModal
+              isOpen={showMaintenanceRequest}
+              onClose={() => setShowMaintenanceRequest(false)}
+              onSubmit={handleSubmitMaintenanceRequest}
+              currentUser={currentUser}
               lang={lang}
             />
 
@@ -10969,6 +11161,8 @@ const AppFull = () => {
                   equipment={equipment}
                   setEquipment={setEquipment}
                   employees={employees}
+                  maintenanceRequests={maintenanceRequests}
+                  setMaintenanceRequests={setMaintenanceRequests}
                   lang={lang}
                 />
               )}
