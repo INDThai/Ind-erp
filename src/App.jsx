@@ -19,10 +19,25 @@ import {
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '7.7'
+const VERSION = '7.9'
 const VERSION_DATE = '2026-02-01'
 
-// v7.7 NEW FEATURES:
+// v7.9 NEW FEATURES - COMPLETE MWO TRACKING:
+// 1. MAINTENANCE TEAM DASHBOARD - Shows all technicians, skills, hourly rates, current assignments
+// 2. ENHANCED MWO CARDS - Shows assigned technicians, work logs, parts used, total costs
+// 3. MWO DETAIL MODAL - 4 tabs: Info, Work Log, Parts Used, Cost Summary
+// 4. WORK LOG ENTRY - Add technician hours with auto-calculated labor costs
+// 5. EQUIPMENT COST ANALYSIS - Track maintenance cost per equipment, cost ratio vs purchase price
+// 6. TECHNICIAN TRACKING - Hours logged, labor cost breakdown per technician
+// 7. COST EFFECTIVENESS - Color-coded cost ratios (green/yellow/orange/red)
+//
+// v7.8 FEATURES:
+// 1. ISSUE HISTORY VIEW - Full table showing all issued parts with date, qty, MWO#, cost, notes
+// 2. STORE VIEW TOGGLE - Switch between Inventory and Issue History views
+// 3. ISSUE STATS - Total issues, qty, value, MWO-linked count
+// 4. DEMO ISSUE DATA - 5 sample issue records to demonstrate feature
+//
+// v7.7 FEATURES:
 // 1. STORE5 LINKAGE - Inventory Module now shows STORE5 (Maintenance) items
 // 2. UNIFIED DATA - Maintenance Store synced between Inventory & Maintenance modules
 // 3. ENHANCED STORE5 VIEW - Special table layout for maintenance parts (SKU, Unit, Min/Max, Location)
@@ -794,26 +809,163 @@ const INITIAL_DELIVERY_ORDERS = [
 // HR - EMPLOYEES
 // ============================================
 const INITIAL_EMPLOYEES = [
-  { id: 1, empId: 'EMP001', name: 'Wuttipong Srisuk', nameTh: 'วุฒิพงษ์ ศรีสุข', department: 'office', designation: 'MG', empType: 'FT', salary: 35000, positionInc: 5000, labourInc: 0, phone: 500, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2018-01-15' },
-  { id: 2, empId: 'EMP002', name: 'Somchai Yodrak', nameTh: 'สมชาย ยอดรัก', department: 'production', subDept: 'C1', designation: 'LEAD', empType: 'FT', salary: 18000, positionInc: 2000, labourInc: 1500, phone: 300, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2019-03-01' },
-  { id: 3, empId: 'EMP003', name: 'Nanthana Boonmee', nameTh: 'นันทนา บุญมี', department: 'hr', designation: 'HR', empType: 'FT', salary: 16000, positionInc: 1500, labourInc: 0, phone: 300, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2020-06-01' },
-  { id: 4, empId: 'EMP004', name: 'Pakamas Rattana', nameTh: 'ผกามาศ รัตนะ', department: 'accounting', designation: 'ACC', empType: 'FT', salary: 15000, positionInc: 0, labourInc: 0, phone: 300, socialSecurity: 750, bank: 'transfer', entity: 'IND2', status: 'active', joinDate: '2021-01-10' },
-  { id: 5, empId: 'EMP005', name: 'Prasert Thongdee', nameTh: 'ประเสริฐ ทองดี', department: 'warehouse', designation: 'WH', empType: 'FT', salary: 12000, positionInc: 0, labourInc: 1000, phone: 0, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2019-08-15' },
-  { id: 6, empId: 'EMP006', name: 'Somporn Kaewjai', nameTh: 'สมพร แก้วใจ', department: 'production', subDept: 'P1', designation: 'OP', empType: 'PT', dailyRate: 400, entity: 'IND', status: 'active', joinDate: '2022-03-01' },
-  { id: 7, empId: 'EMP007', name: 'Vichai Kaewsri', nameTh: 'วิชัย แก้วศรี', department: 'transport', designation: 'DRIVER', empType: 'FT', salary: 14000, positionInc: 0, labourInc: 500, phone: 300, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2020-02-01' },
-  { id: 8, empId: 'EMP008', name: 'Boonlert Jaidee', nameTh: 'บุญเลิศ ใจดี', department: 'maintenance', designation: 'TECH', empType: 'FT', salary: 15000, positionInc: 1000, labourInc: 500, phone: 300, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2019-05-15' },
-  { id: 9, empId: 'EMP009', name: 'Kanya Srisuk', nameTh: 'กัญญา ศรีสุข', department: 'sales', designation: 'SALES', empType: 'FT', salary: 15000, positionInc: 0, labourInc: 0, phone: 500, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2021-07-01' },
-  { id: 10, empId: 'EMP010', name: 'Manop Saelee', nameTh: 'มานพ แสลี', department: 'production', subDept: 'A1', designation: 'OP', empType: 'FT', salary: 11000, positionInc: 0, labourInc: 1000, phone: 0, socialSecurity: 750, bank: 'cash', entity: 'IND', status: 'active', joinDate: '2022-01-10' },
+  { id: 1, empId: 'EMP001', name: 'Wuttipong Srisuk', nameTh: 'วุฒิพงษ์ ศรีสุข', department: 'office', designation: 'MG', empType: 'FT', salary: 35000, positionInc: 5000, labourInc: 0, phone: 500, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2018-01-15', hourlyRate: 200 },
+  { id: 2, empId: 'EMP002', name: 'Somchai Yodrak', nameTh: 'สมชาย ยอดรัก', department: 'production', subDept: 'C1', designation: 'LEAD', empType: 'FT', salary: 18000, positionInc: 2000, labourInc: 1500, phone: 300, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2019-03-01', hourlyRate: 100 },
+  { id: 3, empId: 'EMP003', name: 'Nanthana Boonmee', nameTh: 'นันทนา บุญมี', department: 'hr', designation: 'HR', empType: 'FT', salary: 16000, positionInc: 1500, labourInc: 0, phone: 300, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2020-06-01', hourlyRate: 90 },
+  { id: 4, empId: 'EMP004', name: 'Pakamas Rattana', nameTh: 'ผกามาศ รัตนะ', department: 'accounting', designation: 'ACC', empType: 'FT', salary: 15000, positionInc: 0, labourInc: 0, phone: 300, socialSecurity: 750, bank: 'transfer', entity: 'IND2', status: 'active', joinDate: '2021-01-10', hourlyRate: 85 },
+  { id: 5, empId: 'EMP005', name: 'Prasert Thongdee', nameTh: 'ประเสริฐ ทองดี', department: 'warehouse', designation: 'WH', empType: 'FT', salary: 12000, positionInc: 0, labourInc: 1000, phone: 0, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2019-08-15', hourlyRate: 70 },
+  { id: 6, empId: 'EMP006', name: 'Somporn Kaewjai', nameTh: 'สมพร แก้วใจ', department: 'production', subDept: 'P1', designation: 'OP', empType: 'PT', dailyRate: 400, entity: 'IND', status: 'active', joinDate: '2022-03-01', hourlyRate: 50 },
+  { id: 7, empId: 'EMP007', name: 'Vichai Kaewsri', nameTh: 'วิชัย แก้วศรี', department: 'transport', designation: 'DRIVER', empType: 'FT', salary: 14000, positionInc: 0, labourInc: 500, phone: 300, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2020-02-01', hourlyRate: 80 },
+  // MAINTENANCE DEPARTMENT STAFF
+  { id: 8, empId: 'EMP008', name: 'Boonlert Jaidee', nameTh: 'บุญเลิศ ใจดี', department: 'maintenance', designation: 'TECH-SR', empType: 'FT', salary: 18000, positionInc: 2000, labourInc: 500, phone: 300, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2019-05-15', hourlyRate: 120, skills: ['Electrical', 'Mechanical', 'Welding', 'PLC'], certifications: ['Electrical License', 'Forklift Operator'] },
+  { id: 9, empId: 'EMP009', name: 'Kanya Srisuk', nameTh: 'กัญญา ศรีสุข', department: 'sales', designation: 'SALES', empType: 'FT', salary: 15000, positionInc: 0, labourInc: 0, phone: 500, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2021-07-01', hourlyRate: 85 },
+  { id: 10, empId: 'EMP010', name: 'Manop Saelee', nameTh: 'มานพ แสลี', department: 'production', subDept: 'A1', designation: 'OP', empType: 'FT', salary: 11000, positionInc: 0, labourInc: 1000, phone: 0, socialSecurity: 750, bank: 'cash', entity: 'IND', status: 'active', joinDate: '2022-01-10', hourlyRate: 65 },
+  // Additional Maintenance Staff
+  { id: 11, empId: 'EMP011', name: 'Sakchai Wongsri', nameTh: 'ศักดิ์ชัย วงศ์ศรี', department: 'maintenance', designation: 'TECH', empType: 'FT', salary: 15000, positionInc: 1000, labourInc: 500, phone: 300, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2020-08-01', hourlyRate: 100, skills: ['Mechanical', 'Hydraulics', 'Pneumatics'], certifications: ['Crane Operator'] },
+  { id: 12, empId: 'EMP012', name: 'Wichai Phumiphat', nameTh: 'วิชัย ภูมิพัฒน์', department: 'maintenance', designation: 'TECH', empType: 'FT', salary: 14000, positionInc: 500, labourInc: 500, phone: 300, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2021-03-15', hourlyRate: 90, skills: ['Electrical', 'HVAC', 'Plumbing'], certifications: ['HVAC Technician'] },
+  { id: 13, empId: 'EMP013', name: 'Anong Thongsuk', nameTh: 'อนงค์ ทองสุข', department: 'maintenance', designation: 'TECH-JR', empType: 'FT', salary: 12000, positionInc: 0, labourInc: 500, phone: 0, socialSecurity: 750, bank: 'transfer', entity: 'IND', status: 'active', joinDate: '2023-06-01', hourlyRate: 75, skills: ['General Maintenance', 'Painting'], certifications: [] },
+  { id: 14, empId: 'EMP014', name: 'Thanakorn Saetang', nameTh: 'ธนากร แซ่ตั้ง', department: 'maintenance', designation: 'HELPER', empType: 'PT', dailyRate: 400, entity: 'IND', status: 'active', joinDate: '2024-01-10', hourlyRate: 50, skills: ['General Helper'], certifications: [] },
 ]
 
 // ============================================
-// MAINTENANCE TASKS
+// MAINTENANCE TASKS (Enhanced with Work Logs & Cost Tracking)
 // ============================================
 const INITIAL_MAINTENANCE_TASKS = [
-  { id: 'MT-001', equipment: 'CNC Router #1', equipmentId: 'EQ001', type: 'preventive', description: 'Monthly maintenance check', assignedTo: 8, scheduledDate: '2025-01-30', completedDate: null, status: 'scheduled', priority: 'medium', estimatedHours: 4, actualHours: null, parts: [], cost: 0 },
-  { id: 'MT-002', equipment: 'Forklift #2', equipmentId: 'EQ002', type: 'repair', description: 'Hydraulic system repair', assignedTo: 8, scheduledDate: '2025-01-26', completedDate: null, status: 'in_progress', priority: 'high', estimatedHours: 6, actualHours: 4, parts: ['Hydraulic seal', 'Oil filter'], cost: 2500 },
-  { id: 'MT-003', equipment: 'Band Saw #3', equipmentId: 'EQ003', type: 'preventive', description: 'Blade replacement and calibration', assignedTo: 8, scheduledDate: '2025-02-05', completedDate: null, status: 'scheduled', priority: 'low', estimatedHours: 2, actualHours: null, parts: ['Saw blade 24"'], cost: 0 },
-  { id: 'MT-004', equipment: 'Air Compressor', equipmentId: 'EQ004', type: 'preventive', description: 'Filter replacement', assignedTo: 8, scheduledDate: '2025-02-10', completedDate: null, status: 'scheduled', priority: 'medium', estimatedHours: 1, actualHours: null, parts: [], cost: 0 },
+  { 
+    id: 'MWO-2601-001', 
+    mwoNumber: 'MWO-2601-001',
+    equipment: 'CNC Router #1', 
+    equipmentId: 'EQ001', 
+    type: 'preventive', 
+    description: 'Monthly maintenance check - oil change, belt inspection, calibration', 
+    // Assignment
+    assignedTechnicians: [8, 11], // Boonlert (lead), Sakchai
+    leadTechnician: 8,
+    // Schedule
+    scheduledDate: '2025-01-28', 
+    startedDate: '2025-01-28',
+    completedDate: null, 
+    status: 'in_progress', 
+    priority: 'medium', 
+    estimatedHours: 4,
+    // Work Logs
+    workLogs: [
+      { id: 'WL-001', date: '2025-01-28', technicianId: 8, hours: 2.5, description: 'Drained old oil, inspected belts - found V-belt worn', laborCost: 300 },
+      { id: 'WL-002', date: '2025-01-28', technicianId: 11, hours: 1.5, description: 'Assisted with oil change, cleaned filters', laborCost: 150 },
+    ],
+    // Parts Used
+    partsUsed: [
+      { issueId: 'ISS-001', itemId: 'MS-001', itemName: 'Motor Oil 15W-40', sku: 'LUB-OIL-15W40', qty: 4, unitCost: 180, totalCost: 720 },
+    ],
+    // Cost Summary
+    laborHours: 4,
+    laborCost: 450,
+    partsCost: 720,
+    totalCost: 1170,
+  },
+  { 
+    id: 'MWO-2601-002', 
+    mwoNumber: 'MWO-2601-002',
+    equipment: 'Forklift #2', 
+    equipmentId: 'EQ002', 
+    type: 'repair', 
+    description: 'Hydraulic system repair - cylinder leaking', 
+    assignedTechnicians: [8, 12],
+    leadTechnician: 8,
+    scheduledDate: '2025-01-26', 
+    startedDate: '2025-01-26',
+    completedDate: '2025-01-27', 
+    status: 'completed', 
+    priority: 'high', 
+    estimatedHours: 6,
+    workLogs: [
+      { id: 'WL-003', date: '2025-01-26', technicianId: 8, hours: 3, description: 'Diagnosed hydraulic leak, disassembled cylinder', laborCost: 360 },
+      { id: 'WL-004', date: '2025-01-26', technicianId: 12, hours: 2, description: 'Assisted with disassembly, prepared new seals', laborCost: 180 },
+      { id: 'WL-005', date: '2025-01-27', technicianId: 8, hours: 2.5, description: 'Installed new seals, reassembled, tested', laborCost: 300 },
+      { id: 'WL-006', date: '2025-01-27', technicianId: 12, hours: 1.5, description: 'Refilled hydraulic fluid, cleaned area', laborCost: 135 },
+    ],
+    partsUsed: [
+      { issueId: 'ISS-006', itemId: 'MS-002', itemName: 'Hydraulic Fluid ISO 46', sku: 'LUB-HYD-46', qty: 8, unitCost: 250, totalCost: 2000 },
+      { issueId: 'ISS-007', itemId: 'MS-029', itemName: 'Hydraulic Oil Filter', sku: 'FLT-OIL-HYD', qty: 1, unitCost: 280, totalCost: 280 },
+    ],
+    laborHours: 9,
+    laborCost: 975,
+    partsCost: 2280,
+    totalCost: 3255,
+  },
+  { 
+    id: 'MWO-2601-003', 
+    mwoNumber: 'MWO-2601-003',
+    equipment: 'Band Saw #3', 
+    equipmentId: 'EQ003', 
+    type: 'preventive', 
+    description: 'Blade replacement and calibration', 
+    assignedTechnicians: [11],
+    leadTechnician: 11,
+    scheduledDate: '2025-02-05', 
+    startedDate: null,
+    completedDate: null, 
+    status: 'scheduled', 
+    priority: 'low', 
+    estimatedHours: 2,
+    workLogs: [],
+    partsUsed: [],
+    laborHours: 0,
+    laborCost: 0,
+    partsCost: 0,
+    totalCost: 0,
+  },
+  { 
+    id: 'MWO-2601-004', 
+    mwoNumber: 'MWO-2601-004',
+    equipment: 'Air Compressor', 
+    equipmentId: 'EQ004', 
+    type: 'preventive', 
+    description: 'Filter replacement and pressure check', 
+    assignedTechnicians: [13],
+    leadTechnician: 13,
+    scheduledDate: '2025-02-10', 
+    startedDate: null,
+    completedDate: null, 
+    status: 'scheduled', 
+    priority: 'medium', 
+    estimatedHours: 1.5,
+    workLogs: [],
+    partsUsed: [],
+    laborHours: 0,
+    laborCost: 0,
+    partsCost: 0,
+    totalCost: 0,
+  },
+  { 
+    id: 'MWO-2601-005', 
+    mwoNumber: 'MWO-2601-005',
+    equipment: 'Control Panel Section B', 
+    equipmentId: 'EQ005', 
+    type: 'repair', 
+    description: 'Rewiring damaged section after power surge', 
+    assignedTechnicians: [8, 12, 13],
+    leadTechnician: 8,
+    scheduledDate: '2025-01-30', 
+    startedDate: '2025-01-30',
+    completedDate: null, 
+    status: 'in_progress', 
+    priority: 'high', 
+    estimatedHours: 8,
+    workLogs: [
+      { id: 'WL-007', date: '2025-01-30', technicianId: 8, hours: 3, description: 'Traced damaged circuits, identified 4 faulty breakers', laborCost: 360 },
+      { id: 'WL-008', date: '2025-01-30', technicianId: 12, hours: 2.5, description: 'Removed old wiring, prepared conduits', laborCost: 225 },
+    ],
+    partsUsed: [
+      { issueId: 'ISS-004', itemId: 'MS-021', itemName: 'Electrical Wire 2.5mm²', sku: 'ELC-WIRE-25', qty: 20, unitCost: 15, totalCost: 300 },
+      { issueId: 'ISS-008', itemId: 'MS-023', itemName: 'Circuit Breaker 20A', sku: 'ELC-BREAKER-20', qty: 2, unitCost: 180, totalCost: 360 },
+      { issueId: 'ISS-009', itemId: 'MS-024', itemName: 'Circuit Breaker 32A', sku: 'ELC-BREAKER-32', qty: 2, unitCost: 250, totalCost: 500 },
+    ],
+    laborHours: 5.5,
+    laborCost: 585,
+    partsCost: 1160,
+    totalCost: 1745,
+  },
 ]
 
 // ============================================
@@ -863,13 +1015,17 @@ const INITIAL_MAINTENANCE_STORE = [
 ]
 
 // ============================================
-// EQUIPMENT LIST
+// EQUIPMENT LIST (Enhanced with Cost Tracking)
 // ============================================
 const INITIAL_EQUIPMENT = [
-  { id: 'EQ001', code: 'CNC-01', name: 'CNC Router #1', nameTh: 'เครื่อง CNC #1', location: 'Production Hall A', department: 'P1', purchaseDate: '2020-06-15', warrantyEnd: '2023-06-15', status: 'operational', lastMaintenance: '2024-12-15' },
-  { id: 'EQ002', code: 'FLT-02', name: 'Forklift #2', nameTh: 'รถยก #2', location: 'Warehouse', department: 'warehouse', purchaseDate: '2019-03-10', warrantyEnd: '2022-03-10', status: 'under_repair', lastMaintenance: '2024-11-20' },
-  { id: 'EQ003', code: 'SAW-03', name: 'Band Saw #3', nameTh: 'เลื่อยสายพาน #3', location: 'Cutting Area', department: 'C1', purchaseDate: '2021-01-20', warrantyEnd: '2024-01-20', status: 'operational', lastMaintenance: '2025-01-10' },
-  { id: 'EQ004', code: 'COMP-01', name: 'Air Compressor', nameTh: 'ปั๊มลม', location: 'Utility Room', department: 'maintenance', purchaseDate: '2018-08-05', warrantyEnd: '2021-08-05', status: 'operational', lastMaintenance: '2024-10-01' },
+  { id: 'EQ001', code: 'CNC-01', name: 'CNC Router #1', nameTh: 'เครื่อง CNC #1', location: 'Production Hall A', department: 'P1', purchaseDate: '2020-06-15', purchaseCost: 850000, warrantyEnd: '2023-06-15', status: 'operational', lastMaintenance: '2025-01-28', totalMaintenanceCost: 15420, maintenanceCount: 8 },
+  { id: 'EQ002', code: 'FLT-02', name: 'Forklift #2', nameTh: 'รถยก #2', location: 'Warehouse', department: 'warehouse', purchaseDate: '2019-03-10', purchaseCost: 450000, warrantyEnd: '2022-03-10', status: 'operational', lastMaintenance: '2025-01-27', totalMaintenanceCost: 28750, maintenanceCount: 12 },
+  { id: 'EQ003', code: 'SAW-03', name: 'Band Saw #3', nameTh: 'เลื่อยสายพาน #3', location: 'Cutting Area', department: 'C1', purchaseDate: '2021-01-20', purchaseCost: 180000, warrantyEnd: '2024-01-20', status: 'operational', lastMaintenance: '2025-01-10', totalMaintenanceCost: 8200, maintenanceCount: 5 },
+  { id: 'EQ004', code: 'COMP-01', name: 'Air Compressor', nameTh: 'ปั๊มลม', location: 'Utility Room', department: 'maintenance', purchaseDate: '2018-08-05', purchaseCost: 120000, warrantyEnd: '2021-08-05', status: 'operational', lastMaintenance: '2024-10-01', totalMaintenanceCost: 12350, maintenanceCount: 15 },
+  { id: 'EQ005', code: 'PNL-B', name: 'Control Panel Section B', nameTh: 'ตู้ควบคุม B', location: 'Production Hall A', department: 'P1', purchaseDate: '2019-06-01', purchaseCost: 280000, warrantyEnd: '2022-06-01', status: 'under_repair', lastMaintenance: '2025-01-30', totalMaintenanceCost: 6800, maintenanceCount: 3 },
+  { id: 'EQ006', code: 'PRESS-01', name: 'Hydraulic Press #1', nameTh: 'เครื่องกดไฮดรอลิค #1', location: 'Assembly Area', department: 'ASM1', purchaseDate: '2020-02-15', purchaseCost: 320000, warrantyEnd: '2023-02-15', status: 'operational', lastMaintenance: '2024-12-20', totalMaintenanceCost: 18500, maintenanceCount: 7 },
+  { id: 'EQ007', code: 'DRY-01', name: 'Drying Oven #1', nameTh: 'เตาอบ #1', location: 'Oven Area', department: 'OVN', purchaseDate: '2018-11-10', purchaseCost: 550000, warrantyEnd: '2021-11-10', status: 'operational', lastMaintenance: '2025-01-05', totalMaintenanceCost: 42000, maintenanceCount: 18 },
+  { id: 'EQ008', code: 'GEN-01', name: 'Backup Generator', nameTh: 'เครื่องกำเนิดไฟฟ้าสำรอง', location: 'Utility Room', department: 'maintenance', purchaseDate: '2017-05-20', purchaseCost: 380000, warrantyEnd: '2020-05-20', status: 'operational', lastMaintenance: '2024-11-15', totalMaintenanceCost: 35600, maintenanceCount: 22 },
 ]
 
 // ============================================
@@ -1867,6 +2023,12 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterCategory, setFilterCategory] = useState('all')
   
+  // MWO Detail Modal states
+  const [showMWODetailModal, setShowMWODetailModal] = useState(false)
+  const [selectedMWO, setSelectedMWO] = useState(null)
+  const [mwoDetailTab, setMwoDetailTab] = useState('info') // 'info', 'worklog', 'parts', 'cost'
+  const [newWorkLog, setNewWorkLog] = useState({ technicianId: '', hours: '', description: '' })
+  
   // Scan & Issue states
   const [showScanIssueModal, setShowScanIssueModal] = useState(false)
   const [scanQuery, setScanQuery] = useState('')
@@ -1874,7 +2036,18 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
   const [issueQty, setIssueQty] = useState(1)
   const [issueMWO, setIssueMWO] = useState('')
   const [issueNotes, setIssueNotes] = useState('')
-  const [issueHistory, setIssueHistory] = useState([])
+  const [issueHistory, setIssueHistory] = useState([
+    // Demo issue records
+    { id: 'ISS-001', itemId: 'MS-001', itemName: 'Motor Oil 15W-40', sku: 'LUB-OIL-15W40', qty: 4, unit: 'L', mwoNumber: 'MWO-2601-001', issuedBy: 'Boonlert J.', issuedAt: '2026-01-28T09:30:00', notes: 'For CNC Router #1 scheduled maintenance' },
+    { id: 'ISS-002', itemId: 'MS-006', itemName: 'Bearing 6205 2RS', sku: 'BRG-6205', qty: 2, unit: 'pcs', mwoNumber: 'MWO-2601-002', issuedBy: 'Somchai Y.', issuedAt: '2026-01-28T14:15:00', notes: 'Replacement for Band Saw #3' },
+    { id: 'ISS-003', itemId: 'MS-012', itemName: 'Cutting Disc 4"', sku: 'CON-DISC-CUT', qty: 5, unit: 'pcs', mwoNumber: null, issuedBy: 'Prasert T.', issuedAt: '2026-01-29T08:00:00', notes: 'General stock for production floor' },
+    { id: 'ISS-004', itemId: 'MS-021', itemName: 'Electrical Wire 2.5mm²', sku: 'ELC-WIRE-25', qty: 20, unit: 'm', mwoNumber: 'MWO-2601-003', issuedBy: 'Boonlert J.', issuedAt: '2026-01-30T10:45:00', notes: 'Rewiring control panel section B' },
+    { id: 'ISS-005', itemId: 'MS-003', itemName: 'Multi-Purpose Grease', sku: 'LUB-GREASE', qty: 2, unit: 'kg', mwoNumber: null, issuedBy: 'Vichai K.', issuedAt: '2026-01-31T16:20:00', notes: 'For truck fleet maintenance' },
+  ])
+  const [storeViewMode, setStoreViewMode] = useState('inventory') // 'inventory' or 'history'
+  
+  // Get maintenance staff from employees
+  const maintenanceStaff = (employees || []).filter(e => e.department === 'maintenance' && e.status === 'active')
 
   // New equipment form state
   const [newEquipment, setNewEquipment] = useState({
@@ -2040,6 +2213,69 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
     setIssueMWO('')
     setIssueNotes('')
     setShowScanIssueModal(false)
+  }
+
+  // Open MWO Detail Modal
+  const openMWODetail = (mwo) => {
+    setSelectedMWO(mwo)
+    setMwoDetailTab('info')
+    setShowMWODetailModal(true)
+  }
+
+  // Add Work Log Entry
+  const handleAddWorkLog = () => {
+    if (!selectedMWO || !newWorkLog.technicianId || !newWorkLog.hours) return
+    
+    const tech = maintenanceStaff.find(s => s.id === parseInt(newWorkLog.technicianId))
+    const hours = parseFloat(newWorkLog.hours)
+    const laborCost = hours * (tech?.hourlyRate || 100)
+    
+    const logEntry = {
+      id: `WL-${Date.now()}`,
+      date: new Date().toISOString().split('T')[0],
+      technicianId: parseInt(newWorkLog.technicianId),
+      hours: hours,
+      description: newWorkLog.description,
+      laborCost: laborCost,
+    }
+    
+    // Update MWO with new work log
+    const updatedMWO = {
+      ...selectedMWO,
+      workLogs: [...(selectedMWO.workLogs || []), logEntry],
+      laborHours: (selectedMWO.laborHours || 0) + hours,
+      laborCost: (selectedMWO.laborCost || 0) + laborCost,
+      totalCost: (selectedMWO.partsCost || 0) + (selectedMWO.laborCost || 0) + laborCost,
+    }
+    
+    if (setTasks) {
+      setTasks(tasksList.map(t => t.id === selectedMWO.id ? updatedMWO : t))
+    }
+    setSelectedMWO(updatedMWO)
+    setNewWorkLog({ technicianId: '', hours: '', description: '' })
+  }
+
+  // Calculate equipment cost statistics
+  const getEquipmentCostStats = () => {
+    const eqList = equipment || []
+    return eqList.map(eq => {
+      const eqMWOs = tasksList.filter(t => t.equipmentId === eq.id)
+      const totalLaborCost = eqMWOs.reduce((sum, m) => sum + (m.laborCost || 0), 0)
+      const totalPartsCost = eqMWOs.reduce((sum, m) => sum + (m.partsCost || 0), 0)
+      const totalCost = eq.totalMaintenanceCost || (totalLaborCost + totalPartsCost)
+      const mwoCount = eq.maintenanceCount || eqMWOs.length
+      const costPerMonth = eq.purchaseDate ? totalCost / Math.max(1, Math.ceil((new Date() - new Date(eq.purchaseDate)) / (1000 * 60 * 60 * 24 * 30))) : 0
+      
+      return {
+        ...eq,
+        totalLaborCost,
+        totalPartsCost,
+        totalCost,
+        mwoCount,
+        costPerMonth: Math.round(costPerMonth),
+        costEfficiency: eq.purchaseCost ? ((totalCost / eq.purchaseCost) * 100).toFixed(1) : 0,
+      }
+    }).sort((a, b) => b.totalCost - a.totalCost)
   }
 
   // Convert request to MWO
@@ -2270,6 +2506,66 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
               ))}
             </div>
           </Card>
+
+          {/* Maintenance Team */}
+          <Card className="overflow-hidden lg:col-span-2">
+            <div className="p-4 border-b bg-teal-50 flex items-center justify-between">
+              <h3 className="font-bold text-teal-800 flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                {lang === 'th' ? 'ทีมซ่อมบำรุง' : 'Maintenance Team'} ({maintenanceStaff.length} {lang === 'th' ? 'คน' : 'staff'})
+              </h3>
+              <div className="text-sm text-teal-600">
+                {lang === 'th' ? 'กำลังทำงาน' : 'Currently Active'}: {maintenanceStaff.filter(s => tasksList.some(t => t.assignedTechnicians?.includes(s.id) && t.status === 'in_progress')).length}
+              </div>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {maintenanceStaff.map(staff => {
+                  const activeJobs = tasksList.filter(t => t.assignedTechnicians?.includes(staff.id) && t.status === 'in_progress')
+                  const totalHours = tasksList.filter(t => t.assignedTechnicians?.includes(staff.id)).reduce((sum, t) => {
+                    const logs = t.workLogs?.filter(l => l.technicianId === staff.id) || []
+                    return sum + logs.reduce((s, l) => s + l.hours, 0)
+                  }, 0)
+                  
+                  return (
+                    <div key={staff.id} className={`p-3 rounded-lg border ${activeJobs.length > 0 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${activeJobs.length > 0 ? 'bg-green-500' : 'bg-gray-400'}`}>
+                          {staff.name.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate">{staff.name}</div>
+                          <div className="text-xs text-gray-500">{staff.designation}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-500">฿{staff.hourlyRate}/hr</span>
+                        <span className={activeJobs.length > 0 ? 'text-green-600 font-medium' : 'text-gray-400'}>
+                          {activeJobs.length > 0 ? `${activeJobs.length} ${lang === 'th' ? 'งาน' : 'jobs'}` : (lang === 'th' ? 'ว่าง' : 'Available')}
+                        </span>
+                      </div>
+                      {staff.skills && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {staff.skills.slice(0, 3).map((skill, i) => (
+                            <span key={i} className="px-1.5 py-0.5 bg-white text-xs rounded text-gray-600">{skill}</span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-2 text-xs text-gray-500">
+                        {lang === 'th' ? 'ชม.ทำงาน' : 'Hours logged'}: <span className="font-medium">{totalHours.toFixed(1)}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+                {maintenanceStaff.length === 0 && (
+                  <div className="col-span-4 text-center text-gray-400 py-8">
+                    <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>{lang === 'th' ? 'ไม่มีข้อมูลทีมซ่อมบำรุง' : 'No maintenance staff data'}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
         </div>
       )}
 
@@ -2319,36 +2615,96 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
         </div>
       )}
 
-      {/* Equipment Tab */}
+      {/* Equipment Tab - Enhanced with Cost Analysis */}
       {activeTab === 'equipment' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-gray-700">{lang === 'th' ? 'รายการเครื่องจักร/อุปกรณ์' : 'Equipment Registry'}</h3>
             <Button icon={Plus} onClick={() => { setNewEquipment({...newEquipment, category: 'equipment'}); setShowAddEquipmentModal(true) }}>{lang === 'th' ? 'เพิ่มเครื่องจักร' : 'Add Equipment'}</Button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {equipmentList.filter(eq => eq.category === 'equipment').map(eq => (
-              <Card key={eq.id} className="overflow-hidden">
-                <div className={`p-4 ${eq.status === 'operational' ? 'bg-green-50' : 'bg-red-50'}`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Cog className={`w-8 h-8 ${eq.status === 'operational' ? 'text-green-600' : 'text-red-600'}`} />
-                      <div>
-                        <div className="font-bold">{eq.name}</div>
-                        <div className="text-sm text-gray-600">{eq.id}</div>
-                      </div>
-                    </div>
-                    <Badge variant={eq.status === 'operational' ? 'success' : 'danger'}>{eq.status}</Badge>
-                  </div>
+          
+          {/* Cost Analysis Summary */}
+          <Card className="p-4 bg-gradient-to-r from-blue-50 to-emerald-50">
+            <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              {lang === 'th' ? 'วิเคราะห์ค่าใช้จ่ายบำรุงรักษา' : 'Maintenance Cost Analysis'}
+            </h4>
+            <div className="grid grid-cols-4 gap-4 mb-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">{(equipment || []).length}</div>
+                <div className="text-xs text-gray-500">{lang === 'th' ? 'เครื่องจักรทั้งหมด' : 'Total Equipment'}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-emerald-600">฿{((equipment || []).reduce((sum, e) => sum + (e.totalMaintenanceCost || 0), 0)).toLocaleString()}</div>
+                <div className="text-xs text-gray-500">{lang === 'th' ? 'ค่าบำรุงรักษารวม' : 'Total Maint. Cost'}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600">{((equipment || []).reduce((sum, e) => sum + (e.maintenanceCount || 0), 0))}</div>
+                <div className="text-xs text-gray-500">{lang === 'th' ? 'จำนวน MWO ทั้งหมด' : 'Total MWOs'}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  ฿{Math.round((equipment || []).reduce((sum, e) => sum + (e.totalMaintenanceCost || 0), 0) / Math.max(1, (equipment || []).length)).toLocaleString()}
                 </div>
-                <div className="p-4 space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-gray-500">{lang === 'th' ? 'ประเภท' : 'Type'}</span><span className="font-medium capitalize">{eq.type}</span></div>
-                  <div className="flex justify-between"><span className="text-gray-500">{lang === 'th' ? 'ที่ตั้ง' : 'Location'}</span><span className="font-medium">{eq.location}</span></div>
-                  {eq.brand && <div className="flex justify-between"><span className="text-gray-500">{lang === 'th' ? 'ยี่ห้อ' : 'Brand'}</span><span className="font-medium">{eq.brand}</span></div>}
-                  {eq.nextService && <div className="flex justify-between"><span className="text-gray-500">{lang === 'th' ? 'บำรุงถัดไป' : 'Next Service'}</span><span className={new Date(eq.nextService) <= new Date() ? 'text-red-500 font-medium' : ''}>{formatDate(eq.nextService)}</span></div>}
-                </div>
-              </Card>
-            ))}
+                <div className="text-xs text-gray-500">{lang === 'th' ? 'เฉลี่ย/เครื่อง' : 'Avg per Equipment'}</div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Equipment Table with Cost Data */}
+          <Card className="overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส' : 'Code'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ชื่อ' : 'Name'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ที่ตั้ง' : 'Location'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ราคาซื้อ' : 'Purchase'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ค่าบำรุง' : 'Maint. Cost'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน MWO' : 'MWO Count'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? '% ของราคาซื้อ' : 'Cost Ratio'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {getEquipmentCostStats().map(eq => {
+                  const costRatio = eq.purchaseCost ? ((eq.totalCost / eq.purchaseCost) * 100) : 0
+                  const isHighCost = costRatio > 20
+                  return (
+                    <tr key={eq.id} className={`hover:bg-gray-50 ${isHighCost ? 'bg-red-50' : ''}`}>
+                      <td className="px-4 py-3 font-mono text-sm text-[#1A5276]">{eq.code}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{eq.name}</div>
+                        {eq.nameTh && <div className="text-xs text-gray-500">{eq.nameTh}</div>}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{eq.location}</td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={eq.status === 'operational' ? 'success' : eq.status === 'under_repair' ? 'warning' : 'danger'}>
+                          {eq.status === 'operational' ? (lang === 'th' ? 'ปกติ' : 'OK') : eq.status === 'under_repair' ? (lang === 'th' ? 'ซ่อม' : 'Repair') : eq.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-600">฿{(eq.purchaseCost || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right font-medium text-emerald-600">฿{(eq.totalCost || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-center">{eq.mwoCount || 0}</td>
+                      <td className="px-4 py-3 text-right">
+                        <span className={`font-bold ${costRatio > 30 ? 'text-red-600' : costRatio > 20 ? 'text-orange-600' : costRatio > 10 ? 'text-yellow-600' : 'text-green-600'}`}>
+                          {costRatio.toFixed(1)}%
+                        </span>
+                        {isHighCost && <AlertTriangle className="w-4 h-4 text-red-500 inline ml-1" />}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </Card>
+          
+          {/* Cost Legend */}
+          <div className="flex items-center gap-6 text-xs text-gray-500">
+            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-500"></span>{lang === 'th' ? '< 10% ดี' : '< 10% Good'}</div>
+            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-yellow-500"></span>{lang === 'th' ? '10-20% ปานกลาง' : '10-20% Average'}</div>
+            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-orange-500"></span>{lang === 'th' ? '20-30% สูง' : '20-30% High'}</div>
+            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-500"></span>{lang === 'th' ? '> 30% วิกฤต' : '> 30% Critical'}</div>
           </div>
         </div>
       )}
@@ -2403,102 +2759,545 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
 
       {/* MWO Tab */}
       {activeTab === 'mwo' && (
-        <Card className="overflow-hidden">
-          <div className="p-4 border-b flex gap-3">
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-3 py-2 border rounded-lg text-sm">
-              <option value="all">{lang === 'th' ? 'ทุกสถานะ' : 'All Status'}</option>
-              <option value="open">{lang === 'th' ? 'รอดำเนินการ' : 'Open'}</option>
-              <option value="in_progress">{lang === 'th' ? 'กำลังทำ' : 'In Progress'}</option>
-              <option value="completed">{lang === 'th' ? 'เสร็จ' : 'Completed'}</option>
-            </select>
+        <div className="space-y-4">
+          {/* Filters */}
+          <Card className="p-4 flex items-center justify-between">
+            <div className="flex gap-3">
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-3 py-2 border rounded-lg text-sm">
+                <option value="all">{lang === 'th' ? 'ทุกสถานะ' : 'All Status'}</option>
+                <option value="scheduled">{lang === 'th' ? 'รอดำเนินการ' : 'Scheduled'}</option>
+                <option value="in_progress">{lang === 'th' ? 'กำลังทำ' : 'In Progress'}</option>
+                <option value="completed">{lang === 'th' ? 'เสร็จ' : 'Completed'}</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-4 text-sm">
+              <span className="text-gray-500">{lang === 'th' ? 'รวมค่าใช้จ่าย' : 'Total Cost'}:</span>
+              <span className="font-bold text-lg text-emerald-600">
+                ฿{tasksList.reduce((sum, t) => sum + (t.totalCost || 0), 0).toLocaleString()}
+              </span>
+            </div>
+          </Card>
+
+          {/* MWO Cards */}
+          <div className="space-y-3">
+            {tasksList.filter(t => filterStatus === 'all' || t.status === filterStatus).map(mwo => {
+              const assignedStaff = maintenanceStaff.filter(s => mwo.assignedTechnicians?.includes(s.id))
+              const leadTech = maintenanceStaff.find(s => s.id === mwo.leadTechnician)
+              
+              return (
+                <Card key={mwo.id} className={`overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${mwo.status === 'completed' ? 'opacity-75' : ''}`} onClick={() => openMWODetail(mwo)}>
+                  <div className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-lg font-bold text-[#1A5276]">{mwo.mwoNumber}</span>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[mwo.priority]}`}>{mwo.priority}</span>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[mwo.status]}`}>{mwo.status}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500">{lang === 'th' ? 'วันกำหนด' : 'Scheduled'}</div>
+                        <div className="font-medium">{formatDate(mwo.scheduledDate)}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="mb-3">
+                      <div className="font-medium text-gray-800">{mwo.equipment}</div>
+                      <div className="text-sm text-gray-500">{mwo.description}</div>
+                    </div>
+
+                    {/* Assigned Technicians */}
+                    <div className="flex items-center justify-between border-t pt-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">{lang === 'th' ? 'ผู้รับผิดชอบ' : 'Assigned'}:</span>
+                        <div className="flex -space-x-2">
+                          {assignedStaff.map(tech => (
+                            <div key={tech.id} title={tech.name} className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white ${tech.id === mwo.leadTechnician ? 'bg-[#1A5276]' : 'bg-gray-400'}`}>
+                              {tech.name.charAt(0)}
+                            </div>
+                          ))}
+                        </div>
+                        {leadTech && <span className="text-xs text-gray-600 ml-2">{leadTech.name} {lang === 'th' ? '(หัวหน้า)' : '(Lead)'}</span>}
+                      </div>
+                      
+                      {/* Cost Summary */}
+                      <div className="flex items-center gap-4 text-xs">
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-blue-500" />
+                          <span>{mwo.laborHours || 0}h</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Package className="w-3 h-3 text-orange-500" />
+                          <span>{mwo.partsUsed?.length || 0} {lang === 'th' ? 'รายการ' : 'parts'}</span>
+                        </div>
+                        <div className="font-bold text-emerald-600">
+                          ฿{(mwo.totalCost || 0).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Work Log Preview */}
+                    {mwo.workLogs && mwo.workLogs.length > 0 && (
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="text-xs text-gray-500 mb-2">{lang === 'th' ? 'บันทึกล่าสุด' : 'Latest Log'}:</div>
+                        <div className="text-sm bg-gray-50 rounded p-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600">{maintenanceStaff.find(s => s.id === mwo.workLogs[mwo.workLogs.length - 1].technicianId)?.name || 'Unknown'}</span>
+                            <span className="text-xs text-gray-400">{mwo.workLogs[mwo.workLogs.length - 1].hours}h • {mwo.workLogs[mwo.workLogs.length - 1].date}</span>
+                          </div>
+                          <div className="text-gray-500 text-xs mt-1 truncate">{mwo.workLogs[mwo.workLogs.length - 1].description}</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              )
+            })}
+            
+            {tasksList.filter(t => filterStatus === 'all' || t.status === filterStatus).length === 0 && (
+              <Card className="p-12 text-center text-gray-400">
+                <ClipboardList className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p className="font-medium">{lang === 'th' ? 'ยังไม่มีใบงาน' : 'No work orders'}</p>
+              </Card>
+            )}
           </div>
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'MWO #'}</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อุปกรณ์/พื้นที่' : 'Equipment/Area'}</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายละเอียด' : 'Description'}</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ความสำคัญ' : 'Priority'}</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {tasksList.filter(t => filterStatus === 'all' || t.status === filterStatus).map(task => (
-                <tr key={task.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-[#1A5276]">{task.mwoNumber}</td>
-                  <td className="px-4 py-3">{task.equipment}</td>
-                  <td className="px-4 py-3 text-sm max-w-xs truncate">{task.description}</td>
-                  <td className="px-4 py-3 text-center"><span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[task.priority]}`}>{task.priority}</span></td>
-                  <td className="px-4 py-3 text-center"><span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[task.status]}`}>{task.status}</span></td>
-                </tr>
+        </div>
+      )}
+
+      {/* MWO Detail Modal */}
+      {showMWODetailModal && selectedMWO && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowMWODetailModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-[#1A5276] to-[#2ECC40] flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <span className="font-mono text-xl font-bold text-white">{selectedMWO.mwoNumber}</span>
+                <span className={`px-2 py-1 rounded text-xs font-medium bg-white/20 text-white`}>{selectedMWO.status}</span>
+              </div>
+              <button onClick={() => setShowMWODetailModal(false)} className="text-white/80 hover:text-white"><X className="w-6 h-6" /></button>
+            </div>
+            
+            {/* Tabs */}
+            <div className="border-b px-6 flex gap-1">
+              {[
+                { id: 'info', label: lang === 'th' ? 'ข้อมูล' : 'Info', icon: Info },
+                { id: 'worklog', label: lang === 'th' ? 'บันทึกงาน' : 'Work Log', icon: ClipboardList },
+                { id: 'parts', label: lang === 'th' ? 'อะไหล่' : 'Parts Used', icon: Package },
+                { id: 'cost', label: lang === 'th' ? 'ค่าใช้จ่าย' : 'Cost Summary', icon: DollarSign },
+              ].map(tab => (
+                <button key={tab.id} onClick={() => setMwoDetailTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${mwoDetailTab === tab.id ? 'border-[#1A5276] text-[#1A5276]' : 'border-transparent text-gray-500'}`}>
+                  <tab.icon className="w-4 h-4" />{tab.label}
+                </button>
               ))}
-              {tasksList.length === 0 && <tr><td colSpan="5" className="px-4 py-8 text-center text-gray-400">{lang === 'th' ? 'ยังไม่มีใบงาน' : 'No work orders yet'}</td></tr>}
-            </tbody>
-          </table>
-        </Card>
+            </div>
+            
+            {/* Content */}
+            <div className="flex-1 overflow-auto p-6">
+              {/* Info Tab */}
+              {mwoDetailTab === 'info' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-sm text-gray-500">{lang === 'th' ? 'อุปกรณ์' : 'Equipment'}</label>
+                      <div className="font-medium text-lg">{selectedMWO.equipment}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-500">{lang === 'th' ? 'ประเภท' : 'Type'}</label>
+                      <div className="font-medium capitalize">{selectedMWO.type}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-500">{lang === 'th' ? 'วันกำหนด' : 'Scheduled'}</label>
+                      <div className="font-medium">{formatDate(selectedMWO.scheduledDate)}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-500">{lang === 'th' ? 'ความสำคัญ' : 'Priority'}</label>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[selectedMWO.priority]}`}>{selectedMWO.priority}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-500">{lang === 'th' ? 'รายละเอียด' : 'Description'}</label>
+                    <div className="mt-1 p-3 bg-gray-50 rounded-lg">{selectedMWO.description}</div>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-500 mb-2 block">{lang === 'th' ? 'ทีมผู้รับผิดชอบ' : 'Assigned Team'}</label>
+                    <div className="flex flex-wrap gap-2">
+                      {maintenanceStaff.filter(s => selectedMWO.assignedTechnicians?.includes(s.id)).map(tech => (
+                        <div key={tech.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg ${tech.id === selectedMWO.leadTechnician ? 'bg-[#1A5276] text-white' : 'bg-gray-100'}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${tech.id === selectedMWO.leadTechnician ? 'bg-white/20' : 'bg-gray-300'}`}>
+                            {tech.name.charAt(0)}
+                          </div>
+                          <div>
+                            <div className="font-medium text-sm">{tech.name}</div>
+                            <div className="text-xs opacity-75">{tech.designation} • ฿{tech.hourlyRate}/hr</div>
+                          </div>
+                          {tech.id === selectedMWO.leadTechnician && <Badge variant="success" className="ml-2">Lead</Badge>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Work Log Tab */}
+              {mwoDetailTab === 'worklog' && (
+                <div className="space-y-4">
+                  {/* Add Work Log Form */}
+                  <Card className="p-4 bg-blue-50 border-blue-200">
+                    <h4 className="font-medium text-blue-800 mb-3">{lang === 'th' ? 'เพิ่มบันทึกงาน' : 'Add Work Log Entry'}</h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      <select value={newWorkLog.technicianId} onChange={e => setNewWorkLog({...newWorkLog, technicianId: e.target.value})} className="px-3 py-2 border rounded-lg">
+                        <option value="">{lang === 'th' ? 'เลือกช่าง' : 'Select Technician'}</option>
+                        {maintenanceStaff.filter(s => selectedMWO.assignedTechnicians?.includes(s.id)).map(tech => (
+                          <option key={tech.id} value={tech.id}>{tech.name} (฿{tech.hourlyRate}/hr)</option>
+                        ))}
+                      </select>
+                      <input type="number" step="0.5" min="0.5" placeholder={lang === 'th' ? 'ชั่วโมง' : 'Hours'} value={newWorkLog.hours} onChange={e => setNewWorkLog({...newWorkLog, hours: e.target.value})} className="px-3 py-2 border rounded-lg" />
+                      <Button onClick={handleAddWorkLog} disabled={!newWorkLog.technicianId || !newWorkLog.hours}>{lang === 'th' ? 'บันทึก' : 'Add Entry'}</Button>
+                    </div>
+                    <textarea placeholder={lang === 'th' ? 'รายละเอียดงานที่ทำ...' : 'Work description...'} value={newWorkLog.description} onChange={e => setNewWorkLog({...newWorkLog, description: e.target.value})} className="w-full mt-3 px-3 py-2 border rounded-lg" rows="2" />
+                  </Card>
+                  
+                  {/* Work Log History */}
+                  <div className="space-y-2">
+                    {(selectedMWO.workLogs || []).map((log, idx) => {
+                      const tech = maintenanceStaff.find(s => s.id === log.technicianId)
+                      return (
+                        <Card key={log.id || idx} className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-[#1A5276] flex items-center justify-center text-white font-bold">{tech?.name?.charAt(0) || '?'}</div>
+                              <div>
+                                <div className="font-medium">{tech?.name || 'Unknown'}</div>
+                                <div className="text-sm text-gray-500">{log.date} • {log.hours} {lang === 'th' ? 'ชั่วโมง' : 'hours'}</div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-bold text-emerald-600">฿{(log.laborCost || 0).toLocaleString()}</div>
+                              <div className="text-xs text-gray-400">฿{tech?.hourlyRate || 0}/hr</div>
+                            </div>
+                          </div>
+                          {log.description && <div className="mt-2 text-sm text-gray-600 bg-gray-50 rounded p-2">{log.description}</div>}
+                        </Card>
+                      )
+                    })}
+                    {(!selectedMWO.workLogs || selectedMWO.workLogs.length === 0) && (
+                      <div className="text-center text-gray-400 py-8">{lang === 'th' ? 'ยังไม่มีบันทึกงาน' : 'No work logs yet'}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Parts Used Tab */}
+              {mwoDetailTab === 'parts' && (
+                <div className="space-y-4">
+                  <Card className="overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">SKU</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายการ' : 'Item'}</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ราคา/หน่วย' : 'Unit Cost'}</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'รวม' : 'Total'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {(selectedMWO.partsUsed || []).map((part, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 font-mono text-sm text-gray-600">{part.sku}</td>
+                            <td className="px-4 py-3 font-medium">{part.itemName}</td>
+                            <td className="px-4 py-3 text-right">{part.qty}</td>
+                            <td className="px-4 py-3 text-right text-gray-500">฿{(part.unitCost || 0).toLocaleString()}</td>
+                            <td className="px-4 py-3 text-right font-medium text-emerald-600">฿{(part.totalCost || 0).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                        {(!selectedMWO.partsUsed || selectedMWO.partsUsed.length === 0) && (
+                          <tr><td colSpan="5" className="px-4 py-8 text-center text-gray-400">{lang === 'th' ? 'ยังไม่มีอะไหล่ที่ใช้' : 'No parts used yet'}</td></tr>
+                        )}
+                      </tbody>
+                      {selectedMWO.partsUsed && selectedMWO.partsUsed.length > 0 && (
+                        <tfoot className="bg-gray-50">
+                          <tr>
+                            <td colSpan="4" className="px-4 py-3 text-right font-medium">{lang === 'th' ? 'รวมค่าอะไหล่' : 'Total Parts Cost'}:</td>
+                            <td className="px-4 py-3 text-right font-bold text-emerald-600">฿{(selectedMWO.partsCost || 0).toLocaleString()}</td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </Card>
+                </div>
+              )}
+              
+              {/* Cost Summary Tab */}
+              {mwoDetailTab === 'cost' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-3 gap-4">
+                    <Card className="p-4 text-center bg-blue-50">
+                      <Clock className="w-8 h-8 mx-auto mb-2 text-blue-500" />
+                      <div className="text-2xl font-bold text-blue-600">{selectedMWO.laborHours || 0} hrs</div>
+                      <div className="text-sm text-gray-500">{lang === 'th' ? 'ชั่วโมงทำงาน' : 'Labor Hours'}</div>
+                    </Card>
+                    <Card className="p-4 text-center bg-orange-50">
+                      <Package className="w-8 h-8 mx-auto mb-2 text-orange-500" />
+                      <div className="text-2xl font-bold text-orange-600">{selectedMWO.partsUsed?.length || 0}</div>
+                      <div className="text-sm text-gray-500">{lang === 'th' ? 'รายการอะไหล่' : 'Parts Used'}</div>
+                    </Card>
+                    <Card className="p-4 text-center bg-emerald-50">
+                      <DollarSign className="w-8 h-8 mx-auto mb-2 text-emerald-500" />
+                      <div className="text-2xl font-bold text-emerald-600">฿{(selectedMWO.totalCost || 0).toLocaleString()}</div>
+                      <div className="text-sm text-gray-500">{lang === 'th' ? 'ค่าใช้จ่ายรวม' : 'Total Cost'}</div>
+                    </Card>
+                  </div>
+                  
+                  <Card className="p-4">
+                    <h4 className="font-medium mb-4">{lang === 'th' ? 'รายละเอียดค่าใช้จ่าย' : 'Cost Breakdown'}</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b">
+                        <span className="text-gray-600">{lang === 'th' ? 'ค่าแรง' : 'Labor Cost'}</span>
+                        <span className="font-medium">฿{(selectedMWO.laborCost || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b">
+                        <span className="text-gray-600">{lang === 'th' ? 'ค่าอะไหล่' : 'Parts Cost'}</span>
+                        <span className="font-medium">฿{(selectedMWO.partsCost || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 text-lg">
+                        <span className="font-bold">{lang === 'th' ? 'รวมทั้งหมด' : 'Grand Total'}</span>
+                        <span className="font-bold text-emerald-600">฿{(selectedMWO.totalCost || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </Card>
+                  
+                  {/* Technician Breakdown */}
+                  <Card className="p-4">
+                    <h4 className="font-medium mb-4">{lang === 'th' ? 'ค่าแรงแยกตามช่าง' : 'Labor by Technician'}</h4>
+                    <div className="space-y-2">
+                      {maintenanceStaff.filter(s => selectedMWO.assignedTechnicians?.includes(s.id)).map(tech => {
+                        const techLogs = (selectedMWO.workLogs || []).filter(l => l.technicianId === tech.id)
+                        const techHours = techLogs.reduce((sum, l) => sum + l.hours, 0)
+                        const techCost = techLogs.reduce((sum, l) => sum + (l.laborCost || 0), 0)
+                        return (
+                          <div key={tech.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-[#1A5276] flex items-center justify-center text-white text-sm font-bold">{tech.name.charAt(0)}</div>
+                              <span>{tech.name}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-gray-500 mr-4">{techHours}h × ฿{tech.hourlyRate}</span>
+                              <span className="font-medium">฿{techCost.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </Card>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Store Tab */}
       {activeTab === 'store' && (
         <div className="space-y-4">
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b bg-emerald-50 flex items-center justify-between">
-              <h3 className="font-bold text-emerald-800 flex items-center gap-2"><Package className="w-5 h-5" />{lang === 'th' ? 'คลังอะไหล่และวัสดุซ่อมบำรุง (STORE5)' : 'Maintenance Parts Store (STORE5)'}</h3>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => setShowScanIssueModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
+          {/* Store View Toggle */}
+          <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg w-fit">
+            <button
+              onClick={() => setStoreViewMode('inventory')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${storeViewMode === 'inventory' ? 'bg-white shadow text-emerald-700' : 'text-gray-600 hover:text-gray-800'}`}
+            >
+              <Package className="w-4 h-4 inline mr-2" />
+              {lang === 'th' ? 'คลังสินค้า' : 'Inventory'}
+            </button>
+            <button
+              onClick={() => setStoreViewMode('history')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${storeViewMode === 'history' ? 'bg-white shadow text-blue-700' : 'text-gray-600 hover:text-gray-800'}`}
+            >
+              <ClipboardList className="w-4 h-4" />
+              {lang === 'th' ? 'ประวัติการเบิก' : 'Issue History'}
+              {issueHistory.length > 0 && (
+                <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">{issueHistory.length}</span>
+              )}
+            </button>
+          </div>
+
+          {/* Inventory View */}
+          {storeViewMode === 'inventory' && (
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b bg-emerald-50 flex items-center justify-between">
+                <h3 className="font-bold text-emerald-800 flex items-center gap-2"><Package className="w-5 h-5" />{lang === 'th' ? 'คลังอะไหล่และวัสดุซ่อมบำรุง (STORE5)' : 'Maintenance Parts Store (STORE5)'}</h3>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setShowScanIssueModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
+                  >
+                    <Scan className="w-4 h-4" />
+                    {lang === 'th' ? 'สแกน / เบิกของ' : 'Scan & Issue'}
+                  </button>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่ารวม' : 'Total Value'}</div>
+                    <div className="text-lg font-bold text-emerald-600">฿{stats.storeValue.toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Issue History Summary */}
+              {issueHistory.length > 0 && (
+                <div 
+                  className="p-3 bg-blue-50 border-b flex items-center justify-between cursor-pointer hover:bg-blue-100 transition-colors"
+                  onClick={() => setStoreViewMode('history')}
                 >
-                  <Scan className="w-4 h-4" />
-                  {lang === 'th' ? 'สแกน / เบิกของ' : 'Scan & Issue'}
-                </button>
-                <div className="text-right">
-                  <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่ารวม' : 'Total Value'}</div>
-                  <div className="text-lg font-bold text-emerald-600">฿{stats.storeValue.toLocaleString()}</div>
+                  <div className="flex items-center gap-2 text-blue-700">
+                    <Activity className="w-4 h-4" />
+                    <span className="text-sm font-medium">{lang === 'th' ? 'เบิกล่าสุด' : 'Recent Issues'}: {issueHistory.length} {lang === 'th' ? 'รายการ' : 'items'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-blue-600">
+                      {lang === 'th' ? 'ล่าสุด' : 'Last'}: {issueHistory[0]?.itemName} x{issueHistory[0]?.qty}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-blue-400" />
+                  </div>
                 </div>
-              </div>
-            </div>
-            
-            {/* Issue History Summary */}
-            {issueHistory.length > 0 && (
-              <div className="p-3 bg-blue-50 border-b flex items-center justify-between">
-                <div className="flex items-center gap-2 text-blue-700">
-                  <Activity className="w-4 h-4" />
-                  <span className="text-sm font-medium">{lang === 'th' ? 'เบิกล่าสุด' : 'Recent Issues'}: {issueHistory.length} {lang === 'th' ? 'รายการ' : 'items'}</span>
-                </div>
-                <div className="text-sm text-blue-600">
-                  {lang === 'th' ? 'ล่าสุด' : 'Last'}: {issueHistory[0]?.itemName} x{issueHistory[0]?.qty}
-                </div>
-              </div>
-            )}
-            
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส' : 'Code'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายการ' : 'Item'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'หมวด' : 'Category'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Qty'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ขั้นต่ำ' : 'Min'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {storeItems.map(item => (
-                  <tr key={item.id} className={`hover:bg-gray-50 ${item.qty <= item.minQty ? 'bg-red-50' : ''}`}>
-                    <td className="px-4 py-3 font-mono text-sm">{item.id}</td>
-                    <td className="px-4 py-3 font-medium">{item.name}</td>
-                    <td className="px-4 py-3 text-sm">{item.category}</td>
-                    <td className="px-4 py-3 text-right font-medium">{item.qty} {item.unit}</td>
-                    <td className="px-4 py-3 text-right text-gray-500">{item.minQty}</td>
-                    <td className="px-4 py-3 text-right font-medium">฿{(item.qty * (item.unitCost || 0)).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-center">{item.qty <= item.minQty ? <Badge variant="danger">{lang === 'th' ? 'ต่ำ' : 'Low'}</Badge> : <Badge variant="success">{lang === 'th' ? 'ปกติ' : 'OK'}</Badge>}</td>
+              )}
+              
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส' : 'Code'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายการ' : 'Item'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'หมวด' : 'Category'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Qty'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ขั้นต่ำ' : 'Min'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
+                </thead>
+                <tbody className="divide-y">
+                  {storeItems.map(item => (
+                    <tr key={item.id} className={`hover:bg-gray-50 ${item.qty <= item.minQty ? 'bg-red-50' : ''}`}>
+                      <td className="px-4 py-3 font-mono text-sm">{item.id}</td>
+                      <td className="px-4 py-3 font-medium">{item.name}</td>
+                      <td className="px-4 py-3 text-sm">{item.category}</td>
+                      <td className="px-4 py-3 text-right font-medium">{item.qty} {item.unit}</td>
+                      <td className="px-4 py-3 text-right text-gray-500">{item.minQty}</td>
+                      <td className="px-4 py-3 text-right font-medium">฿{(item.qty * (item.unitCost || 0)).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-center">{item.qty <= item.minQty ? <Badge variant="danger">{lang === 'th' ? 'ต่ำ' : 'Low'}</Badge> : <Badge variant="success">{lang === 'th' ? 'ปกติ' : 'OK'}</Badge>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          )}
+
+          {/* Issue History View */}
+          {storeViewMode === 'history' && (
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b bg-blue-50 flex items-center justify-between">
+                <h3 className="font-bold text-blue-800 flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5" />
+                  {lang === 'th' ? 'ประวัติการเบิกอะไหล่' : 'Parts Issue History'}
+                </h3>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setShowScanIssueModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {lang === 'th' ? 'เบิกใหม่' : 'New Issue'}
+                  </button>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-500">{lang === 'th' ? 'เบิกทั้งหมด' : 'Total Issues'}</div>
+                    <div className="text-lg font-bold text-blue-600">{issueHistory.length} {lang === 'th' ? 'รายการ' : 'records'}</div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Stats Row */}
+              <div className="grid grid-cols-4 gap-4 p-4 bg-gray-50 border-b">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{issueHistory.length}</div>
+                  <div className="text-xs text-gray-500">{lang === 'th' ? 'รายการเบิก' : 'Total Issues'}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-emerald-600">{issueHistory.reduce((sum, i) => sum + i.qty, 0)}</div>
+                  <div className="text-xs text-gray-500">{lang === 'th' ? 'จำนวนรวม' : 'Total Qty'}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {issueHistory.filter(i => i.mwoNumber).length}
+                  </div>
+                  <div className="text-xs text-gray-500">{lang === 'th' ? 'เชื่อมกับ MWO' : 'Linked to MWO'}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-600">
+                    ฿{issueHistory.reduce((sum, i) => {
+                      const item = storeItems.find(s => s.id === i.itemId)
+                      return sum + (i.qty * (item?.unitCost || 0))
+                    }, 0).toLocaleString()}
+                  </div>
+                  <div className="text-xs text-gray-500">{lang === 'th' ? 'มูลค่ารวม' : 'Total Value'}</div>
+                </div>
+              </div>
+              
+              {issueHistory.length === 0 ? (
+                <div className="p-12 text-center text-gray-500">
+                  <ClipboardList className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p className="font-medium">{lang === 'th' ? 'ยังไม่มีประวัติการเบิก' : 'No issue history yet'}</p>
+                  <p className="text-sm mt-1">{lang === 'th' ? 'กดปุ่ม "เบิกใหม่" เพื่อเริ่มต้น' : 'Click "New Issue" to get started'}</p>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่/เวลา' : 'Date/Time'}</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส SKU' : 'SKU'}</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายการ' : 'Item'}</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'MWO #' : 'MWO #'}</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ผู้เบิก' : 'Issued By'}</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'หมายเหตุ' : 'Notes'}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {issueHistory.map((issue, idx) => {
+                      const item = storeItems.find(s => s.id === issue.itemId)
+                      const issueCost = issue.qty * (item?.unitCost || 0)
+                      const issueDate = new Date(issue.issuedAt)
+                      return (
+                        <tr key={issue.id || idx} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div className="text-sm font-medium">{issueDate.toLocaleDateString('en-GB')}</div>
+                            <div className="text-xs text-gray-500">{issueDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-sm text-gray-600">{issue.sku}</td>
+                          <td className="px-4 py-3">
+                            <div className="font-medium">{issue.itemName}</div>
+                            <div className="text-xs text-gray-500">{item?.category || '-'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className="font-bold text-blue-600">{issue.qty}</span>
+                            <span className="text-gray-500 text-sm ml-1">{issue.unit}</span>
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium text-emerald-600">฿{issueCost.toLocaleString()}</td>
+                          <td className="px-4 py-3">
+                            {issue.mwoNumber ? (
+                              <Badge variant="purple">{issue.mwoNumber}</Badge>
+                            ) : (
+                              <span className="text-gray-400 text-sm">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm">{issue.issuedBy}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500 max-w-[150px] truncate" title={issue.notes}>
+                            {issue.notes || '-'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </Card>
+          )}
         </div>
       )}
 
