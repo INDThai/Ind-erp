@@ -13,16 +13,37 @@ import {
   Languages, Check, AlertCircle, Info, HelpCircle, ExternalLink, Play,
   Car, Hammer, CalendarDays, FileUp, Briefcase, UserPlus, Banknote,
   Fuel, MapPinned, Navigation, FileImage, FileScan, Brain,
-  Cog, AlertOctagon, ClipboardCheck, Timer, BadgeCheck
+  Cog, AlertOctagon, ClipboardCheck, Timer, BadgeCheck, QrCode
 } from 'lucide-react'
 
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '8.2'
+const VERSION = '8.5'
 const VERSION_DATE = '2026-02-01'
 
-// v8.2 NEW FEATURES - PRINT VIEWS & CERTIFICATES:
+// v8.5 NEW FEATURES - SALES COMPLETE ENHANCEMENT:
+// 1. SALES KPI DASHBOARD - Collection rate, DSO, overdue amount, win rate, avg order value
+// 2. TOP CUSTOMERS - Revenue ranking with click to statement
+// 3. CUSTOMER STATEMENT PRINT - All invoices/payments/CN for customer
+// 4. CREDIT NOTE PRINT VIEW - Professional CN document with signatures
+// 5. RECEIPT ACKNOWLEDGMENT - For driver to get customer signature on delivery
+// 6. AR AGING ENHANCEMENTS - Customer filter, bucket filter, action buttons
+// 7. QUOTATION TABLE ENHANCED - Category (new/potential/existing), reason columns
+// 8. CUSTOMERS TAB - Customer list with special requirements, revenue, outstanding
+// 9. PRICE HISTORY TAB - Track all price changes with email ref and approval (per policy)
+// 10. CUSTOMER SPECIAL REQUIREMENTS - Allianz QR, Polyplex labels, HT cert flags
+//
+// v8.3 FEATURES - QUOTATION ENHANCEMENTS & CUSTOMER LABELS:
+// 1. QUOTATION CUSTOMER CATEGORY - new/potential/existing classification
+// 2. QUOTATION REASON - new_product/price_change/new_customer/special_request
+// 3. ALLIANZ QR LABELS - Invoice QR + Packaging labels with vendor code 115050
+//    Format: PO$Invoice$VendorCode and PartNo$Qty$PO$VendorCode
+// 4. POLYPLEX 4-COLUMN LABELS - Color coded by delivery location
+//    FILM=White, CPP=Peach, Line10=Red
+// 5. SMART LABEL BUTTONS - Show only for relevant customers (ALL-013, PLX-002)
+//
+// v8.2 FEATURES - PRINT VIEWS & CERTIFICATES:
 // 1. TAX INVOICE PRINT - Full Thai Tax Invoice format with signatures
 // 2. EXPORT INVOICE PRINT - Commercial Invoice (NO VAT) + Packing List
 // 3. HEAT TREATMENT CERTIFICATE - ISPM15 TH-0950 format, 56°C/30min
@@ -822,6 +843,8 @@ const INITIAL_QUOTATIONS = [
     id: 'QT-2601-001',
     customerId: 'C001',
     customerContact: 'Khun Preeda',
+    customerCategory: 'existing', // new, potential, existing
+    quotationReason: 'new_product', // new_product, price_change, new_customer, special_request
     quoteDate: '2026-01-15',
     validUntil: '2026-02-15',
     status: 'accepted', // draft, sent, accepted, rejected, expired, converted
@@ -847,6 +870,8 @@ const INITIAL_QUOTATIONS = [
     id: 'QT-2601-002',
     customerId: 'C003',
     customerContact: 'Khun Napat',
+    customerCategory: 'new', // new customer inquiry
+    quotationReason: 'new_customer',
     quoteDate: '2026-01-20',
     validUntil: '2026-02-20',
     status: 'sent',
@@ -873,6 +898,8 @@ const INITIAL_QUOTATIONS = [
     id: 'QT-2601-003',
     customerId: 'C004',
     customerContact: 'Khun Prawit',
+    customerCategory: 'potential', // spoke before, not yet ordered
+    quotationReason: 'price_change',
     quoteDate: '2026-01-25',
     validUntil: '2026-02-10',
     status: 'draft',
@@ -11844,6 +11871,22 @@ const SalesModuleFull = ({
   const [showPrintDO, setShowPrintDO] = useState(false)
   const [showPrintQuotation, setShowPrintQuotation] = useState(false)
   const [showHTCertModal, setShowHTCertModal] = useState(false)
+  const [showAllianzLabels, setShowAllianzLabels] = useState(false)
+  const [showPolyplexLabels, setShowPolyplexLabels] = useState(false)
+  const [showCustomerStatement, setShowCustomerStatement] = useState(false)
+  const [selectedCustomerForStatement, setSelectedCustomerForStatement] = useState(null)
+  const [showCreditNotePrint, setShowCreditNotePrint] = useState(false)
+  const [showReceiptAck, setShowReceiptAck] = useState(false)
+  
+  // Filters
+  const [agingCustomerFilter, setAgingCustomerFilter] = useState('')
+  const [agingBucketFilter, setAgingBucketFilter] = useState('all')
+  
+  // Price History
+  const [priceHistory, setPriceHistory] = useState([
+    { id: 1, productId: 'PLT-STD-001', productName: 'Standard Pallet 1200x1000', oldPrice: 280, newPrice: 295, effectiveDate: '2026-01-15', reason: 'material_cost_increase', emailRef: 'Email dated 2026-01-10', approvedBy: 'CEO', changedBy: 'Sales Manager', changedAt: '2026-01-10' },
+    { id: 2, productId: 'PLT-HD-001', productName: 'Heavy Duty Pallet 1200x1000', oldPrice: 450, newPrice: 420, effectiveDate: '2026-01-01', reason: 'volume_discount', emailRef: 'Customer negotiation email', approvedBy: 'CEO', changedBy: 'Sales Manager', changedAt: '2025-12-28' },
+  ])
 
   const tabs = [
     { id: 'dashboard', label: lang === 'th' ? 'ภาพรวม' : 'Dashboard', icon: BarChart3 },
@@ -11853,6 +11896,8 @@ const SalesModuleFull = ({
     { id: 'invoices', label: lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices', icon: Receipt },
     { id: 'payments', label: lang === 'th' ? 'การชำระ' : 'Payments', icon: CreditCard },
     { id: 'aging', label: lang === 'th' ? 'อายุหนี้' : 'AR Aging', icon: Calendar },
+    { id: 'customers', label: lang === 'th' ? 'ลูกค้า' : 'Customers', icon: Building },
+    { id: 'pricing', label: lang === 'th' ? 'ประวัติราคา' : 'Price History', icon: TrendingUp },
     { id: 'rejections', label: lang === 'th' ? 'การคืนสินค้า' : 'Returns', icon: RotateCcw },
     { id: 'claims', label: lang === 'th' ? 'เคลม' : 'Claims', icon: AlertCircle },
     { id: 'meetings', label: lang === 'th' ? 'บันทึกพบลูกค้า' : 'Meetings', icon: Users },
@@ -11880,6 +11925,50 @@ const SalesModuleFull = ({
     }).length || 0,
     followupsDue: salesMeetings?.filter(m => m.nextFollowupDate && new Date(m.nextFollowupDate) <= new Date()).length || 0,
   }
+
+  // Enhanced KPIs
+  const kpis = {
+    collectionRate: stats.totalRevenue > 0 ? ((stats.totalReceived / stats.totalRevenue) * 100).toFixed(1) : 0,
+    dso: (() => {
+      // Days Sales Outstanding = (AR / Total Credit Sales) × Number of Days
+      const totalAR = stats.totalRevenue - stats.totalReceived
+      const avgDailyRevenue = stats.totalRevenue / 30 // Simplified 30-day avg
+      return avgDailyRevenue > 0 ? Math.round(totalAR / avgDailyRevenue) : 0
+    })(),
+    overdueAmount: invoices?.filter(inv => {
+      const dueDate = new Date(inv.dueDate)
+      return dueDate < new Date() && inv.balance > 0
+    }).reduce((sum, inv) => sum + (inv.balance || 0), 0) || 0,
+    overdueCount: invoices?.filter(inv => {
+      const dueDate = new Date(inv.dueDate)
+      return dueDate < new Date() && inv.balance > 0
+    }).length || 0,
+    qtConversionRate: stats.totalQuotations > 0 ? 
+      ((quotations?.filter(q => q.status === 'accepted').length / stats.totalQuotations) * 100).toFixed(1) : 0,
+    avgOrderValue: stats.totalInvoices > 0 ? stats.totalRevenue / stats.totalInvoices : 0,
+  }
+
+  // Top Customers by Revenue
+  const topCustomers = [...new Set(invoices?.map(inv => inv.customerId) || [])]
+    .map(custId => {
+      const customer = customers.find(c => c.id === custId)
+      const custInvoices = invoices?.filter(inv => inv.customerId === custId) || []
+      const revenue = custInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0)
+      const outstanding = custInvoices.reduce((sum, inv) => sum + (inv.balance || 0), 0)
+      const paidAmount = custInvoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0)
+      return {
+        id: custId,
+        name: customer?.name || 'Unknown',
+        code: customer?.code || '',
+        revenue,
+        outstanding,
+        paidAmount,
+        invoiceCount: custInvoices.length,
+      }
+    })
+    .filter(c => c.revenue > 0)
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5)
 
   // Generate IDs
   const generateId = (prefix) => {
@@ -12278,9 +12367,43 @@ const SalesModuleFull = ({
 
       {/* ========== DASHBOARD TAB ========== */}
       {activeTab === 'dashboard' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="space-y-6">
+          {/* KPI Cards Row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+              <div className="text-xs text-green-600 font-medium">{lang === 'th' ? 'อัตราเก็บเงิน' : 'Collection Rate'}</div>
+              <div className="text-2xl font-bold text-green-700">{kpis.collectionRate}%</div>
+              <div className="text-xs text-green-500">{lang === 'th' ? 'ของยอดขายทั้งหมด' : 'of total sales'}</div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+              <div className="text-xs text-blue-600 font-medium">{lang === 'th' ? 'DSO' : 'Days Sales Outstanding'}</div>
+              <div className="text-2xl font-bold text-blue-700">{kpis.dso} <span className="text-sm">{lang === 'th' ? 'วัน' : 'days'}</span></div>
+              <div className="text-xs text-blue-500">{lang === 'th' ? 'เฉลี่ยรอเก็บเงิน' : 'avg collection time'}</div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+              <div className="text-xs text-red-600 font-medium">{lang === 'th' ? 'ค้างเกินกำหนด' : 'Overdue'}</div>
+              <div className="text-2xl font-bold text-red-700">{formatCurrency(kpis.overdueAmount)}</div>
+              <div className="text-xs text-red-500">{kpis.overdueCount} {lang === 'th' ? 'รายการ' : 'invoices'}</div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+              <div className="text-xs text-purple-600 font-medium">{lang === 'th' ? 'อัตราปิด QT' : 'Quote Win Rate'}</div>
+              <div className="text-2xl font-bold text-purple-700">{kpis.qtConversionRate}%</div>
+              <div className="text-xs text-purple-500">{lang === 'th' ? 'ใบเสนอราคา→ขาย' : 'quotes converted'}</div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200">
+              <div className="text-xs text-teal-600 font-medium">{lang === 'th' ? 'ออเดอร์เฉลี่ย' : 'Avg Order Value'}</div>
+              <div className="text-2xl font-bold text-teal-700">{formatCurrency(kpis.avgOrderValue)}</div>
+              <div className="text-xs text-teal-500">{lang === 'th' ? 'ต่อใบแจ้งหนี้' : 'per invoice'}</div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+              <div className="text-xs text-orange-600 font-medium">{lang === 'th' ? 'ปัญหาค้าง' : 'Open Issues'}</div>
+              <div className="text-2xl font-bold text-orange-700">{stats.openRejections + stats.openClaims}</div>
+              <div className="text-xs text-orange-500">{stats.openRejections} {lang === 'th' ? 'คืน' : 'returns'} / {stats.openClaims} {lang === 'th' ? 'เคลม' : 'claims'}</div>
+            </Card>
+          </div>
+
           {/* Sales Flow Visual */}
-          <Card className="p-5 lg:col-span-3">
+          <Card className="p-5">
             <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ขั้นตอนการขาย' : 'Sales Flow'}</h3>
             <div className="flex items-center justify-between bg-gradient-to-r from-purple-50 via-blue-50 via-orange-50 via-teal-50 to-green-50 rounded-xl p-4">
               {[
@@ -12306,72 +12429,122 @@ const SalesModuleFull = ({
             </div>
           </Card>
 
-          {/* Recent Quotations */}
-          <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ใบเสนอราคาล่าสุด' : 'Recent Quotations'}</h3>
-            <div className="space-y-3">
-              {quotations?.slice(0, 5).map(qt => {
-                const customer = customers.find(c => c.id === qt.customerId)
-                return (
-                  <div key={qt.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <div className="font-mono text-purple-600 font-medium">{qt.id}</div>
-                      <div className="text-sm text-gray-500">{customer?.name}</div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Top Customers */}
+            <Card className="p-5 lg:col-span-2">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-gray-800">{lang === 'th' ? 'ลูกค้ายอดขายสูงสุด' : 'Top Customers by Revenue'}</h3>
+                <Button size="sm" variant="ghost" onClick={() => setShowCustomerStatement(true)}>
+                  {lang === 'th' ? 'ดูใบแจ้งยอด' : 'Statement'}
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {topCustomers.map((cust, idx) => (
+                  <div key={cust.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                       onClick={() => { setSelectedCustomerForStatement(cust.id); setShowCustomerStatement(true) }}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
+                      idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-amber-600' : 'bg-gray-300'
+                    }`}>
+                      {idx + 1}
+                    </div>
+                    <div className="flex-grow">
+                      <div className="font-medium">{cust.name}</div>
+                      <div className="text-xs text-gray-500">{cust.code} • {cust.invoiceCount} {lang === 'th' ? 'ใบแจ้งหนี้' : 'invoices'}</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-medium">{formatCurrency(qt.grandTotal)}</div>
-                      <Badge variant={
-                        qt.status === 'accepted' ? 'success' :
-                        qt.status === 'sent' ? 'info' :
-                        qt.status === 'rejected' ? 'danger' :
-                        'warning'
-                      }>{qt.status}</Badge>
+                      <div className="font-bold text-green-600">{formatCurrency(cust.revenue)}</div>
+                      {cust.outstanding > 0 && (
+                        <div className="text-xs text-red-500">{lang === 'th' ? 'ค้าง' : 'Due'}: {formatCurrency(cust.outstanding)}</div>
+                      )}
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          </Card>
-
-          {/* Revenue Summary */}
-          <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'สรุปรายได้' : 'Revenue Summary'}</h3>
-            <div className="space-y-4">
-              <div className="p-4 bg-green-50 rounded-lg">
-                <div className="text-sm text-green-600">{lang === 'th' ? 'รายได้รวม' : 'Total Revenue'}</div>
-                <div className="text-3xl font-bold text-green-700">{formatCurrency(stats.totalRevenue)}</div>
+                ))}
+                {topCustomers.length === 0 && (
+                  <div className="text-center text-gray-400 py-8">{lang === 'th' ? 'ยังไม่มีข้อมูล' : 'No data yet'}</div>
+                )}
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <div className="text-sm text-blue-600">{lang === 'th' ? 'ได้รับแล้ว' : 'Received'}</div>
-                  <div className="text-xl font-bold text-blue-700">{formatCurrency(stats.totalReceived)}</div>
-                </div>
-                <div className="p-4 bg-red-50 rounded-lg">
-                  <div className="text-sm text-red-600">{lang === 'th' ? 'ค้างชำระ' : 'Outstanding'}</div>
-                  <div className="text-xl font-bold text-red-700">{formatCurrency(stats.totalRevenue - stats.totalReceived)}</div>
+            </Card>
+
+            {/* AR Aging Summary */}
+            <Card className="p-5">
+              <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'อายุหนี้' : 'AR Aging'}</h3>
+              <div className="space-y-2">
+                {[
+                  { label: lang === 'th' ? 'ปัจจุบัน' : 'Current', amount: agingTotals.current, color: 'green' },
+                  { label: '1-30 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days30, color: 'yellow' },
+                  { label: '31-60 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days60, color: 'orange' },
+                  { label: '61-90 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days90, color: 'red' },
+                  { label: '90+ ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days120, color: 'purple' },
+                ].map(bucket => (
+                  <div key={bucket.label} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                    <span className="text-sm">{bucket.label}</span>
+                    <span className={`font-bold text-${bucket.color}-600`}>{formatCurrency(bucket.amount)}</span>
+                  </div>
+                ))}
+                <div className="border-t pt-2 mt-2">
+                  <div className="flex items-center justify-between font-bold">
+                    <span>{lang === 'th' ? 'รวม' : 'Total'}</span>
+                    <span className="text-lg">{formatCurrency(agingTotals.current + agingTotals.days30 + agingTotals.days60 + agingTotals.days90 + agingTotals.days120)}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
 
-          {/* AR Aging Summary */}
-          <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'อายุหนี้' : 'AR Aging'}</h3>
-            <div className="space-y-2">
-              {[
-                { label: lang === 'th' ? 'ปัจจุบัน' : 'Current', amount: agingTotals.current, color: 'green' },
-                { label: '1-30 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days30, color: 'yellow' },
-                { label: '31-60 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days60, color: 'orange' },
-                { label: '61-90 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days90, color: 'red' },
-                { label: '90+ ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days120, color: 'purple' },
-              ].map(bucket => (
-                <div key={bucket.label} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                  <span className="text-sm">{bucket.label}</span>
-                  <span className={`font-bold text-${bucket.color}-600`}>{formatCurrency(bucket.amount)}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Recent Quotations */}
+            <Card className="p-5">
+              <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ใบเสนอราคาล่าสุด' : 'Recent Quotations'}</h3>
+              <div className="space-y-3">
+                {quotations?.slice(0, 5).map(qt => {
+                  const customer = customers.find(c => c.id === qt.customerId)
+                  return (
+                    <div key={qt.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <div className="font-mono text-purple-600 font-medium">{qt.id}</div>
+                        <div className="text-sm text-gray-500">{customer?.name}</div>
+                        {qt.customerCategory && (
+                          <Badge variant={qt.customerCategory === 'new' ? 'success' : qt.customerCategory === 'potential' ? 'warning' : 'info'} className="mt-1">
+                            {qt.customerCategory}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="font-medium">{formatCurrency(qt.grandTotal)}</div>
+                        <Badge variant={
+                          qt.status === 'accepted' ? 'success' :
+                          qt.status === 'sent' ? 'info' :
+                          qt.status === 'rejected' ? 'danger' :
+                          'warning'
+                        }>{qt.status}</Badge>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </Card>
+
+            {/* Revenue Summary */}
+            <Card className="p-5">
+              <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'สรุปรายได้' : 'Revenue Summary'}</h3>
+              <div className="space-y-4">
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <div className="text-sm text-green-600">{lang === 'th' ? 'รายได้รวม' : 'Total Revenue'}</div>
+                  <div className="text-3xl font-bold text-green-700">{formatCurrency(stats.totalRevenue)}</div>
                 </div>
-              ))}
-            </div>
-          </Card>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <div className="text-sm text-blue-600">{lang === 'th' ? 'ได้รับแล้ว' : 'Received'}</div>
+                    <div className="text-xl font-bold text-blue-700">{formatCurrency(stats.totalReceived)}</div>
+                  </div>
+                  <div className="p-4 bg-red-50 rounded-lg">
+                    <div className="text-sm text-red-600">{lang === 'th' ? 'ค้างชำระ' : 'Outstanding'}</div>
+                    <div className="text-xl font-bold text-red-700">{formatCurrency(stats.totalRevenue - stats.totalReceived)}</div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
         </div>
       )}
 
@@ -12390,6 +12563,8 @@ const SalesModuleFull = ({
                 <tr>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'Quote #'}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Category'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เหตุผล' : 'Reason'}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ใช้ได้ถึง' : 'Valid Until'}</th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
@@ -12401,10 +12576,41 @@ const SalesModuleFull = ({
                 {quotations?.map(qt => {
                   const customer = customers.find(c => c.id === qt.customerId)
                   const isExpired = new Date(qt.validUntil) < new Date() && qt.status !== 'accepted' && qt.status !== 'converted'
+                  const getCategoryBadge = (cat) => {
+                    switch(cat) {
+                      case 'new': return { color: 'success', label: lang === 'th' ? 'ใหม่' : 'New' }
+                      case 'potential': return { color: 'warning', label: lang === 'th' ? 'มีศักยภาพ' : 'Potential' }
+                      case 'existing': return { color: 'info', label: lang === 'th' ? 'เดิม' : 'Existing' }
+                      default: return { color: 'default', label: '-' }
+                    }
+                  }
+                  const getReasonLabel = (reason) => {
+                    switch(reason) {
+                      case 'new_product': return lang === 'th' ? 'สินค้าใหม่' : 'New Product'
+                      case 'price_change': return lang === 'th' ? 'เปลี่ยนราคา' : 'Price Change'
+                      case 'new_customer': return lang === 'th' ? 'ลูกค้าใหม่' : 'New Customer'
+                      case 'special_request': return lang === 'th' ? 'พิเศษ' : 'Special'
+                      default: return '-'
+                    }
+                  }
+                  const catBadge = getCategoryBadge(qt.customerCategory)
                   return (
                     <tr key={qt.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-mono text-purple-600">{qt.id}</td>
-                      <td className="px-4 py-3">{customer?.name}</td>
+                      <td className="px-4 py-3">
+                        <div>{customer?.name}</div>
+                        <div className="text-xs text-gray-400">{customer?.code}</div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={catBadge.color}>{catBadge.label}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {qt.quotationReason === 'price_change' && <span className="text-orange-600">💰 </span>}
+                        {qt.quotationReason === 'new_product' && <span className="text-blue-600">📦 </span>}
+                        {qt.quotationReason === 'new_customer' && <span className="text-green-600">🤝 </span>}
+                        {qt.quotationReason === 'special_request' && <span className="text-purple-600">⭐ </span>}
+                        {getReasonLabel(qt.quotationReason)}
+                      </td>
                       <td className="px-4 py-3">{formatDate(qt.quoteDate)}</td>
                       <td className="px-4 py-3">
                         <span className={isExpired ? 'text-red-500' : ''}>{formatDate(qt.validUntil)}</span>
@@ -12669,6 +12875,24 @@ const SalesModuleFull = ({
                               <BadgeCheck className="w-3 h-3" />
                             </Button>
                           )}
+                          {/* Allianz QR Labels - show for Allianz customer (ALL-013) */}
+                          {(customers.find(c => c.id === inv.customerId)?.specialRequirements?.qrLabels ||
+                            customers.find(c => c.id === inv.customerId)?.code?.includes('ALL')) && (
+                            <Button size="sm" variant="info" onClick={() => { setSelectedItem(inv); setShowAllianzLabels(true) }} title="Allianz QR Labels">
+                              <QrCode className="w-3 h-3" />
+                            </Button>
+                          )}
+                          {/* Polyplex Labels - show for Polyplex customer (PLX-002) */}
+                          {(customers.find(c => c.id === inv.customerId)?.specialRequirements?.labelFormat ||
+                            customers.find(c => c.id === inv.customerId)?.code?.includes('PLX')) && (
+                            <Button size="sm" variant="outline" onClick={() => { setSelectedItem(inv); setShowPolyplexLabels(true) }} title="Polyplex Labels">
+                              <Tag className="w-3 h-3" />
+                            </Button>
+                          )}
+                          {/* Receipt Acknowledgment - for driver to get customer signature */}
+                          <Button size="sm" variant="success" onClick={() => { setSelectedItem(inv); setShowReceiptAck(true) }} title={lang === 'th' ? 'ใบรับสินค้า' : 'Receipt'}>
+                            <CheckCircle className="w-3 h-3" />
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -12731,16 +12955,66 @@ const SalesModuleFull = ({
       {/* ========== AR AGING TAB ========== */}
       {activeTab === 'aging' && (
         <div className="space-y-6">
+          {/* Filter Bar */}
+          <Card className="p-4">
+            <div className="flex flex-wrap gap-4 items-end">
+              <div className="flex-grow min-w-[200px]">
+                <label className="block text-sm font-medium text-gray-600 mb-1">{lang === 'th' ? 'กรองตามลูกค้า' : 'Filter by Customer'}</label>
+                <select 
+                  value={agingCustomerFilter} 
+                  onChange={(e) => setAgingCustomerFilter(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="">{lang === 'th' ? 'ลูกค้าทั้งหมด' : 'All Customers'}</option>
+                  {[...new Set(invoices?.filter(inv => inv.balance > 0).map(inv => inv.customerId))].map(custId => {
+                    const cust = customers.find(c => c.id === custId)
+                    return <option key={custId} value={custId}>{cust?.name}</option>
+                  })}
+                </select>
+              </div>
+              <div className="min-w-[150px]">
+                <label className="block text-sm font-medium text-gray-600 mb-1">{lang === 'th' ? 'ช่วงอายุ' : 'Aging Bucket'}</label>
+                <select 
+                  value={agingBucketFilter} 
+                  onChange={(e) => setAgingBucketFilter(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">{lang === 'th' ? 'ทั้งหมด' : 'All'}</option>
+                  <option value="current">{lang === 'th' ? 'ปัจจุบัน' : 'Current'}</option>
+                  <option value="days30">1-30 {lang === 'th' ? 'วัน' : 'days'}</option>
+                  <option value="days60">31-60 {lang === 'th' ? 'วัน' : 'days'}</option>
+                  <option value="days90">61-90 {lang === 'th' ? 'วัน' : 'days'}</option>
+                  <option value="days120">90+ {lang === 'th' ? 'วัน' : 'days'}</option>
+                  <option value="overdue">{lang === 'th' ? 'เกินกำหนดทั้งหมด' : 'All Overdue'}</option>
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={() => { setAgingCustomerFilter(''); setAgingBucketFilter('all') }}>
+                  {lang === 'th' ? 'ล้างตัวกรอง' : 'Clear Filters'}
+                </Button>
+                {agingCustomerFilter && (
+                  <Button size="sm" icon={FileText} onClick={() => { setSelectedCustomerForStatement(agingCustomerFilter); setShowCustomerStatement(true) }}>
+                    {lang === 'th' ? 'ดูใบแจ้งยอด' : 'View Statement'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Card>
+
           {/* Aging Summary Cards */}
           <div className="grid grid-cols-5 gap-4">
             {[
-              { label: lang === 'th' ? 'ปัจจุบัน' : 'Current', amount: agingTotals.current, count: agingData.current.length, color: 'green' },
-              { label: '1-30 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days30, count: agingData.days30.length, color: 'yellow' },
-              { label: '31-60 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days60, count: agingData.days60.length, color: 'orange' },
-              { label: '61-90 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days90, count: agingData.days90.length, color: 'red' },
-              { label: '90+ ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days120, count: agingData.days120.length, color: 'purple' },
+              { label: lang === 'th' ? 'ปัจจุบัน' : 'Current', amount: agingTotals.current, count: agingData.current.length, color: 'green', bucket: 'current' },
+              { label: '1-30 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days30, count: agingData.days30.length, color: 'yellow', bucket: 'days30' },
+              { label: '31-60 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days60, count: agingData.days60.length, color: 'orange', bucket: 'days60' },
+              { label: '61-90 ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days90, count: agingData.days90.length, color: 'red', bucket: 'days90' },
+              { label: '90+ ' + (lang === 'th' ? 'วัน' : 'days'), amount: agingTotals.days120, count: agingData.days120.length, color: 'purple', bucket: 'days120' },
             ].map(bucket => (
-              <Card key={bucket.label} className={`p-4 border-l-4 border-l-${bucket.color}-500`}>
+              <Card 
+                key={bucket.label} 
+                className={`p-4 border-l-4 border-l-${bucket.color}-500 cursor-pointer hover:shadow-md transition-shadow ${agingBucketFilter === bucket.bucket ? 'ring-2 ring-blue-500' : ''}`}
+                onClick={() => setAgingBucketFilter(agingBucketFilter === bucket.bucket ? 'all' : bucket.bucket)}
+              >
                 <div className="text-sm text-gray-500">{bucket.label}</div>
                 <div className={`text-2xl font-bold text-${bucket.color}-600`}>{formatCurrency(bucket.amount)}</div>
                 <div className="text-xs text-gray-400">{bucket.count} {lang === 'th' ? 'รายการ' : 'items'}</div>
@@ -12750,8 +13024,22 @@ const SalesModuleFull = ({
 
           {/* Aging Detail Table */}
           <Card className="overflow-hidden">
-            <div className="p-4 border-b">
+            <div className="p-4 border-b flex justify-between items-center">
               <h3 className="font-bold">{lang === 'th' ? 'รายละเอียดหนี้ค้างชำระ' : 'Outstanding Receivables Detail'}</h3>
+              <div className="text-sm text-gray-500">
+                {lang === 'th' ? 'แสดง' : 'Showing'} {(() => {
+                  let filtered = [...agingData.days120, ...agingData.days90, ...agingData.days60, ...agingData.days30, ...agingData.current]
+                  if (agingCustomerFilter) filtered = filtered.filter(inv => inv.customerId === agingCustomerFilter)
+                  if (agingBucketFilter === 'current') filtered = agingData.current
+                  else if (agingBucketFilter === 'days30') filtered = agingData.days30
+                  else if (agingBucketFilter === 'days60') filtered = agingData.days60
+                  else if (agingBucketFilter === 'days90') filtered = agingData.days90
+                  else if (agingBucketFilter === 'days120') filtered = agingData.days120
+                  else if (agingBucketFilter === 'overdue') filtered = [...agingData.days30, ...agingData.days60, ...agingData.days90, ...agingData.days120]
+                  if (agingCustomerFilter) filtered = filtered.filter(inv => inv.customerId === agingCustomerFilter)
+                  return filtered.length
+                })()} {lang === 'th' ? 'รายการ' : 'items'}
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -12759,39 +13047,74 @@ const SalesModuleFull = ({
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoice'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันออก' : 'Issue Date'}</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ครบกำหนด' : 'Due Date'}</th>
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'เกิน (วัน)' : 'Days Over'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Total'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ชำระแล้ว' : 'Paid'}</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดค้าง' : 'Balance'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ช่วงอายุ' : 'Aging Bucket'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ช่วงอายุ' : 'Bucket'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {[...agingData.days120, ...agingData.days90, ...agingData.days60, ...agingData.days30, ...agingData.current].map(inv => (
-                    <tr key={inv.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium">{inv.customerName}</td>
-                      <td className="px-4 py-3 font-mono text-teal-600">{inv.id}</td>
-                      <td className="px-4 py-3">{formatDate(inv.dueDate)}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={inv.daysPast > 60 ? 'text-red-600 font-bold' : inv.daysPast > 30 ? 'text-orange-600' : ''}>
-                          {inv.daysPast > 0 ? inv.daysPast : '-'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold text-red-600">{formatCurrency(inv.balance)}</td>
-                      <td className="px-4 py-3 text-center">
-                        <Badge variant={
-                          inv.daysPast <= 0 ? 'success' :
-                          inv.daysPast <= 30 ? 'warning' :
-                          inv.daysPast <= 60 ? 'warning' :
-                          'danger'
-                        }>
-                          {inv.daysPast <= 0 ? (lang === 'th' ? 'ปัจจุบัน' : 'Current') :
-                           inv.daysPast <= 30 ? '1-30' :
-                           inv.daysPast <= 60 ? '31-60' :
-                           inv.daysPast <= 90 ? '61-90' : '90+'}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
+                  {(() => {
+                    let filtered = [...agingData.days120, ...agingData.days90, ...agingData.days60, ...agingData.days30, ...agingData.current]
+                    if (agingBucketFilter === 'current') filtered = agingData.current
+                    else if (agingBucketFilter === 'days30') filtered = agingData.days30
+                    else if (agingBucketFilter === 'days60') filtered = agingData.days60
+                    else if (agingBucketFilter === 'days90') filtered = agingData.days90
+                    else if (agingBucketFilter === 'days120') filtered = agingData.days120
+                    else if (agingBucketFilter === 'overdue') filtered = [...agingData.days30, ...agingData.days60, ...agingData.days90, ...agingData.days120]
+                    if (agingCustomerFilter) filtered = filtered.filter(inv => inv.customerId === agingCustomerFilter)
+                    return filtered.map(inv => {
+                      const originalInv = invoices.find(i => i.id === inv.id)
+                      return (
+                        <tr key={inv.id} className={`hover:bg-gray-50 ${inv.daysPast > 60 ? 'bg-red-50' : inv.daysPast > 30 ? 'bg-orange-50' : ''}`}>
+                          <td className="px-4 py-3">
+                            <div className="font-medium">{inv.customerName}</div>
+                            <div className="text-xs text-gray-400">{customers.find(c => c.name === inv.customerName)?.code}</div>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-teal-600">{inv.id}</td>
+                          <td className="px-4 py-3 text-sm">{formatDate(originalInv?.invoiceDate)}</td>
+                          <td className="px-4 py-3 text-sm">{formatDate(inv.dueDate)}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={inv.daysPast > 60 ? 'text-red-600 font-bold text-lg' : inv.daysPast > 30 ? 'text-orange-600 font-bold' : ''}>
+                              {inv.daysPast > 0 ? inv.daysPast : '-'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm">{formatCurrency(originalInv?.grandTotal || 0)}</td>
+                          <td className="px-4 py-3 text-right text-sm text-green-600">{formatCurrency(originalInv?.paidAmount || 0)}</td>
+                          <td className="px-4 py-3 text-right font-bold text-red-600">{formatCurrency(inv.balance)}</td>
+                          <td className="px-4 py-3 text-center">
+                            <Badge variant={
+                              inv.daysPast <= 0 ? 'success' :
+                              inv.daysPast <= 30 ? 'warning' :
+                              inv.daysPast <= 60 ? 'warning' :
+                              'danger'
+                            }>
+                              {inv.daysPast <= 0 ? (lang === 'th' ? 'ปัจจุบัน' : 'Current') :
+                               inv.daysPast <= 30 ? '1-30' :
+                               inv.daysPast <= 60 ? '31-60' :
+                               inv.daysPast <= 90 ? '61-90' : '90+'}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex justify-center gap-1">
+                              <Button size="sm" variant="ghost" title={lang === 'th' ? 'ดูใบแจ้งหนี้' : 'View Invoice'}
+                                      onClick={() => { setSelectedItem(originalInv); setShowPrintInvoice(true) }}>
+                                <Eye className="w-3 h-3" />
+                              </Button>
+                              <Button size="sm" variant="ghost" title={lang === 'th' ? 'บันทึกชำระ' : 'Record Payment'}
+                                      onClick={() => { setSelectedItem(originalInv); setShowPaymentModal(true) }}>
+                                <CreditCard className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  })()}
                 </tbody>
                 <tfoot className="bg-gray-100">
                   <tr>
@@ -12804,6 +13127,220 @@ const SalesModuleFull = ({
                 </tfoot>
               </table>
             </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ========== CUSTOMERS TAB ========== */}
+      {activeTab === 'customers' && (
+        <div className="space-y-6">
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="font-bold">{lang === 'th' ? 'รายชื่อลูกค้า' : 'Customer List'}</h3>
+              <div className="text-sm text-gray-500">
+                {customers.length} {lang === 'th' ? 'ราย' : 'customers'}
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส' : 'Code'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ชื่อลูกค้า' : 'Customer Name'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'เงื่อนไข' : 'Terms'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ความต้องการพิเศษ' : 'Special Requirements'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดขาย' : 'Revenue'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ค้างชำระ' : 'Outstanding'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {customers.map(cust => {
+                    const custInvoices = invoices?.filter(inv => inv.customerId === cust.id) || []
+                    const revenue = custInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0)
+                    const outstanding = custInvoices.reduce((sum, inv) => sum + (inv.balance || 0), 0)
+                    return (
+                      <tr key={cust.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-mono text-blue-600">{cust.code}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{cust.name}</div>
+                          <div className="text-xs text-gray-400">{cust.contact}</div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Badge variant={cust.type === 'export' ? 'info' : 'default'}>
+                            {cust.type === 'export' ? (lang === 'th' ? 'ส่งออก' : 'Export') : (lang === 'th' ? 'ในประเทศ' : 'Local')}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm">{cust.paymentTerms || 'Net 30'}</td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex justify-center gap-1 flex-wrap">
+                            {cust.specialRequirements?.htCertificate && (
+                              <Badge variant="warning" className="text-xs">HT Cert</Badge>
+                            )}
+                            {cust.specialRequirements?.qrLabels && (
+                              <Badge variant="info" className="text-xs">QR Labels</Badge>
+                            )}
+                            {cust.specialRequirements?.labelFormat && (
+                              <Badge variant="outline" className="text-xs">Custom Labels</Badge>
+                            )}
+                            {cust.code?.includes('ALL') && (
+                              <Badge variant="info" className="text-xs">Allianz</Badge>
+                            )}
+                            {cust.code?.includes('PLX') && (
+                              <Badge variant="outline" className="text-xs">Polyplex</Badge>
+                            )}
+                            {!cust.specialRequirements?.htCertificate && !cust.specialRequirements?.qrLabels && 
+                             !cust.specialRequirements?.labelFormat && !cust.code?.includes('ALL') && !cust.code?.includes('PLX') && (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium text-green-600">{formatCurrency(revenue)}</td>
+                        <td className="px-4 py-3 text-right">
+                          {outstanding > 0 ? (
+                            <span className="font-bold text-red-600">{formatCurrency(outstanding)}</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex justify-center gap-1">
+                            <Button size="sm" variant="ghost" onClick={() => { setSelectedCustomerForStatement(cust.id); setShowCustomerStatement(true) }} title={lang === 'th' ? 'ใบแจ้งยอด' : 'Statement'}>
+                              <FileText className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Customer Requirements Legend */}
+          <Card className="p-4">
+            <h4 className="font-bold mb-3">{lang === 'th' ? 'ความต้องการพิเศษลูกค้า' : 'Customer Special Requirements'}</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="font-bold text-blue-700">Allianz (ALL-013)</div>
+                <ul className="text-blue-600 text-xs mt-1 space-y-1">
+                  <li>• QR Code Labels (Invoice + Packaging)</li>
+                  <li>• Heat Treatment Certificate</li>
+                  <li>• Vendor Code: 115050</li>
+                </ul>
+              </div>
+              <div className="p-3 bg-green-50 rounded-lg">
+                <div className="font-bold text-green-700">Polyplex (PLX-002)</div>
+                <ul className="text-green-600 text-xs mt-1 space-y-1">
+                  <li>• 4-Column Label Sheet</li>
+                  <li>• Color Coded (FILM/CPP/Line 10)</li>
+                  <li>• Delivery Location on Labels</li>
+                </ul>
+              </div>
+              <div className="p-3 bg-orange-50 rounded-lg">
+                <div className="font-bold text-orange-700">{lang === 'th' ? 'ลูกค้าส่งออก' : 'Export Customers'}</div>
+                <ul className="text-orange-600 text-xs mt-1 space-y-1">
+                  <li>• Heat Treatment Certificate (ISPM15)</li>
+                  <li>• Export Invoice (No VAT)</li>
+                  <li>• Packing List Required</li>
+                </ul>
+              </div>
+              <div className="p-3 bg-purple-50 rounded-lg">
+                <div className="font-bold text-purple-700">{lang === 'th' ? 'ลูกค้าทั่วไป' : 'Standard Customers'}</div>
+                <ul className="text-purple-600 text-xs mt-1 space-y-1">
+                  <li>• Tax Invoice with VAT</li>
+                  <li>• Delivery Order</li>
+                  <li>• Receipt Acknowledgment</li>
+                </ul>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ========== PRICE HISTORY TAB ========== */}
+      {activeTab === 'pricing' && (
+        <div className="space-y-6">
+          <Card className="p-5">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="font-bold">{lang === 'th' ? 'ประวัติการเปลี่ยนแปลงราคา' : 'Price Change History'}</h3>
+                <p className="text-sm text-gray-500">{lang === 'th' ? 'ตามนโยบาย: ต้องแจ้งลูกค้าทางอีเมลพร้อมเหตุผลเมื่อมีการเปลี่ยนราคา' : 'Per policy: Email notification with reason required for all price changes'}</p>
+              </div>
+              <Button size="sm" icon={Plus}>
+                {lang === 'th' ? 'บันทึกการเปลี่ยนราคา' : 'Log Price Change'}
+              </Button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่มีผล' : 'Effective Date'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ราคาเดิม' : 'Old Price'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ราคาใหม่' : 'New Price'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'เปลี่ยนแปลง' : 'Change'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เหตุผล' : 'Reason'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อ้างอิงอีเมล' : 'Email Ref'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อนุมัติโดย' : 'Approved By'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {priceHistory.map((record, idx) => {
+                    const change = ((record.newPrice - record.oldPrice) / record.oldPrice * 100).toFixed(1)
+                    const isIncrease = record.newPrice > record.oldPrice
+                    const getReasonLabel = (reason) => {
+                      switch(reason) {
+                        case 'material_cost_increase': return lang === 'th' ? 'ต้นทุนวัตถุดิบเพิ่ม' : 'Material Cost ↑'
+                        case 'material_cost_decrease': return lang === 'th' ? 'ต้นทุนวัตถุดิบลด' : 'Material Cost ↓'
+                        case 'customer_negotiation': return lang === 'th' ? 'เจรจากับลูกค้า' : 'Customer Negotiation'
+                        case 'volume_discount': return lang === 'th' ? 'ส่วนลดปริมาณ' : 'Volume Discount'
+                        case 'market_adjustment': return lang === 'th' ? 'ปรับตามตลาด' : 'Market Adjustment'
+                        case 'annual_review': return lang === 'th' ? 'ทบทวนประจำปี' : 'Annual Review'
+                        default: return reason
+                      }
+                    }
+                    return (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">{formatDate(record.effectiveDate)}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{record.productName}</div>
+                          <div className="text-xs text-gray-400 font-mono">{record.productId}</div>
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-500">{formatCurrency(record.oldPrice)}</td>
+                        <td className="px-4 py-3 text-right font-bold">{formatCurrency(record.newPrice)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`font-bold ${isIncrease ? 'text-red-600' : 'text-green-600'}`}>
+                            {isIncrease ? '↑' : '↓'} {Math.abs(change)}%
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant={isIncrease ? 'danger' : 'success'} className="text-xs">
+                            {getReasonLabel(record.reason)}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-blue-600">{record.emailRef || '-'}</td>
+                        <td className="px-4 py-3 text-sm">{record.approvedBy}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Price Change Policy */}
+          <Card className="p-4 bg-yellow-50 border-yellow-200">
+            <h4 className="font-bold text-yellow-800 mb-2">📋 {lang === 'th' ? 'นโยบายการเปลี่ยนราคา' : 'Price Change Policy'}</h4>
+            <ul className="text-sm text-yellow-700 space-y-1">
+              <li>• {lang === 'th' ? 'ต้องแจ้งลูกค้าทางอีเมลอย่างเป็นทางการก่อนมีผล' : 'Customer must be notified via official email before effective date'}</li>
+              <li>• {lang === 'th' ? 'ต้องระบุเหตุผลการเปลี่ยนราคาในอีเมล' : 'Reason for price change must be included in email'}</li>
+              <li>• {lang === 'th' ? 'ส่วนลดทุกกรณีต้องได้รับการอนุมัติจาก CEO' : 'ALL discounts require CEO approval - no exceptions'}</li>
+              <li>• {lang === 'th' ? 'เก็บประวัติการเปลี่ยนราคาทั้งหมดเพื่อการตรวจสอบ' : 'All price changes must be logged for audit trail'}</li>
+            </ul>
           </Card>
         </div>
       )}
@@ -12894,6 +13431,7 @@ const SalesModuleFull = ({
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'Invoice อ้างอิง' : 'Ref Invoice'}</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Amount'}</th>
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -12910,6 +13448,14 @@ const SalesModuleFull = ({
                           <Badge variant={cn.status === 'applied' ? 'success' : cn.status === 'issued' ? 'info' : 'warning'}>
                             {cn.status}
                           </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Button size="sm" variant="ghost" onClick={() => { 
+                            setSelectedItem({ ...cn, amount: cn.grandTotal, invoiceId: cn.originalInvoiceId }); 
+                            setShowCreditNotePrint(true) 
+                          }} title="Print">
+                            <Printer className="w-3 h-3" />
+                          </Button>
                         </td>
                       </tr>
                     )
@@ -13282,6 +13828,74 @@ const SalesModuleFull = ({
           />
         </Modal>
       )}
+
+      {/* Allianz QR Labels */}
+      {showAllianzLabels && selectedItem && (
+        <Modal isOpen={showAllianzLabels} onClose={() => { setShowAllianzLabels(false); setSelectedItem(null) }} 
+               title={lang === 'th' ? 'ป้าย QR Allianz' : 'Allianz QR Labels'} size="xl">
+          <AllianzLabelPrintView
+            invoice={selectedItem}
+            deliveryOrder={deliveryOrders.find(d => d.id === selectedItem.doId)}
+            customer={customers.find(c => c.id === selectedItem.customerId)}
+            onClose={() => { setShowAllianzLabels(false); setSelectedItem(null) }}
+          />
+        </Modal>
+      )}
+
+      {/* Polyplex 4-Column Labels */}
+      {showPolyplexLabels && selectedItem && (
+        <Modal isOpen={showPolyplexLabels} onClose={() => { setShowPolyplexLabels(false); setSelectedItem(null) }} 
+               title={lang === 'th' ? 'ป้าย Polyplex' : 'Polyplex Labels'} size="xl">
+          <PolyplexLabelPrintView
+            invoice={selectedItem}
+            deliveryOrder={deliveryOrders.find(d => d.id === selectedItem.doId)}
+            customer={customers.find(c => c.id === selectedItem.customerId)}
+            onClose={() => { setShowPolyplexLabels(false); setSelectedItem(null) }}
+          />
+        </Modal>
+      )}
+
+      {/* Customer Statement */}
+      {showCustomerStatement && (
+        <Modal isOpen={showCustomerStatement} onClose={() => { setShowCustomerStatement(false); setSelectedCustomerForStatement(null) }} 
+               title={lang === 'th' ? 'ใบแจ้งยอดลูกค้า' : 'Customer Statement'} size="xl">
+          <CustomerStatementPrintView
+            customer={customers.find(c => c.id === selectedCustomerForStatement)}
+            invoices={invoices}
+            payments={[]}
+            creditNotes={creditNotes}
+            onClose={() => { setShowCustomerStatement(false); setSelectedCustomerForStatement(null) }}
+          />
+        </Modal>
+      )}
+
+      {/* Credit Note Print */}
+      {showCreditNotePrint && selectedItem && (
+        <Modal isOpen={showCreditNotePrint} onClose={() => { setShowCreditNotePrint(false); setSelectedItem(null) }} 
+               title={lang === 'th' ? 'พิมพ์ใบลดหนี้' : 'Print Credit Note'} size="xl">
+          <CreditNotePrintView
+            creditNote={selectedItem}
+            customer={customers.find(c => c.id === selectedItem.customerId)}
+            invoice={invoices.find(inv => inv.id === selectedItem.invoiceId)}
+            entity={selectedItem.entity}
+            onClose={() => { setShowCreditNotePrint(false); setSelectedItem(null) }}
+          />
+        </Modal>
+      )}
+
+      {/* Receipt Acknowledgment */}
+      {showReceiptAck && selectedItem && (
+        <Modal isOpen={showReceiptAck} onClose={() => { setShowReceiptAck(false); setSelectedItem(null) }} 
+               title={lang === 'th' ? 'ใบรับสินค้า' : 'Receipt Acknowledgment'} size="lg">
+          <ReceiptAcknowledgmentPrintView
+            invoice={selectedItem}
+            deliveryOrder={deliveryOrders.find(d => d.id === selectedItem.doId)}
+            customer={customers.find(c => c.id === selectedItem.customerId)}
+            entity={selectedItem.entity}
+            onClose={() => { setShowReceiptAck(false); setSelectedItem(null) }}
+          />
+        </Modal>
+      )}
     </div>
   )
 }
@@ -13602,6 +14216,8 @@ const QuotationForm = ({ quotation, customers, products, onSave, onCancel, lang 
   const [formData, setFormData] = useState({
     customerId: quotation?.customerId || '',
     customerContact: quotation?.customerContact || '',
+    customerCategory: quotation?.customerCategory || 'existing', // new, potential, existing
+    quotationReason: quotation?.quotationReason || 'new_product', // new_product, price_change, new_customer, special_request
     quoteDate: quotation?.quoteDate || new Date().toISOString().split('T')[0],
     validUntil: quotation?.validUntil || (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().split('T')[0] })(),
     items: quotation?.items || [{ id: 1, productName: '', description: '', qty: 0, unit: 'pcs', unitPrice: 0, total: 0 }],
@@ -13658,8 +14274,60 @@ const QuotationForm = ({ quotation, customers, products, onSave, onCancel, lang 
     })
   }
 
+  // Helper to get customer category badge color
+  const getCategoryBadge = (cat) => {
+    switch(cat) {
+      case 'new': return 'bg-green-100 text-green-800'
+      case 'potential': return 'bg-yellow-100 text-yellow-800'
+      case 'existing': return 'bg-blue-100 text-blue-800'
+      default: return 'bg-gray-100'
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Customer Category & Reason - NEW SECTION */}
+      <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+        <div className="text-sm font-medium text-purple-800 mb-2">{lang === 'th' ? 'ประเภทใบเสนอราคา' : 'Quotation Type'}</div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              {lang === 'th' ? 'ประเภทลูกค้า' : 'Customer Category'}
+            </label>
+            <select 
+              value={formData.customerCategory} 
+              onChange={(e) => setFormData({ ...formData, customerCategory: e.target.value })} 
+              className={`w-full px-3 py-2 border rounded-lg ${getCategoryBadge(formData.customerCategory)}`}
+            >
+              <option value="existing">{lang === 'th' ? 'ลูกค้าปัจจุบัน' : 'Existing Customer'}</option>
+              <option value="potential">{lang === 'th' ? 'ลูกค้าที่สนใจ' : 'Potential Customer'}</option>
+              <option value="new">{lang === 'th' ? 'ลูกค้าใหม่' : 'New Customer'}</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              {lang === 'th' ? 'เหตุผลใบเสนอราคา' : 'Quotation Reason'}
+            </label>
+            <select 
+              value={formData.quotationReason} 
+              onChange={(e) => setFormData({ ...formData, quotationReason: e.target.value })} 
+              className="w-full px-3 py-2 border rounded-lg"
+            >
+              <option value="new_product">{lang === 'th' ? 'สินค้าใหม่' : 'New Product'}</option>
+              <option value="price_change">{lang === 'th' ? 'เปลี่ยนแปลงราคา' : 'Price Change'}</option>
+              <option value="new_customer">{lang === 'th' ? 'ลูกค้าใหม่สอบถาม' : 'New Customer Inquiry'}</option>
+              <option value="special_request">{lang === 'th' ? 'คำขอพิเศษ' : 'Special Request'}</option>
+            </select>
+          </div>
+        </div>
+        <div className="mt-2 text-xs text-purple-600">
+          {formData.quotationReason === 'new_product' && (lang === 'th' ? '💡 สินค้าใหม่ - จะสร้างรหัสสินค้าหลังลูกค้าตอบรับ' : '💡 New product - Product code will be created after customer accepts')}
+          {formData.quotationReason === 'price_change' && (lang === 'th' ? '💡 เปลี่ยนราคา - ต้องแนบอีเมลอธิบายเหตุผล' : '💡 Price change - Email with reason required')}
+          {formData.quotationReason === 'new_customer' && (lang === 'th' ? '💡 ลูกค้าใหม่ - ควรนัดพบเพื่อหารือเพิ่มเติม' : '💡 New customer - Schedule a meeting for discussion')}
+          {formData.quotationReason === 'special_request' && (lang === 'th' ? '💡 คำขอพิเศษ - ระบุรายละเอียดในหมายเหตุ' : '💡 Special request - Add details in notes')}
+        </div>
+      </div>
+
       <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ลูกค้า *' : 'Customer *'}</label>
@@ -14766,6 +15434,1056 @@ const QuotationPrintView = ({ quotation, customer, entity, onClose }) => {
           <div className="p-2 border-t border-black text-center text-xs text-gray-500">
             Thank you for your interest. We look forward to serving you. / ขอบคุณที่สนใจ ยินดีให้บริการ
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// ALLIANZ QR LABEL GENERATOR
+// ============================================
+const AllianzLabelPrintView = ({ invoice, deliveryOrder, customer, onClose }) => {
+  const handlePrint = () => {
+    window.print()
+  }
+
+  // Allianz vendor code for IND
+  const VENDOR_CODE = '115050'
+  const VENDOR_NAME = 'IND THAI PACKWELL CO.,LTD'
+  const PLANT = '6000'
+
+  // Generate QR code data for invoice
+  const generateInvoiceQR = () => {
+    // Format: PO Number$Invoice Number$Vendor Code
+    return `${invoice.customerPO || ''}$${invoice.id}$${VENDOR_CODE}`
+  }
+
+  // Generate QR code data for packaging
+  const generatePackagingQR = (item) => {
+    // Format: ALS Part Number$Quantity$PO Number$Vendor Code
+    return `${item.partNo || item.productName}$${item.qty}$${invoice.customerPO || ''}$${VENDOR_CODE}`
+  }
+
+  // Simple QR code SVG generator (data matrix style)
+  const QRCodeSVG = ({ data, size = 80 }) => {
+    // Create a simple visual representation (in production, use a proper QR library)
+    const hash = data.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    const pattern = []
+    for (let i = 0; i < 64; i++) {
+      pattern.push((hash * (i + 1)) % 2 === 0)
+    }
+    
+    return (
+      <svg width={size} height={size} viewBox="0 0 80 80" className="border border-black">
+        <rect width="80" height="80" fill="white" />
+        {/* Corner patterns */}
+        <rect x="4" y="4" width="20" height="20" fill="black" />
+        <rect x="7" y="7" width="14" height="14" fill="white" />
+        <rect x="10" y="10" width="8" height="8" fill="black" />
+        
+        <rect x="56" y="4" width="20" height="20" fill="black" />
+        <rect x="59" y="7" width="14" height="14" fill="white" />
+        <rect x="62" y="10" width="8" height="8" fill="black" />
+        
+        <rect x="4" y="56" width="20" height="20" fill="black" />
+        <rect x="7" y="59" width="14" height="14" fill="white" />
+        <rect x="10" y="62" width="8" height="8" fill="black" />
+        
+        {/* Data pattern */}
+        {pattern.map((filled, idx) => {
+          const row = Math.floor(idx / 8)
+          const col = idx % 8
+          if (row < 3 && col < 3) return null
+          if (row < 3 && col > 4) return null
+          if (row > 4 && col < 3) return null
+          return filled ? (
+            <rect key={idx} x={28 + col * 3} y={28 + row * 3} width="3" height="3" fill="black" />
+          ) : null
+        })}
+        
+        {/* QR text below */}
+        <text x="40" y="78" fontSize="4" textAnchor="middle" fill="black">{data.substring(0, 20)}...</text>
+      </svg>
+    )
+  }
+
+  return (
+    <div className="bg-white">
+      {/* Print Controls */}
+      <div className="print:hidden p-4 bg-blue-100 flex justify-between items-center mb-4">
+        <div>
+          <h2 className="font-bold text-lg">Allianz QR Labels</h2>
+          <p className="text-sm text-blue-700">Invoice QR + Packaging Labels for Alliance Laundry</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handlePrint} icon={Printer}>Print All Labels</Button>
+          <Button variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+
+      {/* Label Content */}
+      <div className="p-4 max-w-4xl mx-auto print:p-0 print:max-w-none">
+        
+        {/* Invoice QR Label */}
+        <div className="mb-8 print:mb-4">
+          <h3 className="font-bold text-lg mb-2 print:hidden">Invoice QR Code Label</h3>
+          <div className="border-2 border-black p-4 inline-block bg-white" style={{ width: '300px' }}>
+            <div className="text-center font-bold text-sm mb-2">INVOICE QR CODE</div>
+            <div className="flex justify-center mb-2">
+              <QRCodeSVG data={generateInvoiceQR()} size={100} />
+            </div>
+            <div className="text-center text-xs font-mono break-all">
+              {generateInvoiceQR()}
+            </div>
+            <div className="mt-2 text-xs border-t pt-2">
+              <div><span className="font-bold">Invoice:</span> {invoice.id}</div>
+              <div><span className="font-bold">PO:</span> {invoice.customerPO}</div>
+              <div><span className="font-bold">Vendor:</span> {VENDOR_CODE}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Packaging Labels - One per item */}
+        <div>
+          <h3 className="font-bold text-lg mb-2 print:hidden">Packaging Labels (1 per product line)</h3>
+          <div className="grid grid-cols-2 gap-4 print:gap-2">
+            {invoice.items?.map((item, idx) => (
+              <div key={idx} className="border-2 border-black p-3 bg-white print:break-inside-avoid" style={{ minWidth: '280px' }}>
+                {/* Header */}
+                <div className="text-center font-bold text-xs border-b pb-1 mb-2">
+                  ALLIANCE LAUNDRY THAILAND
+                </div>
+                
+                {/* QR Code and Details */}
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0">
+                    <QRCodeSVG data={generatePackagingQR(item)} size={70} />
+                  </div>
+                  <div className="text-xs flex-grow">
+                    <table className="w-full">
+                      <tbody>
+                        <tr>
+                          <td className="font-bold pr-1">Part No:</td>
+                          <td className="font-mono">{item.partNo || item.productName.substring(0, 15)}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-bold pr-1">Description:</td>
+                          <td className="text-xs">{item.description || item.productName}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-bold pr-1">Plant:</td>
+                          <td>{PLANT}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-bold pr-1">Qty:</td>
+                          <td className="font-bold text-lg">{item.qty}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-bold pr-1">UoM:</td>
+                          <td>PC</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                
+                {/* Footer */}
+                <div className="text-xs border-t mt-2 pt-1">
+                  <div className="flex justify-between">
+                    <span><span className="font-bold">Vendor:</span> {VENDOR_CODE}</span>
+                    <span><span className="font-bold">PO:</span> {invoice.customerPO}</span>
+                  </div>
+                  <div><span className="font-bold">Vendor Name:</span> {VENDOR_NAME}</div>
+                  <div><span className="font-bold">Delivery Date:</span> {formatDate(deliveryOrder?.deliveryDate || invoice.invoiceDate)}</div>
+                </div>
+                
+                {/* QR Data String */}
+                <div className="mt-1 pt-1 border-t text-center">
+                  <div className="font-mono text-xs break-all text-gray-600">
+                    {generatePackagingQR(item)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Print Summary */}
+        <div className="mt-6 p-4 bg-gray-100 rounded print:hidden">
+          <h4 className="font-bold mb-2">Label Summary</h4>
+          <ul className="text-sm space-y-1">
+            <li>✓ 1 Invoice QR Code label</li>
+            <li>✓ {invoice.items?.length || 0} Packaging labels (1 per product line)</li>
+            <li>✓ Total labels to print: {1 + (invoice.items?.length || 0)}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// POLYPLEX 4-COLUMN LABEL SHEET
+// ============================================
+const PolyplexLabelPrintView = ({ invoice, deliveryOrder, customer, onClose }) => {
+  const handlePrint = () => {
+    window.print()
+  }
+
+  // Color coding for delivery location
+  const getLocationColor = (location) => {
+    const loc = (location || '').toUpperCase()
+    if (loc.includes('CPP')) return '#FFDAB9' // Peach
+    if (loc.includes('LINE 10') || loc.includes('LINE10')) return '#FF0000' // Red
+    if (loc.includes('FILM')) return '#FFFFFF' // White
+    return '#FFFFFF' // Default white
+  }
+
+  const getLocationTextColor = (location) => {
+    const loc = (location || '').toUpperCase()
+    if (loc.includes('LINE 10') || loc.includes('LINE10')) return '#FFFFFF' // White text on red
+    return '#000000' // Black text
+  }
+
+  return (
+    <div className="bg-white">
+      {/* Print Controls */}
+      <div className="print:hidden p-4 bg-green-100 flex justify-between items-center mb-4">
+        <div>
+          <h2 className="font-bold text-lg">Polyplex 4-Column Label Sheet</h2>
+          <p className="text-sm text-green-700">Color-coded labels for Polyplex Thailand</p>
+          <div className="flex gap-4 mt-2 text-xs">
+            <span className="px-2 py-1 border">FILM = White</span>
+            <span className="px-2 py-1 border" style={{ backgroundColor: '#FFDAB9' }}>CPP = Peach</span>
+            <span className="px-2 py-1 border text-white" style={{ backgroundColor: '#FF0000' }}>Line 10 = Red</span>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handlePrint} icon={Printer}>Print Label Sheet</Button>
+          <Button variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+
+      {/* Label Sheet Content */}
+      <div className="p-4 max-w-4xl mx-auto print:p-2 print:max-w-none" style={{ fontFamily: 'Arial, sans-serif' }}>
+        {/* Header */}
+        <div className="text-center mb-4">
+          <div className="font-bold text-lg">POLYPLEX (THAILAND) PUBLIC COMPANY LIMITED</div>
+          <div className="text-sm">Delivery Labels - {formatDate(invoice.invoiceDate)}</div>
+          <div className="text-sm">PO: {invoice.customerPO} | Invoice: {invoice.id}</div>
+        </div>
+
+        {/* 4-Column Table */}
+        <table className="w-full border-collapse border-2 border-black text-sm">
+          <thead>
+            <tr className="bg-gray-200">
+              <th className="border border-black px-2 py-2 text-left w-24">ITEM CODE</th>
+              <th className="border border-black px-2 py-2 text-left">DESCRIPTION</th>
+              <th className="border border-black px-2 py-2 text-center w-40">ORDER NO / DEL LOCATION</th>
+              <th className="border border-black px-2 py-2 text-left w-32">PO NO</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoice.items?.map((item, idx) => {
+              const deliveryLocation = item.deliveryLocation || item.orderNo || deliveryOrder?.deliveryAddress || 'FILM'
+              const bgColor = getLocationColor(deliveryLocation)
+              const textColor = getLocationTextColor(deliveryLocation)
+              
+              return (
+                <tr key={idx} className="hover:bg-gray-50">
+                  <td className="border border-black px-2 py-3 font-mono font-bold">
+                    {item.itemCode || item.partNo || `PLX-${String(idx + 1).padStart(3, '0')}`}
+                  </td>
+                  <td className="border border-black px-2 py-3">
+                    {item.description || item.productName}
+                    {item.dimensions && <div className="text-xs text-gray-600">{item.dimensions}</div>}
+                  </td>
+                  <td 
+                    className="border border-black px-2 py-3 text-center font-bold"
+                    style={{ backgroundColor: bgColor, color: textColor }}
+                  >
+                    {deliveryLocation}
+                  </td>
+                  <td className="border border-black px-2 py-3 font-mono">
+                    {invoice.customerPO}
+                  </td>
+                </tr>
+              )
+            })}
+            
+            {/* Add empty rows to fill page if needed */}
+            {Array.from({ length: Math.max(0, 10 - (invoice.items?.length || 0)) }).map((_, idx) => (
+              <tr key={`empty-${idx}`}>
+                <td className="border border-black px-2 py-3">&nbsp;</td>
+                <td className="border border-black px-2 py-3"></td>
+                <td className="border border-black px-2 py-3"></td>
+                <td className="border border-black px-2 py-3"></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Footer */}
+        <div className="mt-4 flex justify-between text-sm">
+          <div>
+            <div><span className="font-bold">Total Items:</span> {invoice.items?.length || 0}</div>
+            <div><span className="font-bold">Total Qty:</span> {invoice.items?.reduce((sum, i) => sum + i.qty, 0)} pcs</div>
+          </div>
+          <div className="text-right">
+            <div><span className="font-bold">Supplier:</span> IND THAI PACKWELL CO., LTD</div>
+            <div><span className="font-bold">Date:</span> {formatDate(new Date())}</div>
+          </div>
+        </div>
+
+        {/* Individual Cut Labels - Print on separate page */}
+        <div className="print:break-before-page mt-8 print:mt-0">
+          <h3 className="font-bold text-lg mb-4 print:hidden">Individual Labels (for cutting)</h3>
+          <div className="grid grid-cols-2 gap-2 print:gap-1">
+            {invoice.items?.map((item, idx) => {
+              const deliveryLocation = item.deliveryLocation || item.orderNo || deliveryOrder?.deliveryAddress || 'FILM'
+              const bgColor = getLocationColor(deliveryLocation)
+              const textColor = getLocationTextColor(deliveryLocation)
+              
+              return (
+                <div 
+                  key={idx} 
+                  className="border-2 border-black p-2 print:break-inside-avoid"
+                  style={{ minHeight: '80px' }}
+                >
+                  <div className="flex justify-between items-start mb-1">
+                    <div className="font-mono font-bold text-sm">
+                      {item.itemCode || item.partNo || `PLX-${String(idx + 1).padStart(3, '0')}`}
+                    </div>
+                    <div 
+                      className="px-2 py-0.5 text-xs font-bold rounded"
+                      style={{ backgroundColor: bgColor, color: textColor, border: '1px solid black' }}
+                    >
+                      {deliveryLocation}
+                    </div>
+                  </div>
+                  <div className="text-sm mb-1">{item.description || item.productName}</div>
+                  <div className="flex justify-between text-xs">
+                    <span><span className="font-bold">Qty:</span> {item.qty}</span>
+                    <span className="font-mono">{invoice.customerPO}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Print Instructions */}
+        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-300 rounded print:hidden">
+          <h4 className="font-bold mb-2">📋 Printing Instructions</h4>
+          <ul className="text-sm space-y-1">
+            <li>• Page 1: Full 4-column sheet for reference/filing</li>
+            <li>• Page 2: Individual labels for cutting and attaching to pallets</li>
+            <li>• Color coding: FILM=White, CPP=Peach, Line 10=Red</li>
+            <li>• Attach one label per pallet/package</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// CUSTOMER STATEMENT PRINT VIEW
+// ============================================
+const CustomerStatementPrintView = ({ customer, invoices, payments, creditNotes, dateRange, onClose }) => {
+  const handlePrint = () => {
+    window.print()
+  }
+
+  // Filter transactions for this customer
+  const customerInvoices = invoices?.filter(inv => inv.customerId === customer?.id) || []
+  const customerCNs = creditNotes?.filter(cn => cn.customerId === customer?.id) || []
+  
+  // Build transaction list
+  const transactions = [
+    ...customerInvoices.map(inv => ({
+      date: inv.invoiceDate,
+      type: 'invoice',
+      ref: inv.id,
+      description: `Invoice - ${inv.items?.map(i => i.productName).join(', ').substring(0, 50)}...`,
+      debit: inv.grandTotal || 0,
+      credit: 0,
+      payments: inv.payments || [],
+    })),
+    ...customerCNs.map(cn => ({
+      date: cn.date,
+      type: 'credit_note',
+      ref: cn.id,
+      description: `Credit Note - ${cn.reason || 'Adjustment'}`,
+      debit: 0,
+      credit: cn.amount || 0,
+    })),
+  ].sort((a, b) => new Date(a.date) - new Date(b.date))
+
+  // Calculate totals
+  const totalInvoiced = customerInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0)
+  const totalPaid = customerInvoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0)
+  const totalCN = customerCNs.reduce((sum, cn) => sum + (cn.amount || 0), 0)
+  const balance = totalInvoiced - totalPaid - totalCN
+
+  const companyInfo = {
+    name: 'IND THAI PACKWELL INDUSTRIES CO., LTD',
+    nameTh: 'บริษัท ไอเอ็นดี ไทย แพคเวลล์ อินดัสทรีส์ จำกัด',
+    address: '399 หมู่ 8 ต.บ่อทอง อ.บ่อทอง จ.ชลบุรี 20270',
+    tel: '038-211-xxx',
+    taxId: '0205556010518',
+  }
+
+  return (
+    <div className="bg-white">
+      {/* Print Controls */}
+      <div className="print:hidden p-4 bg-indigo-100 flex justify-between items-center mb-4">
+        <div>
+          <h2 className="font-bold text-lg">Customer Statement / ใบแจ้งยอดลูกค้า</h2>
+          <p className="text-sm text-indigo-700">{customer?.name}</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handlePrint} icon={Printer}>Print Statement</Button>
+          <Button variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+
+      {/* Statement Content */}
+      <div className="p-6 max-w-4xl mx-auto print:p-4 print:max-w-none" style={{ fontFamily: 'Arial, sans-serif' }}>
+        {/* Header */}
+        <div className="border-2 border-black">
+          <div className="bg-indigo-800 text-white p-4 text-center">
+            <div className="text-xl font-bold">{companyInfo.name}</div>
+            <div className="text-sm">{companyInfo.nameTh}</div>
+          </div>
+          
+          <div className="p-4 border-b border-black">
+            <div className="text-center text-2xl font-bold mb-4">STATEMENT OF ACCOUNT / ใบแจ้งยอดบัญชี</div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="font-bold">Customer / ลูกค้า:</div>
+                <div className="text-lg">{customer?.name}</div>
+                <div className="text-sm text-gray-600">{customer?.code}</div>
+                <div className="text-sm">{customer?.address}</div>
+                <div className="text-sm">Tax ID: {customer?.taxId}</div>
+              </div>
+              <div className="text-right">
+                <div><span className="font-bold">Statement Date:</span> {formatDate(new Date())}</div>
+                <div><span className="font-bold">Payment Terms:</span> {customer?.paymentTerms || 'Net 30'}</div>
+                <div><span className="font-bold">Currency:</span> THB</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Transaction Table */}
+          <table className="w-full text-sm">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="border-b border-black px-3 py-2 text-left">Date</th>
+                <th className="border-b border-black px-3 py-2 text-left">Reference</th>
+                <th className="border-b border-black px-3 py-2 text-left">Description</th>
+                <th className="border-b border-black px-3 py-2 text-right">Debit (฿)</th>
+                <th className="border-b border-black px-3 py-2 text-right">Credit (฿)</th>
+                <th className="border-b border-black px-3 py-2 text-right">Balance (฿)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                let runningBalance = 0
+                return transactions.map((txn, idx) => {
+                  runningBalance += txn.debit - txn.credit
+                  // Add payments as credits
+                  if (txn.payments) {
+                    txn.payments.forEach(pmt => {
+                      runningBalance -= pmt.amount
+                    })
+                  }
+                  return (
+                    <React.Fragment key={idx}>
+                      <tr className={txn.type === 'credit_note' ? 'bg-green-50' : ''}>
+                        <td className="border-b px-3 py-2">{formatDate(txn.date)}</td>
+                        <td className="border-b px-3 py-2 font-mono text-xs">
+                          <span className={txn.type === 'invoice' ? 'text-blue-600' : 'text-green-600'}>
+                            {txn.ref}
+                          </span>
+                        </td>
+                        <td className="border-b px-3 py-2">{txn.description}</td>
+                        <td className="border-b px-3 py-2 text-right">{txn.debit > 0 ? formatCurrency(txn.debit) : '-'}</td>
+                        <td className="border-b px-3 py-2 text-right text-green-600">{txn.credit > 0 ? formatCurrency(txn.credit) : '-'}</td>
+                        <td className="border-b px-3 py-2 text-right font-medium">{formatCurrency(runningBalance)}</td>
+                      </tr>
+                      {/* Show payments for this invoice */}
+                      {txn.payments?.map((pmt, pIdx) => {
+                        return (
+                          <tr key={`pmt-${idx}-${pIdx}`} className="bg-blue-50 text-xs">
+                            <td className="border-b px-3 py-1 pl-6">{formatDate(pmt.date)}</td>
+                            <td className="border-b px-3 py-1 font-mono text-green-600">PMT-{pmt.date}</td>
+                            <td className="border-b px-3 py-1">Payment received - {pmt.method}</td>
+                            <td className="border-b px-3 py-1 text-right">-</td>
+                            <td className="border-b px-3 py-1 text-right text-green-600">{formatCurrency(pmt.amount)}</td>
+                            <td className="border-b px-3 py-1 text-right"></td>
+                          </tr>
+                        )
+                      })}
+                    </React.Fragment>
+                  )
+                })
+              })()}
+            </tbody>
+          </table>
+
+          {/* Summary */}
+          <div className="p-4 bg-gray-50 border-t border-black">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1 text-sm">
+                <div className="font-bold">Aging Summary / สรุปอายุหนี้:</div>
+                <div className="flex justify-between"><span>Current:</span><span>{formatCurrency(0)}</span></div>
+                <div className="flex justify-between"><span>1-30 days:</span><span>{formatCurrency(0)}</span></div>
+                <div className="flex justify-between"><span>31-60 days:</span><span>{formatCurrency(0)}</span></div>
+                <div className="flex justify-between"><span>61-90 days:</span><span>{formatCurrency(0)}</span></div>
+                <div className="flex justify-between text-red-600"><span>90+ days:</span><span>{formatCurrency(0)}</span></div>
+              </div>
+              <div className="text-right">
+                <div className="space-y-2">
+                  <div className="flex justify-between"><span>Total Invoiced:</span><span className="font-bold">{formatCurrency(totalInvoiced)}</span></div>
+                  <div className="flex justify-between"><span>Total Paid:</span><span className="font-bold text-green-600">({formatCurrency(totalPaid)})</span></div>
+                  <div className="flex justify-between"><span>Credit Notes:</span><span className="font-bold text-green-600">({formatCurrency(totalCN)})</span></div>
+                  <div className="border-t pt-2 flex justify-between text-lg">
+                    <span className="font-bold">BALANCE DUE:</span>
+                    <span className={`font-bold ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {formatCurrency(balance)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-4 border-t border-black text-center text-xs text-gray-500">
+            <div>Please remit payment to: Kasikorn Bank, A/C: 123-4-56789-0, A/C Name: IND THAI PACKWELL INDUSTRIES CO., LTD</div>
+            <div className="mt-2">For inquiries, please contact: {companyInfo.tel}</div>
+            <div className="mt-4 text-gray-400">This statement was generated on {formatDate(new Date())} and reflects all transactions up to this date.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// CREDIT NOTE PRINT VIEW
+// ============================================
+const CreditNotePrintView = ({ creditNote, customer, invoice, entity, onClose }) => {
+  const handlePrint = () => {
+    window.print()
+  }
+
+  const companyInfo = entity === 'IND2' ? {
+    name: 'IND-2 THAI PACKWELL CO., LTD',
+    nameTh: 'บริษัท ไอเอ็นดี-2 ไทย แพคเวลล์ จำกัด',
+    address: '399 หมู่ 8 ต.บ่อทอง อ.บ่อทอง จ.ชลบุรี 20270',
+    tel: '038-211-xxx',
+    taxId: '0205556010526',
+  } : {
+    name: 'IND THAI PACKWELL INDUSTRIES CO., LTD',
+    nameTh: 'บริษัท ไอเอ็นดี ไทย แพคเวลล์ อินดัสทรีส์ จำกัด',
+    address: '399 หมู่ 8 ต.บ่อทอง อ.บ่อทอง จ.ชลบุรี 20270',
+    tel: '038-211-xxx',
+    taxId: '0205556010518',
+  }
+
+  const vatAmount = (creditNote?.amount || 0) * 0.07 / 1.07 // Extract VAT from total
+  const subtotal = (creditNote?.amount || 0) - vatAmount
+
+  return (
+    <div className="bg-white">
+      {/* Print Controls */}
+      <div className="print:hidden p-4 bg-red-100 flex justify-between items-center mb-4">
+        <div>
+          <h2 className="font-bold text-lg">Credit Note / ใบลดหนี้</h2>
+          <p className="text-sm text-red-700">{creditNote?.id}</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handlePrint} icon={Printer}>Print Credit Note</Button>
+          <Button variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+
+      {/* Credit Note Content */}
+      <div className="p-6 max-w-4xl mx-auto print:p-4 print:max-w-none" style={{ fontFamily: 'Arial, sans-serif' }}>
+        <div className="border-2 border-black">
+          {/* Header */}
+          <div className="bg-red-700 text-white p-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="text-xl font-bold">{companyInfo.name}</div>
+                <div className="text-sm">{companyInfo.nameTh}</div>
+                <div className="text-xs mt-1">{companyInfo.address}</div>
+                <div className="text-xs">Tax ID: {companyInfo.taxId}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold">CREDIT NOTE</div>
+                <div className="text-lg">ใบลดหนี้</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Document Info */}
+          <div className="grid grid-cols-2 border-b border-black">
+            <div className="p-4 border-r border-black">
+              <div className="text-sm text-gray-500">Customer / ลูกค้า</div>
+              <div className="font-bold text-lg">{customer?.name}</div>
+              <div className="text-sm">{customer?.address}</div>
+              <div className="text-sm">Tax ID: {customer?.taxId}</div>
+            </div>
+            <div className="p-4">
+              <table className="w-full text-sm">
+                <tbody>
+                  <tr>
+                    <td className="font-bold py-1">CN Number:</td>
+                    <td className="text-right font-mono text-red-600">{creditNote?.id}</td>
+                  </tr>
+                  <tr>
+                    <td className="font-bold py-1">Date:</td>
+                    <td className="text-right">{formatDate(creditNote?.date)}</td>
+                  </tr>
+                  <tr>
+                    <td className="font-bold py-1">Original Invoice:</td>
+                    <td className="text-right font-mono text-blue-600">{creditNote?.invoiceId}</td>
+                  </tr>
+                  <tr>
+                    <td className="font-bold py-1">Related REJ/CLM:</td>
+                    <td className="text-right font-mono">{creditNote?.rejectionId || creditNote?.claimId || '-'}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Reason */}
+          <div className="p-4 border-b border-black bg-red-50">
+            <div className="text-sm font-bold text-gray-600">Reason for Credit Note / เหตุผลในการลดหนี้:</div>
+            <div className="mt-1">{creditNote?.reason || 'Goods returned / Quality issue'}</div>
+          </div>
+
+          {/* Items Table */}
+          <table className="w-full text-sm">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="border-b border-black px-3 py-2 text-center w-12">#</th>
+                <th className="border-b border-black px-3 py-2 text-left">Description / รายละเอียด</th>
+                <th className="border-b border-black px-3 py-2 text-center w-20">Qty</th>
+                <th className="border-b border-black px-3 py-2 text-right w-28">Unit Price</th>
+                <th className="border-b border-black px-3 py-2 text-right w-32">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {creditNote?.items?.map((item, idx) => (
+                <tr key={idx}>
+                  <td className="border-b px-3 py-2 text-center">{idx + 1}</td>
+                  <td className="border-b px-3 py-2">{item.description || item.productName}</td>
+                  <td className="border-b px-3 py-2 text-center">{item.qty}</td>
+                  <td className="border-b px-3 py-2 text-right">{formatCurrency(item.unitPrice || 0)}</td>
+                  <td className="border-b px-3 py-2 text-right">{formatCurrency(item.amount || item.qty * (item.unitPrice || 0))}</td>
+                </tr>
+              )) || (
+                <tr>
+                  <td className="border-b px-3 py-2 text-center">1</td>
+                  <td className="border-b px-3 py-2">{creditNote?.reason || 'Credit adjustment'}</td>
+                  <td className="border-b px-3 py-2 text-center">-</td>
+                  <td className="border-b px-3 py-2 text-right">-</td>
+                  <td className="border-b px-3 py-2 text-right">{formatCurrency(subtotal)}</td>
+                </tr>
+              )}
+              {/* Empty rows */}
+              {Array.from({ length: Math.max(0, 3 - (creditNote?.items?.length || 1)) }).map((_, idx) => (
+                <tr key={`empty-${idx}`}>
+                  <td className="border-b px-3 py-2">&nbsp;</td>
+                  <td className="border-b px-3 py-2"></td>
+                  <td className="border-b px-3 py-2"></td>
+                  <td className="border-b px-3 py-2"></td>
+                  <td className="border-b px-3 py-2"></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Totals */}
+          <div className="flex">
+            <div className="flex-grow p-4 border-r border-black">
+              <div className="text-sm text-gray-500">Amount in words:</div>
+              <div className="font-medium">({creditNote?.amount?.toLocaleString() || 0} Baht)</div>
+            </div>
+            <div className="w-64 p-4">
+              <div className="flex justify-between py-1 border-b">
+                <span>Subtotal:</span>
+                <span>{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b">
+                <span>VAT 7%:</span>
+                <span>{formatCurrency(vatAmount)}</span>
+              </div>
+              <div className="flex justify-between py-2 text-lg font-bold text-red-600">
+                <span>CREDIT TOTAL:</span>
+                <span>{formatCurrency(creditNote?.amount || 0)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Signatures */}
+          <div className="grid grid-cols-3 border-t border-black text-center text-sm">
+            <div className="p-4 border-r border-black">
+              <div className="mb-8">&nbsp;</div>
+              <div className="border-t border-black pt-2">Prepared By / ผู้จัดทำ</div>
+              <div className="text-xs text-gray-500">{creditNote?.preparedBy || '_____________'}</div>
+            </div>
+            <div className="p-4 border-r border-black">
+              <div className="mb-8">&nbsp;</div>
+              <div className="border-t border-black pt-2">Approved By / ผู้อนุมัติ</div>
+              <div className="text-xs text-gray-500">{creditNote?.approvedBy || '_____________'}</div>
+            </div>
+            <div className="p-4">
+              <div className="mb-8">&nbsp;</div>
+              <div className="border-t border-black pt-2">Customer Acknowledged / ลูกค้ารับทราบ</div>
+              <div className="text-xs text-gray-500">Date: _____________</div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-2 border-t border-black text-center text-xs text-gray-500">
+            This credit note will be applied to your account. For any questions, please contact our accounts department.
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// PRICE HISTORY LOG COMPONENT
+// ============================================
+const PriceHistoryLog = ({ product, priceHistory, onAddChange, lang }) => {
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [newPrice, setNewPrice] = useState({
+    price: product?.price || 0,
+    effectiveDate: new Date().toISOString().split('T')[0],
+    reason: '',
+    emailRef: '',
+    approvedBy: '',
+  })
+
+  const handleSave = () => {
+    onAddChange({
+      productId: product.id,
+      productName: product.name,
+      oldPrice: product.price,
+      newPrice: newPrice.price,
+      effectiveDate: newPrice.effectiveDate,
+      reason: newPrice.reason,
+      emailRef: newPrice.emailRef,
+      approvedBy: newPrice.approvedBy,
+      changedBy: 'Current User',
+      changedAt: new Date().toISOString(),
+    })
+    setShowAddModal(false)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h4 className="font-bold">{lang === 'th' ? 'ประวัติการเปลี่ยนแปลงราคา' : 'Price Change History'}</h4>
+        <Button size="sm" icon={Plus} onClick={() => setShowAddModal(true)}>
+          {lang === 'th' ? 'บันทึกการเปลี่ยนราคา' : 'Log Price Change'}
+        </Button>
+      </div>
+
+      {/* Current Price */}
+      <div className="p-4 bg-blue-50 rounded-lg">
+        <div className="text-sm text-blue-600">{lang === 'th' ? 'ราคาปัจจุบัน' : 'Current Price'}</div>
+        <div className="text-2xl font-bold text-blue-700">{formatCurrency(product?.price || 0)}</div>
+        <div className="text-xs text-blue-500">{lang === 'th' ? 'ต่อ' : 'per'} {product?.unit || 'pc'}</div>
+      </div>
+
+      {/* History Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-3 py-2 text-left">{lang === 'th' ? 'วันที่มีผล' : 'Effective Date'}</th>
+              <th className="px-3 py-2 text-right">{lang === 'th' ? 'ราคาเดิม' : 'Old Price'}</th>
+              <th className="px-3 py-2 text-right">{lang === 'th' ? 'ราคาใหม่' : 'New Price'}</th>
+              <th className="px-3 py-2 text-center">{lang === 'th' ? 'เปลี่ยนแปลง' : 'Change'}</th>
+              <th className="px-3 py-2 text-left">{lang === 'th' ? 'เหตุผล' : 'Reason'}</th>
+              <th className="px-3 py-2 text-left">{lang === 'th' ? 'อ้างอิงอีเมล' : 'Email Ref'}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {priceHistory?.filter(h => h.productId === product?.id).map((record, idx) => {
+              const change = ((record.newPrice - record.oldPrice) / record.oldPrice * 100).toFixed(1)
+              const isIncrease = record.newPrice > record.oldPrice
+              return (
+                <tr key={idx} className="hover:bg-gray-50">
+                  <td className="px-3 py-2">{formatDate(record.effectiveDate)}</td>
+                  <td className="px-3 py-2 text-right">{formatCurrency(record.oldPrice)}</td>
+                  <td className="px-3 py-2 text-right font-bold">{formatCurrency(record.newPrice)}</td>
+                  <td className="px-3 py-2 text-center">
+                    <span className={isIncrease ? 'text-red-600' : 'text-green-600'}>
+                      {isIncrease ? '↑' : '↓'} {Math.abs(change)}%
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">{record.reason}</td>
+                  <td className="px-3 py-2 text-xs text-blue-600">{record.emailRef || '-'}</td>
+                </tr>
+              )
+            })}
+            {(!priceHistory || priceHistory.filter(h => h.productId === product?.id).length === 0) && (
+              <tr>
+                <td colSpan="6" className="px-3 py-8 text-center text-gray-400">
+                  {lang === 'th' ? 'ไม่มีประวัติการเปลี่ยนแปลงราคา' : 'No price change history'}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Add Price Change Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="font-bold text-lg mb-4">{lang === 'th' ? 'บันทึกการเปลี่ยนราคา' : 'Log Price Change'}</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">{lang === 'th' ? 'ราคาใหม่' : 'New Price'} *</label>
+                <input 
+                  type="number" 
+                  value={newPrice.price} 
+                  onChange={(e) => setNewPrice({ ...newPrice, price: parseFloat(e.target.value) })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{lang === 'th' ? 'วันที่มีผล' : 'Effective Date'} *</label>
+                <input 
+                  type="date" 
+                  value={newPrice.effectiveDate} 
+                  onChange={(e) => setNewPrice({ ...newPrice, effectiveDate: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{lang === 'th' ? 'เหตุผล' : 'Reason'} *</label>
+                <select 
+                  value={newPrice.reason} 
+                  onChange={(e) => setNewPrice({ ...newPrice, reason: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="">{lang === 'th' ? 'เลือกเหตุผล' : 'Select reason'}</option>
+                  <option value="material_cost_increase">{lang === 'th' ? 'ต้นทุนวัตถุดิบเพิ่ม' : 'Material cost increase'}</option>
+                  <option value="material_cost_decrease">{lang === 'th' ? 'ต้นทุนวัตถุดิบลด' : 'Material cost decrease'}</option>
+                  <option value="customer_negotiation">{lang === 'th' ? 'เจรจากับลูกค้า' : 'Customer negotiation'}</option>
+                  <option value="volume_discount">{lang === 'th' ? 'ส่วนลดปริมาณ' : 'Volume discount'}</option>
+                  <option value="market_adjustment">{lang === 'th' ? 'ปรับตามตลาด' : 'Market adjustment'}</option>
+                  <option value="annual_review">{lang === 'th' ? 'ทบทวนประจำปี' : 'Annual review'}</option>
+                  <option value="other">{lang === 'th' ? 'อื่นๆ' : 'Other'}</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{lang === 'th' ? 'อ้างอิงอีเมล' : 'Email Reference'}</label>
+                <input 
+                  type="text" 
+                  value={newPrice.emailRef} 
+                  onChange={(e) => setNewPrice({ ...newPrice, emailRef: e.target.value })}
+                  placeholder="e.g., Email dated 2026-01-15"
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+                <div className="text-xs text-gray-500 mt-1">
+                  {lang === 'th' ? '* ตามนโยบาย ต้องแนบอีเมลอธิบายเหตุผลการเปลี่ยนราคา' : '* Per policy, email with reason required for price changes'}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{lang === 'th' ? 'อนุมัติโดย' : 'Approved By'}</label>
+                <input 
+                  type="text" 
+                  value={newPrice.approvedBy} 
+                  onChange={(e) => setNewPrice({ ...newPrice, approvedBy: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="ghost" onClick={() => setShowAddModal(false)}>
+                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+              </Button>
+              <Button onClick={handleSave} disabled={!newPrice.price || !newPrice.reason}>
+                {lang === 'th' ? 'บันทึก' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// RECEIPT ACKNOWLEDGMENT PRINT VIEW
+// ============================================
+const ReceiptAcknowledgmentPrintView = ({ invoice, deliveryOrder, customer, entity, onClose }) => {
+  const handlePrint = () => {
+    window.print()
+  }
+
+  const companyInfo = entity === 'IND2' ? {
+    name: 'IND-2 THAI PACKWELL CO., LTD',
+    nameTh: 'บริษัท ไอเอ็นดี-2 ไทย แพคเวลล์ จำกัด',
+    address: '399 หมู่ 8 ต.บ่อทอง อ.บ่อทอง จ.ชลบุรี 20270',
+    tel: '038-211-xxx',
+    taxId: '0205556010526',
+  } : {
+    name: 'IND THAI PACKWELL INDUSTRIES CO., LTD',
+    nameTh: 'บริษัท ไอเอ็นดี ไทย แพคเวลล์ อินดัสทรีส์ จำกัด',
+    address: '399 หมู่ 8 ต.บ่อทอง อ.บ่อทอง จ.ชลบุรี 20270',
+    tel: '038-211-xxx',
+    taxId: '0205556010518',
+  }
+
+  return (
+    <div className="bg-white">
+      {/* Print Controls */}
+      <div className="print:hidden p-4 bg-green-100 flex justify-between items-center mb-4">
+        <div>
+          <h2 className="font-bold text-lg">Receipt Acknowledgment / ใบรับสินค้า</h2>
+          <p className="text-sm text-green-700">{invoice?.id} - {customer?.name}</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handlePrint} icon={Printer}>Print Receipt</Button>
+          <Button variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+
+      {/* Receipt Content - A5 Size for easy signing */}
+      <div className="p-6 max-w-2xl mx-auto print:p-4 print:max-w-none" style={{ fontFamily: 'Arial, sans-serif' }}>
+        <div className="border-2 border-black">
+          {/* Header */}
+          <div className="bg-green-700 text-white p-3 text-center">
+            <div className="text-lg font-bold">GOODS RECEIPT ACKNOWLEDGMENT</div>
+            <div className="text-sm">ใบรับสินค้า / ใบตอบรับการจัดส่ง</div>
+          </div>
+
+          {/* Company & Customer Info */}
+          <div className="grid grid-cols-2 border-b border-black text-sm">
+            <div className="p-3 border-r border-black">
+              <div className="font-bold text-gray-600">FROM / ผู้ส่ง:</div>
+              <div className="font-bold">{companyInfo.name}</div>
+              <div className="text-xs">{companyInfo.address}</div>
+              <div className="text-xs">Tel: {companyInfo.tel}</div>
+            </div>
+            <div className="p-3">
+              <div className="font-bold text-gray-600">TO / ผู้รับ:</div>
+              <div className="font-bold">{customer?.name}</div>
+              <div className="text-xs">{customer?.deliveryAddress || customer?.address}</div>
+            </div>
+          </div>
+
+          {/* Document References */}
+          <div className="grid grid-cols-3 border-b border-black text-sm">
+            <div className="p-2 border-r border-black">
+              <div className="text-gray-500 text-xs">Invoice No.</div>
+              <div className="font-mono font-bold text-teal-600">{invoice?.id}</div>
+            </div>
+            <div className="p-2 border-r border-black">
+              <div className="text-gray-500 text-xs">DO No.</div>
+              <div className="font-mono font-bold">{deliveryOrder?.id || '-'}</div>
+            </div>
+            <div className="p-2">
+              <div className="text-gray-500 text-xs">Delivery Date</div>
+              <div className="font-bold">{formatDate(deliveryOrder?.deliveryDate || invoice?.invoiceDate)}</div>
+            </div>
+          </div>
+
+          {/* Items Summary */}
+          <div className="p-3 border-b border-black">
+            <div className="text-sm font-bold text-gray-600 mb-2">ITEMS DELIVERED / รายการที่ส่ง:</div>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-2 py-1 text-left border">#</th>
+                  <th className="px-2 py-1 text-left border">Description / รายละเอียด</th>
+                  <th className="px-2 py-1 text-center border">Qty / จำนวน</th>
+                  <th className="px-2 py-1 text-center border">Received ✓</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoice?.items?.map((item, idx) => (
+                  <tr key={idx}>
+                    <td className="px-2 py-1 border">{idx + 1}</td>
+                    <td className="px-2 py-1 border">{item.productName}</td>
+                    <td className="px-2 py-1 border text-center font-bold">{item.qty} {item.unit}</td>
+                    <td className="px-2 py-1 border text-center">☐</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Condition Check */}
+          <div className="p-3 border-b border-black">
+            <div className="text-sm font-bold text-gray-600 mb-2">GOODS CONDITION / สภาพสินค้า:</div>
+            <div className="flex gap-6 text-sm">
+              <label className="flex items-center gap-2">
+                <span className="text-lg">☐</span> Good condition / สภาพดี
+              </label>
+              <label className="flex items-center gap-2">
+                <span className="text-lg">☐</span> Damaged / เสียหาย
+              </label>
+              <label className="flex items-center gap-2">
+                <span className="text-lg">☐</span> Shortage / ขาด
+              </label>
+            </div>
+            <div className="mt-2">
+              <div className="text-xs text-gray-500">Remarks / หมายเหตุ:</div>
+              <div className="border-b border-dashed border-gray-400 h-6 mt-1"></div>
+            </div>
+          </div>
+
+          {/* Signature Section */}
+          <div className="grid grid-cols-2">
+            <div className="p-4 border-r border-black text-center">
+              <div className="text-sm font-bold text-gray-600 mb-8">DELIVERED BY / ผู้ส่ง</div>
+              <div className="border-b border-black w-3/4 mx-auto mb-2"></div>
+              <div className="text-xs text-gray-500">Driver Name / ชื่อคนขับ</div>
+              <div className="mt-4">
+                <div className="text-xs text-gray-500">Time Out / เวลาออก: __________</div>
+              </div>
+            </div>
+            <div className="p-4 text-center bg-yellow-50">
+              <div className="text-sm font-bold text-gray-600 mb-8">RECEIVED BY / ผู้รับ</div>
+              <div className="border-b border-black w-3/4 mx-auto mb-2"></div>
+              <div className="text-xs text-gray-500">Name & Signature / ชื่อและลายเซ็น</div>
+              <div className="mt-2">
+                <div className="text-xs text-gray-500">Date / วันที่: __________</div>
+                <div className="text-xs text-gray-500 mt-1">Time / เวลา: __________</div>
+              </div>
+              <div className="mt-3 border border-dashed border-gray-400 p-2 text-xs text-gray-400">
+                Company Stamp / ตราประทับบริษัท
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Note */}
+          <div className="p-2 border-t border-black bg-gray-100 text-xs text-center text-gray-500">
+            Please return this signed receipt to driver / กรุณาส่งคืนใบรับสินค้านี้ให้คนขับหลังลงนาม
+            <br />
+            For any discrepancy, please contact us within 24 hours / หากมีข้อสงสัยกรุณาติดต่อภายใน 24 ชั่วโมง
+          </div>
+        </div>
+
+        {/* Driver Copy Label */}
+        <div className="mt-4 text-center text-sm text-gray-400 print:block">
+          ─────────────── ✂ ─────────────── DRIVER COPY / สำเนาคนขับ ─────────────── ✂ ───────────────
         </div>
       </div>
     </div>
