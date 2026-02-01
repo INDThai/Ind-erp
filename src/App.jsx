@@ -19,8 +19,8 @@ import {
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '7.6'
-const VERSION_DATE = '2026-02-01'
+const VERSION = '7.0'
+const VERSION_DATE = '2026-01-31'
 
 // ============================================
 // IND LOGO (SVG as base64)
@@ -328,8 +328,15 @@ const getRequiredApprover = (amount) => {
   return APPROVAL_THRESHOLDS.ceo
 }
 
+const canUserApprove = (userRole, requiredLevel) => {
+  const roleHierarchy = ['staff', 'supervisor', 'production_manager', 'general_manager', 'ceo', 'admin']
+  const userLevel = roleHierarchy.indexOf(userRole)
+  const requiredIdx = roleHierarchy.indexOf(requiredLevel)
+  return userLevel >= requiredIdx
+}
+
 // ============================================
-// REJECTION REASONS (for GRN - Spec 4)
+// REJECTION REASONS (for GRN - Spec 3-4)
 // ============================================
 const REJECTION_REASONS = [
   { id: 'damaged', labelEn: 'Damaged goods', labelTh: 'สินค้าเสียหาย' },
@@ -366,6 +373,17 @@ const IMPORT_STATUS = [
 ]
 
 // ============================================
+// CUSTOMS STATUS
+// ============================================
+const CUSTOMS_STATUS = [
+  { id: 'not_started', label: 'Not Started', labelTh: 'ยังไม่เริ่ม' },
+  { id: 'docs_submitted', label: 'Documents Submitted', labelTh: 'ส่งเอกสารแล้ว' },
+  { id: 'inspection', label: 'Under Inspection', labelTh: 'กำลังตรวจ' },
+  { id: 'duty_paid', label: 'Duty Paid', labelTh: 'จ่ายภาษีแล้ว' },
+  { id: 'cleared', label: 'Cleared', labelTh: 'ผ่านแล้ว' },
+]
+
+// ============================================
 // LC STATUS (Spec 12 - Letter of Credit)
 // ============================================
 const LC_STATUS = [
@@ -374,12 +392,13 @@ const LC_STATUS = [
   { id: 'opened', label: 'LC Opened', labelTh: 'เปิดแล้ว' },
   { id: 'amended', label: 'Amended', labelTh: 'แก้ไขแล้ว' },
   { id: 'docs_submitted', label: 'Documents Submitted', labelTh: 'ส่งเอกสารแล้ว' },
+  { id: 'negotiated', label: 'Negotiated', labelTh: 'เจรจาแล้ว' },
   { id: 'paid', label: 'Paid', labelTh: 'จ่ายแล้ว' },
   { id: 'closed', label: 'Closed', labelTh: 'ปิดแล้ว' },
 ]
 
 // ============================================
-// CREDIT NOTE REASONS (Spec 4)
+// CREDIT NOTE REASONS
 // ============================================
 const CREDIT_NOTE_REASONS = [
   { id: 'qty_short', label: 'Quantity Short', labelTh: 'จำนวนขาด' },
@@ -389,6 +408,7 @@ const CREDIT_NOTE_REASONS = [
   { id: 'returned', label: 'Goods Returned', labelTh: 'คืนสินค้า' },
   { id: 'other', label: 'Other', labelTh: 'อื่นๆ' },
 ]
+
 
 // ============================================
 // PURCHASE ORDERS (with Import Costing)
@@ -918,735 +938,6 @@ const StatCard = ({ title, value, icon: Icon, color = 'blue', trend, subtitle })
 )
 
 // ============================================
-// ============================================
-// GLOBAL SEARCH (Cmd+K)
-// Search across all records: customers, WOs, invoices, inventory
-// ============================================
-const GlobalSearch = ({ isOpen, onClose, customers, workOrders, salesOrders, invoices, inventory, purchaseOrders, employees, onNavigate, lang }) => {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState({ customers: [], workOrders: [], invoices: [], inventory: [], purchaseOrders: [], employees: [] })
-  const inputRef = useRef(null)
-
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus()
-    }
-  }, [isOpen])
-
-  useEffect(() => {
-    if (!query.trim()) {
-      setResults({ customers: [], workOrders: [], invoices: [], inventory: [], purchaseOrders: [], employees: [] })
-      return
-    }
-
-    const q = query.toLowerCase()
-    
-    setResults({
-      customers: (customers || []).filter(c => 
-        c.name?.toLowerCase().includes(q) || 
-        c.code?.toLowerCase().includes(q) ||
-        c.nameTh?.includes(query)
-      ).slice(0, 5),
-      workOrders: (workOrders || []).filter(wo => 
-        wo.woNumber?.toLowerCase().includes(q) || 
-        wo.productName?.toLowerCase().includes(q) ||
-        wo.id?.toString().includes(q)
-      ).slice(0, 5),
-      invoices: (invoices || []).filter(inv => 
-        inv.invoiceNumber?.toLowerCase().includes(q) || 
-        inv.customerName?.toLowerCase().includes(q)
-      ).slice(0, 5),
-      inventory: (inventory || []).filter(item => 
-        item.name?.toLowerCase().includes(q) || 
-        item.sku?.toLowerCase().includes(q) ||
-        item.lotNumber?.toLowerCase().includes(q)
-      ).slice(0, 5),
-      purchaseOrders: (purchaseOrders || []).filter(po => 
-        po.poNumber?.toLowerCase().includes(q) || 
-        po.vendorName?.toLowerCase().includes(q)
-      ).slice(0, 5),
-      employees: (employees || []).filter(emp => 
-        emp.name?.toLowerCase().includes(q) || 
-        emp.nameTh?.includes(query) ||
-        emp.empId?.toLowerCase().includes(q)
-      ).slice(0, 5),
-    })
-  }, [query, customers, workOrders, invoices, inventory, purchaseOrders, employees])
-
-  const totalResults = Object.values(results).reduce((sum, arr) => sum + arr.length, 0)
-
-  const handleSelect = (type, item) => {
-    onNavigate(type, item)
-    onClose()
-    setQuery('')
-  }
-
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/50" onClick={onClose}>
-      <div className="w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-        {/* Search Input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b">
-          <Search className="w-5 h-5 text-gray-400" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={lang === 'th' ? 'ค้นหาลูกค้า, WO, ใบแจ้งหนี้, สินค้า...' : 'Search customers, WOs, invoices, inventory...'}
-            className="flex-1 text-lg outline-none"
-          />
-          <kbd className="px-2 py-1 text-xs bg-gray-100 rounded border">ESC</kbd>
-        </div>
-
-        {/* Results */}
-        <div className="max-h-96 overflow-y-auto">
-          {!query.trim() ? (
-            <div className="p-8 text-center text-gray-400">
-              <Search className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>{lang === 'th' ? 'พิมพ์เพื่อค้นหา...' : 'Start typing to search...'}</p>
-              <p className="text-sm mt-1">{lang === 'th' ? 'หรือกด Cmd+K เพื่อเปิดใช้งาน' : 'Press Cmd+K anytime to open'}</p>
-            </div>
-          ) : totalResults === 0 ? (
-            <div className="p-8 text-center text-gray-400">
-              <p>{lang === 'th' ? 'ไม่พบผลลัพธ์สำหรับ' : 'No results for'} "{query}"</p>
-            </div>
-          ) : (
-            <div className="divide-y">
-              {/* Customers */}
-              {results.customers.length > 0 && (
-                <div className="p-3">
-                  <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-2">
-                    <Building2 className="w-4 h-4" />
-                    {lang === 'th' ? 'ลูกค้า' : 'Customers'}
-                  </div>
-                  {results.customers.map(c => (
-                    <button
-                      key={c.id}
-                      onClick={() => handleSelect('customer', c)}
-                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 rounded-lg text-left"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
-                        {c.code?.substring(0, 2) || c.name?.charAt(0)}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium">{c.name}</div>
-                        <div className="text-xs text-gray-500">{c.code} • {c.city || c.district}</div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-gray-300" />
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Work Orders */}
-              {results.workOrders.length > 0 && (
-                <div className="p-3">
-                  <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-2">
-                    <Factory className="w-4 h-4" />
-                    {lang === 'th' ? 'ใบสั่งผลิต' : 'Work Orders'}
-                  </div>
-                  {results.workOrders.map(wo => (
-                    <button
-                      key={wo.id}
-                      onClick={() => handleSelect('workOrder', wo)}
-                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-orange-50 rounded-lg text-left"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
-                        <Factory className="w-4 h-4 text-orange-600" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-mono font-medium text-orange-600">{wo.woNumber || wo.id}</div>
-                        <div className="text-xs text-gray-500">{wo.productName} • {wo.quantity} pcs</div>
-                      </div>
-                      <Badge variant={wo.status === 'completed' ? 'success' : wo.status === 'in_progress' ? 'warning' : 'default'}>
-                        {wo.status}
-                      </Badge>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Invoices */}
-              {results.invoices.length > 0 && (
-                <div className="p-3">
-                  <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-2">
-                    <Receipt className="w-4 h-4" />
-                    {lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices'}
-                  </div>
-                  {results.invoices.map(inv => (
-                    <button
-                      key={inv.id}
-                      onClick={() => handleSelect('invoice', inv)}
-                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-green-50 rounded-lg text-left"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                        <Receipt className="w-4 h-4 text-green-600" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-mono font-medium text-green-600">{inv.invoiceNumber}</div>
-                        <div className="text-xs text-gray-500">{inv.customerName}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-medium">฿{(inv.total || 0).toLocaleString()}</div>
-                        <div className="text-xs text-gray-400">{formatDate(inv.date)}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Inventory */}
-              {results.inventory.length > 0 && (
-                <div className="p-3">
-                  <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-2">
-                    <Package className="w-4 h-4" />
-                    {lang === 'th' ? 'สินค้าคงคลัง' : 'Inventory'}
-                  </div>
-                  {results.inventory.map(item => (
-                    <button
-                      key={item.id}
-                      onClick={() => handleSelect('inventory', item)}
-                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-purple-50 rounded-lg text-left"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                        <Package className="w-4 h-4 text-purple-600" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium">{item.name}</div>
-                        <div className="text-xs text-gray-500">{item.sku} • {item.lotNumber}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-medium">{item.quantity} {item.unit}</div>
-                        <div className="text-xs text-gray-400">{item.store}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Purchase Orders */}
-              {results.purchaseOrders.length > 0 && (
-                <div className="p-3">
-                  <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-2">
-                    <ShoppingCart className="w-4 h-4" />
-                    {lang === 'th' ? 'ใบสั่งซื้อ' : 'Purchase Orders'}
-                  </div>
-                  {results.purchaseOrders.map(po => (
-                    <button
-                      key={po.id}
-                      onClick={() => handleSelect('purchaseOrder', po)}
-                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-yellow-50 rounded-lg text-left"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center">
-                        <ShoppingCart className="w-4 h-4 text-yellow-600" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-mono font-medium text-yellow-600">{po.poNumber}</div>
-                        <div className="text-xs text-gray-500">{po.vendorName}</div>
-                      </div>
-                      <Badge variant={po.status === 'received' ? 'success' : 'warning'}>
-                        {po.status}
-                      </Badge>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Employees */}
-              {results.employees.length > 0 && (
-                <div className="p-3">
-                  <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    {lang === 'th' ? 'พนักงาน' : 'Employees'}
-                  </div>
-                  {results.employees.map(emp => (
-                    <button
-                      key={emp.id}
-                      onClick={() => handleSelect('employee', emp)}
-                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-indigo-50 rounded-lg text-left"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm">
-                        {emp.name?.charAt(0)}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium">{emp.name} ({emp.nameTh})</div>
-                        <div className="text-xs text-gray-500">{emp.empId} • {emp.department}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-4 py-2 bg-gray-50 border-t text-xs text-gray-500 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-white rounded border">↑↓</kbd> Navigate</span>
-            <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-white rounded border">Enter</kbd> Select</span>
-          </div>
-          <div>{totalResults} {lang === 'th' ? 'ผลลัพธ์' : 'results'}</div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ============================================
-// NOTIFICATION CENTER
-// Shows pending tasks, approvals, alerts
-// ============================================
-const NotificationCenter = ({ isOpen, onClose, notifications, onAction, lang }) => {
-  const [filter, setFilter] = useState('all')
-
-  if (!isOpen) return null
-
-  const filteredNotifications = notifications.filter(n => 
-    filter === 'all' || n.type === filter
-  )
-
-  const unreadCount = notifications.filter(n => !n.read).length
-
-  return (
-    <div className="absolute right-0 top-12 w-96 bg-white rounded-xl shadow-2xl border z-50 overflow-hidden">
-      {/* Header */}
-      <div className="p-4 border-b bg-gradient-to-r from-[#1A5276] to-[#2ECC40]">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-white flex items-center gap-2">
-            <Bell className="w-5 h-5" />
-            {lang === 'th' ? 'การแจ้งเตือน' : 'Notifications'}
-            {unreadCount > 0 && (
-              <span className="px-2 py-0.5 bg-white/20 rounded-full text-sm">{unreadCount}</span>
-            )}
-          </h3>
-          <button onClick={onClose} className="p-1 hover:bg-white/20 rounded text-white">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        {/* Filters */}
-        <div className="flex gap-2 mt-3">
-          {[
-            { id: 'all', label: lang === 'th' ? 'ทั้งหมด' : 'All' },
-            { id: 'approval', label: lang === 'th' ? 'อนุมัติ' : 'Approvals' },
-            { id: 'alert', label: lang === 'th' ? 'แจ้งเตือน' : 'Alerts' },
-            { id: 'task', label: lang === 'th' ? 'งาน' : 'Tasks' },
-          ].map(f => (
-            <button
-              key={f.id}
-              onClick={() => setFilter(f.id)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                filter === f.id 
-                  ? 'bg-white text-[#1A5276]' 
-                  : 'text-white/80 hover:bg-white/20'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Notifications List */}
-      <div className="max-h-96 overflow-y-auto divide-y">
-        {filteredNotifications.length === 0 ? (
-          <div className="p-8 text-center text-gray-400">
-            <Bell className="w-12 h-12 mx-auto mb-2 opacity-30" />
-            <p>{lang === 'th' ? 'ไม่มีการแจ้งเตือน' : 'No notifications'}</p>
-          </div>
-        ) : (
-          filteredNotifications.map(notif => (
-            <div key={notif.id} className={`p-4 hover:bg-gray-50 ${!notif.read ? 'bg-blue-50/50' : ''}`}>
-              <div className="flex gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  notif.type === 'approval' ? 'bg-purple-100 text-purple-600' :
-                  notif.type === 'alert' ? 'bg-red-100 text-red-600' :
-                  notif.type === 'task' ? 'bg-blue-100 text-blue-600' :
-                  notif.type === 'success' ? 'bg-green-100 text-green-600' :
-                  'bg-gray-100 text-gray-600'
-                }`}>
-                  {notif.type === 'approval' ? <CheckCircle className="w-5 h-5" /> :
-                   notif.type === 'alert' ? <AlertTriangle className="w-5 h-5" /> :
-                   notif.type === 'task' ? <ClipboardList className="w-5 h-5" /> :
-                   notif.type === 'success' ? <Check className="w-5 h-5" /> :
-                   <Bell className="w-5 h-5" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="font-medium text-gray-800">{notif.title}</div>
-                    {!notif.read && <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-2" />}
-                  </div>
-                  <div className="text-sm text-gray-600 mt-0.5">{notif.message}</div>
-                  <div className="flex items-center gap-3 mt-2">
-                    <span className="text-xs text-gray-400">{notif.time}</span>
-                    {notif.action && (
-                      <button 
-                        onClick={() => onAction(notif)}
-                        className="text-xs font-medium text-[#1A5276] hover:underline"
-                      >
-                        {notif.action}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="p-3 border-t bg-gray-50 flex justify-between items-center">
-        <button className="text-sm text-gray-500 hover:text-gray-700">
-          {lang === 'th' ? 'ทำเครื่องหมายอ่านแล้วทั้งหมด' : 'Mark all as read'}
-        </button>
-        <button className="text-sm text-[#1A5276] font-medium hover:underline">
-          {lang === 'th' ? 'ดูทั้งหมด' : 'View all'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ============================================
-// QUICK ACTIONS MENU
-// Context-aware quick actions
-// ============================================
-const QuickActionsMenu = ({ isOpen, onClose, context, onAction, lang }) => {
-  if (!isOpen) return null
-
-  const actions = {
-    global: [
-      { id: 'new_wo', label: lang === 'th' ? 'สร้าง Work Order' : 'New Work Order', icon: Factory, color: 'orange' },
-      { id: 'new_so', label: lang === 'th' ? 'สร้างใบสั่งขาย' : 'New Sales Order', icon: Receipt, color: 'pink' },
-      { id: 'new_po', label: lang === 'th' ? 'สร้างใบสั่งซื้อ' : 'New Purchase Order', icon: ShoppingCart, color: 'yellow' },
-      { id: 'new_invoice', label: lang === 'th' ? 'สร้างใบแจ้งหนี้' : 'New Invoice', icon: FileText, color: 'green' },
-      { id: 'new_quote', label: lang === 'th' ? 'สร้างใบเสนอราคา' : 'New Quotation', icon: Calculator, color: 'blue' },
-      { id: 'maint_request', label: lang === 'th' ? 'แจ้งซ่อม' : 'Maintenance Request', icon: Wrench, color: 'amber' },
-    ],
-    customer: [
-      { id: 'customer_quote', label: lang === 'th' ? 'สร้างใบเสนอราคา' : 'New Quote', icon: Calculator, color: 'blue' },
-      { id: 'customer_so', label: lang === 'th' ? 'สร้างใบสั่งขาย' : 'New Sales Order', icon: Receipt, color: 'pink' },
-      { id: 'customer_invoices', label: lang === 'th' ? 'ดูใบแจ้งหนี้' : 'View Invoices', icon: FileText, color: 'green' },
-      { id: 'customer_wos', label: lang === 'th' ? 'ดู Work Orders' : 'View Work Orders', icon: Factory, color: 'orange' },
-      { id: 'customer_statement', label: lang === 'th' ? 'Statement' : 'Account Statement', icon: BarChart3, color: 'purple' },
-    ],
-    workOrder: [
-      { id: 'wo_issue', label: lang === 'th' ? 'เบิกวัสดุ' : 'Issue Materials', icon: Package, color: 'purple' },
-      { id: 'wo_print_label', label: lang === 'th' ? 'พิมพ์ฉลาก' : 'Print Labels', icon: Printer, color: 'blue' },
-      { id: 'wo_move_next', label: lang === 'th' ? 'ส่งแผนกถัดไป' : 'Move to Next Dept', icon: ChevronRight, color: 'green' },
-      { id: 'wo_qc', label: lang === 'th' ? 'QC ตรวจสอบ' : 'QC Check', icon: CheckCircle, color: 'emerald' },
-      { id: 'wo_invoice', label: lang === 'th' ? 'สร้างใบแจ้งหนี้' : 'Generate Invoice', icon: Receipt, color: 'pink' },
-    ],
-  }
-
-  const currentActions = actions[context] || actions.global
-
-  return (
-    <div className="absolute right-0 top-12 w-72 bg-white rounded-xl shadow-2xl border z-50 overflow-hidden">
-      <div className="p-3 border-b bg-gray-50">
-        <h3 className="font-bold text-gray-700 flex items-center gap-2">
-          <Zap className="w-4 h-4 text-yellow-500" />
-          {lang === 'th' ? 'ทางลัด' : 'Quick Actions'}
-        </h3>
-      </div>
-      <div className="p-2">
-        {currentActions.map(action => (
-          <button
-            key={action.id}
-            onClick={() => { onAction(action.id); onClose() }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 rounded-lg text-left transition-colors"
-          >
-            <div className={`w-8 h-8 rounded-lg bg-${action.color}-100 flex items-center justify-center`}>
-              <action.icon className={`w-4 h-4 text-${action.color}-600`} />
-            </div>
-            <span className="font-medium text-gray-700">{action.label}</span>
-          </button>
-        ))}
-      </div>
-      <div className="p-2 border-t bg-gray-50">
-        <div className="text-xs text-gray-400 text-center">
-          {lang === 'th' ? 'กด Q เพื่อเปิดเมนูทางลัด' : 'Press Q to open quick actions'}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ============================================
-// KANBAN BOARD for Production
-// Drag-drop WOs between departments
-// ============================================
-const KanbanBoard = ({ workOrders, setWorkOrders, departments, customers, lang }) => {
-  const [draggedWO, setDraggedWO] = useState(null)
-  
-  const DEPT_FLOW = ['C1', 'C2', 'P1', 'P2', 'P3', 'ASM1', 'ASM2', 'OVN', 'QC', 'FG']
-  
-  const DEPT_COLORS = {
-    C1: { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-700', header: 'bg-red-100' },
-    C2: { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-700', header: 'bg-orange-100' },
-    P1: { bg: 'bg-yellow-50', border: 'border-yellow-300', text: 'text-yellow-700', header: 'bg-yellow-100' },
-    P2: { bg: 'bg-lime-50', border: 'border-lime-300', text: 'text-lime-700', header: 'bg-lime-100' },
-    P3: { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700', header: 'bg-green-100' },
-    ASM1: { bg: 'bg-teal-50', border: 'border-teal-300', text: 'text-teal-700', header: 'bg-teal-100' },
-    ASM2: { bg: 'bg-cyan-50', border: 'border-cyan-300', text: 'text-cyan-700', header: 'bg-cyan-100' },
-    OVN: { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700', header: 'bg-blue-100' },
-    QC: { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700', header: 'bg-purple-100' },
-    FG: { bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-700', header: 'bg-emerald-100' },
-  }
-
-  const getWOsForDept = (deptCode) => {
-    return workOrders.filter(wo => {
-      const currentDept = wo.currentDept || wo.department || 'C1'
-      return currentDept === deptCode && wo.status !== 'completed'
-    })
-  }
-
-  const handleDragStart = (e, wo) => {
-    setDraggedWO(wo)
-    e.dataTransfer.effectAllowed = 'move'
-  }
-
-  const handleDragOver = (e) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }
-
-  const handleDrop = (e, targetDept) => {
-    e.preventDefault()
-    if (!draggedWO) return
-
-    const currentDeptIdx = DEPT_FLOW.indexOf(draggedWO.currentDept || draggedWO.department || 'C1')
-    const targetDeptIdx = DEPT_FLOW.indexOf(targetDept)
-
-    // Only allow moving forward or one step back
-    if (targetDeptIdx < currentDeptIdx - 1) return
-
-    setWorkOrders(workOrders.map(wo => 
-      wo.id === draggedWO.id 
-        ? { 
-            ...wo, 
-            currentDept: targetDept, 
-            status: targetDept === 'FG' ? 'completed' : 'in_progress',
-            deptHistory: [...(wo.deptHistory || []), { dept: targetDept, time: new Date().toISOString() }]
-          } 
-        : wo
-    ))
-    setDraggedWO(null)
-  }
-
-  return (
-    <div className="h-full overflow-x-auto">
-      <div className="flex gap-3 p-4 min-w-max">
-        {DEPT_FLOW.map(deptCode => {
-          const wos = getWOsForDept(deptCode)
-          const colors = DEPT_COLORS[deptCode]
-          
-          return (
-            <div 
-              key={deptCode}
-              className={`w-56 flex-shrink-0 rounded-xl border-2 ${colors.border} ${colors.bg} overflow-hidden`}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, deptCode)}
-            >
-              {/* Column Header */}
-              <div className={`p-3 ${colors.header} border-b ${colors.border}`}>
-                <div className="flex items-center justify-between">
-                  <div className={`font-bold ${colors.text}`}>{deptCode}</div>
-                  <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
-                    {wos.length}
-                  </div>
-                </div>
-              </div>
-
-              {/* Cards */}
-              <div className="p-2 space-y-2 min-h-64 max-h-96 overflow-y-auto">
-                {wos.map(wo => {
-                  const customer = customers?.find(c => c.id === wo.customerId)
-                  return (
-                    <div
-                      key={wo.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, wo)}
-                      className="bg-white rounded-lg shadow-sm border p-3 cursor-move hover:shadow-md transition-shadow"
-                    >
-                      <div className="font-mono text-sm font-bold text-[#1A5276]">{wo.woNumber || wo.id}</div>
-                      <div className="text-sm mt-1 truncate">{wo.productName}</div>
-                      <div className="text-xs text-gray-500 mt-1">{customer?.name}</div>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-xs font-medium text-gray-700">{wo.quantity} pcs</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded ${
-                          wo.priority === 'high' ? 'bg-red-100 text-red-700' :
-                          wo.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                          {wo.priority || 'normal'}
-                        </span>
-                      </div>
-                      {wo.targetDate && (
-                        <div className={`text-xs mt-1 ${
-                          new Date(wo.targetDate) < new Date() ? 'text-red-600 font-medium' : 'text-gray-400'
-                        }`}>
-                          Due: {formatDate(wo.targetDate)}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-                {wos.length === 0 && (
-                  <div className={`p-4 text-center ${colors.text} opacity-50 text-sm`}>
-                    {lang === 'th' ? 'ว่าง' : 'Empty'}
-                  </div>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ============================================
-// DOCUMENT FLOW VISUALIZATION
-// Shows the flow: SO → WO → DN → Invoice
-// ============================================
-const DocumentFlow = ({ document, type, relatedDocs, onNavigate, lang }) => {
-  const flowSteps = [
-    { id: 'so', label: lang === 'th' ? 'ใบสั่งขาย' : 'Sales Order', icon: Receipt, color: 'pink' },
-    { id: 'wo', label: lang === 'th' ? 'ใบผลิต' : 'Work Order', icon: Factory, color: 'orange' },
-    { id: 'dn', label: lang === 'th' ? 'ใบส่งของ' : 'Delivery', icon: Truck, color: 'cyan' },
-    { id: 'inv', label: lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoice', icon: FileText, color: 'green' },
-    { id: 'pay', label: lang === 'th' ? 'ชำระเงิน' : 'Payment', icon: DollarSign, color: 'emerald' },
-  ]
-
-  return (
-    <div className="p-4 bg-gray-50 rounded-lg">
-      <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
-        <Activity className="w-4 h-4" />
-        {lang === 'th' ? 'เอกสารที่เกี่ยวข้อง' : 'Document Flow'}
-      </h4>
-      <div className="flex items-center gap-2 overflow-x-auto pb-2">
-        {flowSteps.map((step, idx) => {
-          const doc = relatedDocs?.[step.id]
-          const isActive = doc != null
-          const isCurrent = type === step.id
-          
-          return (
-            <React.Fragment key={step.id}>
-              <button
-                onClick={() => doc && onNavigate(step.id, doc)}
-                disabled={!isActive}
-                className={`flex-shrink-0 p-3 rounded-lg border-2 transition-all ${
-                  isCurrent 
-                    ? `bg-${step.color}-100 border-${step.color}-500 ring-2 ring-${step.color}-200` 
-                    : isActive 
-                      ? `bg-${step.color}-50 border-${step.color}-300 hover:bg-${step.color}-100 cursor-pointer` 
-                      : 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
-                }`}
-              >
-                <step.icon className={`w-5 h-5 mx-auto ${isActive ? `text-${step.color}-600` : 'text-gray-400'}`} />
-                <div className={`text-xs mt-1 font-medium ${isActive ? `text-${step.color}-700` : 'text-gray-400'}`}>
-                  {step.label}
-                </div>
-                {doc && (
-                  <div className={`text-xs mt-0.5 ${isActive ? `text-${step.color}-500` : 'text-gray-400'}`}>
-                    {doc.number || doc.id}
-                  </div>
-                )}
-              </button>
-              {idx < flowSteps.length - 1 && (
-                <ChevronRight className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-gray-400' : 'text-gray-300'}`} />
-              )}
-            </React.Fragment>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ============================================
-// ACTIVITY LOG (Chatter)
-// Timeline of actions on a record
-// ============================================
-const ActivityLog = ({ activities, onAddComment, lang }) => {
-  const [newComment, setNewComment] = useState('')
-
-  return (
-    <div className="border rounded-lg overflow-hidden">
-      <div className="p-3 border-b bg-gray-50 flex items-center justify-between">
-        <h4 className="font-medium text-gray-700 flex items-center gap-2">
-          <Clock className="w-4 h-4" />
-          {lang === 'th' ? 'ประวัติการทำงาน' : 'Activity Log'}
-        </h4>
-        <span className="text-xs text-gray-400">{activities?.length || 0} {lang === 'th' ? 'รายการ' : 'entries'}</span>
-      </div>
-      
-      {/* Add Comment */}
-      <div className="p-3 border-b bg-blue-50">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder={lang === 'th' ? 'เพิ่มความคิดเห็น...' : 'Add a comment...'}
-            className="flex-1 px-3 py-2 border rounded-lg text-sm"
-          />
-          <button 
-            onClick={() => { onAddComment?.(newComment); setNewComment('') }}
-            disabled={!newComment.trim()}
-            className="px-4 py-2 bg-[#1A5276] text-white rounded-lg text-sm font-medium disabled:opacity-50"
-          >
-            {lang === 'th' ? 'ส่ง' : 'Send'}
-          </button>
-        </div>
-      </div>
-
-      {/* Timeline */}
-      <div className="max-h-64 overflow-y-auto">
-        {(!activities || activities.length === 0) ? (
-          <div className="p-6 text-center text-gray-400 text-sm">
-            {lang === 'th' ? 'ยังไม่มีกิจกรรม' : 'No activities yet'}
-          </div>
-        ) : (
-          <div className="p-3 space-y-3">
-            {activities.map((activity, idx) => (
-              <div key={idx} className="flex gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  activity.type === 'create' ? 'bg-green-100 text-green-600' :
-                  activity.type === 'update' ? 'bg-blue-100 text-blue-600' :
-                  activity.type === 'move' ? 'bg-purple-100 text-purple-600' :
-                  activity.type === 'comment' ? 'bg-gray-100 text-gray-600' :
-                  'bg-gray-100 text-gray-600'
-                }`}>
-                  {activity.type === 'create' ? <Plus className="w-4 h-4" /> :
-                   activity.type === 'update' ? <Edit3 className="w-4 h-4" /> :
-                   activity.type === 'move' ? <ArrowRight className="w-4 h-4" /> :
-                   activity.type === 'comment' ? <MessageCircle className="w-4 h-4" /> :
-                   <Activity className="w-4 h-4" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm">
-                    <span className="font-medium">{activity.user}</span>
-                    <span className="text-gray-600"> {activity.action}</span>
-                  </div>
-                  {activity.details && (
-                    <div className="text-xs text-gray-500 mt-0.5">{activity.details}</div>
-                  )}
-                  <div className="text-xs text-gray-400 mt-1">{activity.time}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 // LOGIN SCREEN
 // ============================================
 const LoginScreen = ({ onLogin, lang, setLang }) => {
@@ -2148,97 +1439,22 @@ const SmartDocumentUploadModal = ({ isOpen, onClose, module, lang, onProcessed, 
 // Total lines so far: ~1,450
 
 // ============================================
-// TRANSPORT MODULE - ENHANCED v7.4
-// Fleet: 4 trucks (3 operational), Drivers: Mayo, W, T, C
-// Allowance: 100% furthest + 50% additional stops
-// Bonus: 45+ trips=฿500, after 7PM=฿50, holiday=฿50
+// TRANSPORT MODULE (DEEP - WITH CALENDAR)
 // ============================================
-const TransportModule = ({ deliveries, setDeliveries, trucks, setTrucks, employees, salesOrders, lang }) => {
-  const [activeTab, setActiveTab] = useState('dashboard')
+const TransportModule = ({ deliveries, setDeliveries, trucks, employees, salesOrders, lang }) => {
+  const [activeTab, setActiveTab] = useState('calendar')
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const [showTripModal, setShowTripModal] = useState(false)
-  const [showFuelModal, setShowFuelModal] = useState(false)
+  const [showScheduleModal, setShowScheduleModal] = useState(false)
   const [selectedDelivery, setSelectedDelivery] = useState(null)
-  const [filterDriver, setFilterDriver] = useState('all')
-  const [filterMonth, setFilterMonth] = useState(new Date().getMonth())
-
-  // IND Fleet Data
-  const IND_TRUCKS = trucks || [
-    { id: 'TRK-001', plate: 'ชบ-1234', name: 'Truck 1', status: 'available', mileage: 125000, nextService: 130000 },
-    { id: 'TRK-002', plate: 'ชบ-5678', name: 'Truck 2', status: 'available', mileage: 98000, nextService: 100000 },
-    { id: 'TRK-003', plate: 'ชบ-9012', name: 'Truck 3', status: 'available', mileage: 156000, nextService: 160000 },
-    { id: 'TRK-004', plate: 'ชบ-3456', name: 'Truck 4', status: 'maintenance', mileage: 203000, nextService: 210000 },
-  ]
-
-  // IND Drivers
-  const IND_DRIVERS = [
-    { id: 'DRV-001', name: 'Mayo', nameTh: 'มาโย', status: 'active' },
-    { id: 'DRV-002', name: 'W', nameTh: 'ดับเบิ้ลยู', status: 'active' },
-    { id: 'DRV-003', name: 'T', nameTh: 'ที', status: 'active' },
-    { id: 'DRV-004', name: 'C', nameTh: 'ซี', status: 'active' },
-  ]
-
-  // Allowance rates per locked specs
-  const ALLOWANCE_RATES = {
-    // Distance-based allowances (example rates)
-    chonburi: 150,
-    rayong: 250,
-    bangkok: 400,
-    eastern: 300,
-    other: 350,
-  }
 
   const tabs = [
-    { id: 'dashboard', label: lang === 'th' ? 'หน้าหลัก' : 'Dashboard', icon: Home },
-    { id: 'trips', label: lang === 'th' ? 'เที่ยวรถ' : 'Trips', icon: Truck },
-    { id: 'schedule', label: lang === 'th' ? 'ตารางงาน' : 'Schedule', icon: Calendar },
-    { id: 'fleet', label: lang === 'th' ? 'ยานพาหนะ' : 'Fleet', icon: Car },
-    { id: 'drivers', label: lang === 'th' ? 'คนขับ' : 'Drivers', icon: Users },
-    { id: 'fuel', label: lang === 'th' ? 'น้ำมัน' : 'Fuel Log', icon: Fuel },
-    { id: 'allowances', label: lang === 'th' ? 'ค่าเที่ยว' : 'Allowances', icon: Banknote },
+    { id: 'calendar', label: lang === 'th' ? 'ปฏิทิน' : 'Calendar', icon: CalendarDays },
+    { id: 'deliveries', label: lang === 'th' ? 'รายการส่ง' : 'Deliveries', icon: Truck },
+    { id: 'vehicles', label: lang === 'th' ? 'ยานพาหนะ' : 'Vehicles', icon: Car },
+    { id: 'routes', label: lang === 'th' ? 'เส้นทาง' : 'Routes', icon: Navigation },
   ]
 
-  // Calculate monthly stats per driver
-  const getDriverMonthlyStats = (driverId, month) => {
-    const monthDeliveries = (deliveries || []).filter(d => {
-      const delDate = new Date(d.date)
-      return d.driverId === driverId && delDate.getMonth() === month
-    })
-    
-    const trips = monthDeliveries.length
-    const afterSevenPM = monthDeliveries.filter(d => d.returnTime && parseInt(d.returnTime.split(':')[0]) >= 19).length
-    const holidayTrips = monthDeliveries.filter(d => d.isHoliday).length
-    
-    // Calculate allowances
-    let tripAllowance = 0
-    monthDeliveries.forEach(d => {
-      if (d.stops && d.stops.length > 0) {
-        // 100% of furthest + 50% of others
-        const sortedStops = [...d.stops].sort((a, b) => (b.distance || 0) - (a.distance || 0))
-        const furthest = sortedStops[0]?.allowance || 0
-        const others = sortedStops.slice(1).reduce((sum, s) => sum + (s.allowance || 0) * 0.5, 0)
-        tripAllowance += furthest + others
-      } else {
-        tripAllowance += d.allowance || 0
-      }
-    })
-    
-    // Bonuses per locked specs
-    const tripBonus = trips >= 45 ? 500 : 0
-    const lateBonus = afterSevenPM * 50
-    const holidayBonus = holidayTrips * 50
-    
-    return {
-      trips,
-      afterSevenPM,
-      holidayTrips,
-      tripAllowance,
-      tripBonus,
-      lateBonus,
-      holidayBonus,
-      total: tripAllowance + tripBonus + lateBonus + holidayBonus,
-    }
-  }
+  const drivers = employees?.filter(e => e.department === 'transport') || []
 
   // Calendar helpers
   const getDaysInMonth = (date) => {
@@ -2248,10 +1464,12 @@ const TransportModule = ({ deliveries, setDeliveries, trucks, setTrucks, employe
     const lastDay = new Date(year, month + 1, 0)
     const days = []
     
+    // Add empty days for alignment
     for (let i = 0; i < firstDay.getDay(); i++) {
       days.push(null)
     }
     
+    // Add actual days
     for (let i = 1; i <= lastDay.getDate(); i++) {
       days.push(new Date(year, month, i))
     }
@@ -2262,84 +1480,81 @@ const TransportModule = ({ deliveries, setDeliveries, trucks, setTrucks, employe
   const getDeliveriesForDate = (date) => {
     if (!date) return []
     const dateStr = date.toISOString().split('T')[0]
-    return (deliveries || []).filter(d => d.date === dateStr)
+    return deliveries?.filter(d => d.date === dateStr) || []
   }
 
   const stats = {
-    totalTrips: (deliveries || []).length,
-    todayTrips: getDeliveriesForDate(new Date()).length,
-    scheduled: (deliveries || []).filter(d => d.status === 'scheduled').length,
-    inTransit: (deliveries || []).filter(d => d.status === 'in_transit').length,
-    completed: (deliveries || []).filter(d => d.status === 'delivered').length,
-    availableTrucks: IND_TRUCKS.filter(t => t.status === 'available').length,
-    totalTrucks: IND_TRUCKS.length,
+    total: deliveries?.length || 0,
+    scheduled: deliveries?.filter(d => d.status === 'scheduled').length || 0,
+    inTransit: deliveries?.filter(d => d.status === 'in_transit').length || 0,
+    delivered: deliveries?.filter(d => d.status === 'delivered').length || 0,
+    pendingDriver: deliveries?.filter(d => d.status === 'pending_driver').length || 0,
+    availableTrucks: trucks?.filter(t => t.status === 'available').length || 0,
   }
 
   const monthNames = lang === 'th' 
-    ? ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
-    : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    ? ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+    : ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
-  const dayNames = lang === 'th' ? ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const dayNames = lang === 'th'
+    ? ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
+    : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{t('nav.transport', lang)}</h1>
-          <p className="text-gray-500">{lang === 'th' ? 'จัดการเที่ยวรถ ค่าเที่ยว และยานพาหนะ' : 'Manage trips, allowances & fleet'}</p>
+          <p className="text-gray-500">{lang === 'th' ? 'จัดการการจัดส่งและยานพาหนะ' : 'Manage deliveries and vehicles'}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" icon={Fuel} onClick={() => setShowFuelModal(true)}>
-            {lang === 'th' ? 'บันทึกน้ำมัน' : 'Log Fuel'}
+          <Button variant="outline" icon={Upload}>
+            {lang === 'th' ? 'อัพโหลด' : 'Upload'}
           </Button>
-          <Button icon={Plus} onClick={() => setShowTripModal(true)}>
-            {lang === 'th' ? 'สร้างเที่ยว' : 'New Trip'}
+          <Button icon={Plus} onClick={() => setShowScheduleModal(true)}>
+            {lang === 'th' ? 'กำหนดการส่ง' : 'Schedule Delivery'}
           </Button>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-        <Card className="p-3 border-l-4 border-l-blue-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'เที่ยวทั้งหมด' : 'Total Trips'}</div>
-          <div className="text-xl font-bold text-blue-600">{stats.totalTrips}</div>
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <Card className="p-4">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รายการทั้งหมด' : 'Total'}</div>
+          <div className="text-2xl font-bold text-gray-800">{stats.total}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-green-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'วันนี้' : 'Today'}</div>
-          <div className="text-xl font-bold text-green-600">{stats.todayTrips}</div>
+        <Card className="p-4 border-l-4 border-l-blue-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'กำหนดส่ง' : 'Scheduled'}</div>
+          <div className="text-2xl font-bold text-blue-600">{stats.scheduled}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-yellow-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'กำลังส่ง' : 'In Transit'}</div>
-          <div className="text-xl font-bold text-yellow-600">{stats.inTransit}</div>
+        <Card className="p-4 border-l-4 border-l-orange-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'กำลังส่ง' : 'In Transit'}</div>
+          <div className="text-2xl font-bold text-orange-600">{stats.inTransit}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-purple-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'นัดหมาย' : 'Scheduled'}</div>
-          <div className="text-xl font-bold text-purple-600">{stats.scheduled}</div>
+        <Card className="p-4 border-l-4 border-l-green-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ส่งแล้ว' : 'Delivered'}</div>
+          <div className="text-2xl font-bold text-green-600">{stats.delivered}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-emerald-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'ส่งแล้ว' : 'Delivered'}</div>
-          <div className="text-xl font-bold text-emerald-600">{stats.completed}</div>
+        <Card className="p-4 border-l-4 border-l-yellow-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รอคนขับ' : 'Need Driver'}</div>
+          <div className="text-2xl font-bold text-yellow-600">{stats.pendingDriver}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-cyan-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'รถว่าง' : 'Available'}</div>
-          <div className="text-xl font-bold text-cyan-600">{stats.availableTrucks}/{stats.totalTrucks}</div>
-        </Card>
-        <Card className="p-3 border-l-4 border-l-orange-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'คนขับ' : 'Drivers'}</div>
-          <div className="text-xl font-bold text-orange-600">{IND_DRIVERS.filter(d => d.status === 'active').length}</div>
+        <Card className="p-4 border-l-4 border-l-cyan-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รถว่าง' : 'Available'}</div>
+          <div className="text-2xl font-bold text-cyan-600">{stats.availableTrucks}</div>
         </Card>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b overflow-x-auto">
+      <div className="flex gap-2 border-b">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
               activeTab === tab.id 
-                ? 'border-[#1A5276] text-[#1A5276] bg-blue-50' 
+                ? 'border-[#1A5276] text-[#1A5276]' 
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -2349,259 +1564,74 @@ const TransportModule = ({ deliveries, setDeliveries, trucks, setTrucks, employe
         ))}
       </div>
 
-      {/* Dashboard Tab */}
-      {activeTab === 'dashboard' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Today's Trips */}
-          <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Truck className="w-5 h-5 text-blue-500" />
-              {lang === 'th' ? 'เที่ยววันนี้' : "Today's Trips"}
-            </h3>
-            <div className="space-y-3 max-h-80 overflow-y-auto">
-              {getDeliveriesForDate(new Date()).map(del => {
-                const driver = IND_DRIVERS.find(d => d.id === del.driverId)
-                const truck = IND_TRUCKS.find(t => t.id === del.truckId)
-                return (
-                  <div key={del.id} className="p-3 bg-gray-50 rounded-lg border">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-medium">{del.customer}</div>
-                        <div className="text-sm text-gray-500">{del.destination}</div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          🚛 {truck?.plate} • 👤 {driver?.name}
-                        </div>
-                      </div>
-                      <Badge variant={
-                        del.status === 'delivered' ? 'success' :
-                        del.status === 'in_transit' ? 'warning' : 'default'
-                      }>
-                        {del.status}
-                      </Badge>
-                    </div>
-                  </div>
-                )
-              })}
-              {getDeliveriesForDate(new Date()).length === 0 && (
-                <p className="text-gray-400 text-center py-4">{lang === 'th' ? 'ไม่มีเที่ยววันนี้' : 'No trips today'}</p>
-              )}
-            </div>
-          </Card>
-
-          {/* Fleet Status */}
-          <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Car className="w-5 h-5 text-green-500" />
-              {lang === 'th' ? 'สถานะรถ' : 'Fleet Status'}
-            </h3>
-            <div className="space-y-3">
-              {IND_TRUCKS.map(truck => (
-                <div key={truck.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${
-                      truck.status === 'available' ? 'bg-green-500' :
-                      truck.status === 'in_use' ? 'bg-yellow-500' : 'bg-red-500'
-                    }`} />
-                    <div>
-                      <div className="font-medium">{truck.plate}</div>
-                      <div className="text-xs text-gray-500">{truck.name}</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm">{truck.mileage.toLocaleString()} km</div>
-                    {truck.mileage > truck.nextService - 2000 && (
-                      <div className="text-xs text-orange-500">⚠️ Service soon</div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Driver Summary */}
-          <Card className="p-5 lg:col-span-2">
-            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5 text-purple-500" />
-              {lang === 'th' ? 'สรุปคนขับเดือนนี้' : 'Driver Summary This Month'}
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'คนขับ' : 'Driver'}</th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'เที่ยว' : 'Trips'}</th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ค่าเที่ยว' : 'Allowance'}</th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'หลัง19:00' : 'After 7PM'}</th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'วันหยุด' : 'Holiday'}</th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'โบนัส45+' : '45+ Bonus'}</th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600 bg-green-50">{lang === 'th' ? 'รวม' : 'Total'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {IND_DRIVERS.map(driver => {
-                    const stats = getDriverMonthlyStats(driver.id, new Date().getMonth())
-                    return (
-                      <tr key={driver.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 font-medium">{driver.name} ({driver.nameTh})</td>
-                        <td className="px-4 py-3 text-right">{stats.trips}</td>
-                        <td className="px-4 py-3 text-right">฿{stats.tripAllowance.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right">{stats.afterSevenPM} (฿{stats.lateBonus})</td>
-                        <td className="px-4 py-3 text-right">{stats.holidayTrips} (฿{stats.holidayBonus})</td>
-                        <td className="px-4 py-3 text-right">
-                          {stats.tripBonus > 0 ? (
-                            <span className="text-green-600">฿{stats.tripBonus}</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right font-bold text-green-600 bg-green-50">฿{stats.total.toLocaleString()}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-              <strong>{lang === 'th' ? 'กฎค่าเที่ยว:' : 'Allowance Rules:'}</strong>
-              <ul className="mt-1 list-disc list-inside">
-                <li>{lang === 'th' ? '100% จุดไกลสุด + 50% จุดอื่นๆ' : '100% of furthest + 50% of other stops'}</li>
-                <li>{lang === 'th' ? 'โบนัส 45+ เที่ยว = ฿500' : '45+ trips bonus = ฿500'}</li>
-                <li>{lang === 'th' ? 'หลัง 19:00 = ฿50/เที่ยว' : 'After 7PM = ฿50/trip'}</li>
-                <li>{lang === 'th' ? 'วันหยุด = ฿50/เที่ยว' : 'Holiday = ฿50/trip'}</li>
-              </ul>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Trips Tab */}
-      {activeTab === 'trips' && (
-        <Card className="overflow-hidden">
-          <div className="p-4 border-b flex gap-3 flex-wrap">
-            <select
-              value={filterDriver}
-              onChange={(e) => setFilterDriver(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm"
-            >
-              <option value="all">{lang === 'th' ? 'คนขับทั้งหมด' : 'All Drivers'}</option>
-              {IND_DRIVERS.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-            <select
-              value={filterMonth}
-              onChange={(e) => setFilterMonth(parseInt(e.target.value))}
-              className="px-3 py-2 border rounded-lg text-sm"
-            >
-              {monthNames.map((m, idx) => (
-                <option key={idx} value={idx}>{m}</option>
-              ))}
-            </select>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รถ' : 'Truck'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'คนขับ' : 'Driver'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ปลายทาง' : 'Destination'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ระยะทาง' : 'Distance'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'เวลากลับ' : 'Return'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ค่าเที่ยว' : 'Allowance'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {(deliveries || [])
-                  .filter(d => filterDriver === 'all' || d.driverId === filterDriver)
-                  .filter(d => new Date(d.date).getMonth() === filterMonth)
-                  .map(del => {
-                    const driver = IND_DRIVERS.find(d => d.id === del.driverId)
-                    const truck = IND_TRUCKS.find(t => t.id === del.truckId)
-                    const isLate = del.returnTime && parseInt(del.returnTime.split(':')[0]) >= 19
-                    return (
-                      <tr key={del.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm">{formatDate(del.date)}</td>
-                        <td className="px-4 py-3 text-sm">{truck?.plate}</td>
-                        <td className="px-4 py-3 text-sm">{driver?.name}</td>
-                        <td className="px-4 py-3 text-sm font-medium">{del.customer}</td>
-                        <td className="px-4 py-3 text-sm">{del.destination}</td>
-                        <td className="px-4 py-3 text-sm text-right">{del.distance || '-'} km</td>
-                        <td className="px-4 py-3 text-sm text-center">
-                          {del.returnTime || '-'}
-                          {isLate && <span className="ml-1 text-orange-500">🌙</span>}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right font-medium">฿{(del.allowance || 0).toLocaleString()}</td>
-                        <td className="px-4 py-3 text-center">
-                          <Badge variant={del.status === 'delivered' ? 'success' : del.status === 'in_transit' ? 'warning' : 'default'}>
-                            {del.status}
-                          </Badge>
-                        </td>
-                      </tr>
-                    )
-                  })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      {/* Schedule Tab */}
-      {activeTab === 'schedule' && (
-        <Card className="overflow-hidden">
-          <div className="p-4 border-b flex items-center justify-between">
+      {/* Calendar View */}
+      {activeTab === 'calendar' && (
+        <Card className="p-6">
+          {/* Calendar Header */}
+          <div className="flex items-center justify-between mb-6">
             <button 
-              onClick={() => setSelectedDate(d => { const nd = new Date(d); nd.setMonth(nd.getMonth() - 1); return nd })}
-              className="p-2 hover:bg-gray-100 rounded"
+              onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1))}
+              className="p-2 hover:bg-gray-100 rounded-lg"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <h3 className="font-bold text-lg">
-              {selectedDate.toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US', { month: 'long', year: 'numeric' })}
+            <h3 className="text-xl font-bold text-gray-800">
+              {monthNames[selectedDate.getMonth()]} {selectedDate.getFullYear()}
             </h3>
             <button 
-              onClick={() => setSelectedDate(d => { const nd = new Date(d); nd.setMonth(nd.getMonth() + 1); return nd })}
-              className="p-2 hover:bg-gray-100 rounded"
+              onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1))}
+              className="p-2 hover:bg-gray-100 rounded-lg"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
-          <div className="grid grid-cols-7 divide-x border-b bg-gray-50">
+
+          {/* Day Headers */}
+          <div className="grid grid-cols-7 gap-2 mb-2">
             {dayNames.map(day => (
-              <div key={day} className="p-2 text-center text-sm font-medium text-gray-600">{day}</div>
+              <div key={day} className="text-center text-sm font-medium text-gray-500 py-2">
+                {day}
+              </div>
             ))}
           </div>
-          <div className="grid grid-cols-7 divide-x">
+
+          {/* Calendar Grid */}
+          <div className="grid grid-cols-7 gap-2">
             {getDaysInMonth(selectedDate).map((day, idx) => {
-              const dayDeliveries = day ? getDeliveriesForDate(day) : []
+              const dayDeliveries = getDeliveriesForDate(day)
               const isToday = day && day.toDateString() === new Date().toDateString()
+              
               return (
-                <div 
-                  key={idx} 
-                  className={`min-h-[100px] p-1 border-b ${!day ? 'bg-gray-50' : ''} ${isToday ? 'bg-blue-50' : ''}`}
+                <div
+                  key={idx}
+                  className={`min-h-[100px] p-2 rounded-lg border ${
+                    day ? 'bg-white hover:bg-gray-50 cursor-pointer' : 'bg-gray-50'
+                  } ${isToday ? 'ring-2 ring-[#2ECC40]' : ''}`}
+                  onClick={() => day && dayDeliveries.length > 0 && setSelectedDelivery(dayDeliveries[0])}
                 >
                   {day && (
                     <>
-                      <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>
+                      <div className={`text-sm font-medium ${isToday ? 'text-[#2ECC40]' : 'text-gray-700'}`}>
                         {day.getDate()}
                       </div>
-                      <div className="space-y-1">
-                        {dayDeliveries.slice(0, 2).map(del => (
+                      <div className="mt-1 space-y-1">
+                        {dayDeliveries.slice(0, 3).map(del => (
                           <div 
                             key={del.id}
                             className={`text-xs p-1 rounded truncate ${
                               del.status === 'delivered' ? 'bg-green-100 text-green-700' :
-                              del.status === 'in_transit' ? 'bg-yellow-100 text-yellow-700' :
+                              del.status === 'in_transit' ? 'bg-orange-100 text-orange-700' :
+                              del.status === 'pending_driver' ? 'bg-yellow-100 text-yellow-700' :
                               'bg-blue-100 text-blue-700'
                             }`}
                           >
-                            {del.customer}
+                            {del.customerName}
                           </div>
                         ))}
-                        {dayDeliveries.length > 2 && (
-                          <div className="text-xs text-gray-400">+{dayDeliveries.length - 2} more</div>
+                        {dayDeliveries.length > 3 && (
+                          <div className="text-xs text-gray-500 text-center">
+                            +{dayDeliveries.length - 3} {lang === 'th' ? 'รายการ' : 'more'}
+                          </div>
                         )}
                       </div>
                     </>
@@ -2613,56 +1643,124 @@ const TransportModule = ({ deliveries, setDeliveries, trucks, setTrucks, employe
         </Card>
       )}
 
-      {/* Fleet Tab */}
-      {activeTab === 'fleet' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {IND_TRUCKS.map(truck => (
-            <Card key={truck.id} className="overflow-hidden">
-              <div className={`p-4 ${
-                truck.status === 'available' ? 'bg-green-50' :
-                truck.status === 'in_use' ? 'bg-yellow-50' : 'bg-red-50'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Car className={`w-8 h-8 ${
+      {/* Deliveries List */}
+      {activeTab === 'deliveries' && (
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส' : 'ID'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ปลายทาง' : 'Destination'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รถ' : 'Vehicle'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'คนขับ' : 'Driver'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Items'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {(deliveries || INITIAL_SCHEDULED_DELIVERIES).map(del => {
+                  const truck = trucks?.find(t => t.id === del.truckId)
+                  const driver = employees?.find(e => e.id === del.driverId)
+                  return (
+                    <tr key={del.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono text-[#1A5276]">{del.id}</td>
+                      <td className="px-4 py-3">{formatDate(del.date)}</td>
+                      <td className="px-4 py-3 font-medium">{del.customerName}</td>
+                      <td className="px-4 py-3 flex items-center gap-1">
+                        <MapPin className="w-4 h-4 text-gray-400" />
+                        {del.destination}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Car className="w-4 h-4 text-gray-400" />
+                          {truck?.nameEn || del.truckId}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {driver ? driver.name : (
+                          <span className="text-yellow-600 text-sm">{lang === 'th' ? 'รอมอบหมาย' : 'Unassigned'}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">{del.items}</td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={
+                          del.status === 'delivered' ? 'success' :
+                          del.status === 'in_transit' ? 'orange' :
+                          del.status === 'pending_driver' ? 'warning' :
+                          'info'
+                        }>
+                          {del.status === 'delivered' ? (lang === 'th' ? 'ส่งแล้ว' : 'Delivered') :
+                           del.status === 'in_transit' ? (lang === 'th' ? 'กำลังส่ง' : 'In Transit') :
+                           del.status === 'pending_driver' ? (lang === 'th' ? 'รอคนขับ' : 'Need Driver') :
+                           (lang === 'th' ? 'กำหนด' : 'Scheduled')}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button className="p-1 hover:bg-gray-100 rounded">
+                          <Eye className="w-4 h-4 text-gray-500" />
+                        </button>
+                        <button className="p-1 hover:bg-gray-100 rounded">
+                          <Edit3 className="w-4 h-4 text-gray-500" />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Vehicles Tab */}
+      {activeTab === 'vehicles' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {(trucks || INITIAL_TRUCKS).map(truck => (
+            <Card key={truck.id} className="p-5">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    truck.status === 'available' ? 'bg-green-100' :
+                    truck.status === 'in_use' ? 'bg-blue-100' :
+                    'bg-red-100'
+                  }`}>
+                    <Truck className={`w-6 h-6 ${
                       truck.status === 'available' ? 'text-green-600' :
-                      truck.status === 'in_use' ? 'text-yellow-600' : 'text-red-600'
+                      truck.status === 'in_use' ? 'text-blue-600' :
+                      'text-red-600'
                     }`} />
-                    <div>
-                      <div className="font-bold text-lg">{truck.plate}</div>
-                      <div className="text-sm text-gray-600">{truck.name}</div>
-                    </div>
                   </div>
-                  <Badge variant={
-                    truck.status === 'available' ? 'success' :
-                    truck.status === 'in_use' ? 'warning' : 'danger'
-                  }>
-                    {truck.status}
-                  </Badge>
+                  <div>
+                    <h3 className="font-bold text-gray-800">{truck.nameEn}</h3>
+                    <p className="text-sm text-gray-500">{truck.nameTh}</p>
+                  </div>
                 </div>
+                <Badge variant={
+                  truck.status === 'available' ? 'success' :
+                  truck.status === 'in_use' ? 'info' :
+                  'danger'
+                }>
+                  {truck.status === 'available' ? (lang === 'th' ? 'ว่าง' : 'Available') :
+                   truck.status === 'in_use' ? (lang === 'th' ? 'ใช้งาน' : 'In Use') :
+                   (lang === 'th' ? 'ซ่อม' : 'Maintenance')}
+                </Badge>
               </div>
-              <div className="p-4 space-y-3">
+              <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">{lang === 'th' ? 'ระยะทาง' : 'Mileage'}</span>
-                  <span className="font-medium">{truck.mileage.toLocaleString()} km</span>
+                  <span className="text-gray-500">{lang === 'th' ? 'ทะเบียน' : 'License'}</span>
+                  <span className="font-medium">{truck.licensePlate}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">{lang === 'th' ? 'ถึงบำรุง' : 'Next Service'}</span>
-                  <span className={`font-medium ${truck.mileage > truck.nextService - 2000 ? 'text-orange-500' : ''}`}>
-                    {truck.nextService.toLocaleString()} km
-                  </span>
+                  <span className="text-gray-500">{lang === 'th' ? 'บรรทุก' : 'Capacity'}</span>
+                  <span className="font-medium">{truck.capacity}</span>
                 </div>
-                <div className="pt-2">
-                  <div className="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>{lang === 'th' ? 'ใกล้ถึงบำรุง' : 'Service Progress'}</span>
-                    <span>{Math.min(100, Math.round((truck.mileage / truck.nextService) * 100))}%</span>
-                  </div>
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full ${truck.mileage > truck.nextService - 2000 ? 'bg-orange-500' : 'bg-green-500'}`}
-                      style={{ width: `${Math.min(100, (truck.mileage / truck.nextService) * 100)}%` }}
-                    />
-                  </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">{lang === 'th' ? 'คนขับ' : 'Driver'}</span>
+                  <span className="font-medium">{truck.driver || '-'}</span>
                 </div>
               </div>
             </Card>
@@ -2670,1482 +1768,106 @@ const TransportModule = ({ deliveries, setDeliveries, trucks, setTrucks, employe
         </div>
       )}
 
-      {/* Drivers Tab */}
-      {activeTab === 'drivers' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {IND_DRIVERS.map(driver => {
-            const stats = getDriverMonthlyStats(driver.id, new Date().getMonth())
-            return (
-              <Card key={driver.id} className="p-5">
-                <div className="text-center mb-4">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#1A5276] to-[#2ECC40] flex items-center justify-center mx-auto mb-2">
-                    <span className="text-2xl font-bold text-white">{driver.name[0]}</span>
-                  </div>
-                  <div className="font-bold text-lg">{driver.name}</div>
-                  <div className="text-sm text-gray-500">{driver.nameTh}</div>
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">{lang === 'th' ? 'เที่ยวเดือนนี้' : 'Trips This Month'}</span>
-                    <span className="font-medium">{stats.trips}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">{lang === 'th' ? 'รายได้เดือนนี้' : 'Earnings This Month'}</span>
-                    <span className="font-medium text-green-600">฿{stats.total.toLocaleString()}</span>
-                  </div>
-                  {stats.trips >= 45 && (
-                    <div className="mt-2 p-2 bg-green-100 rounded text-center text-green-700 text-xs font-medium">
-                      🎉 45+ Bonus Achieved!
-                    </div>
-                  )}
-                </div>
-              </Card>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Fuel Log Tab */}
-      {activeTab === 'fuel' && (
-        <Card className="overflow-hidden">
-          <div className="p-4 border-b bg-orange-50">
-            <h3 className="font-bold text-orange-800 flex items-center gap-2">
-              <Fuel className="w-5 h-5" />
-              {lang === 'th' ? 'บันทึกการเติมน้ำมัน (Fleet Card)' : 'Fuel Log (Fleet Card)'}
-            </h3>
-            <p className="text-sm text-orange-600 mt-1">
-              {lang === 'th' ? 'ใช้ Fleet Card เท่านั้น - ไม่รับเงินสด' : 'Fleet Card only - No cash'}
-            </p>
+      {/* Routes Tab - Placeholder for GPS */}
+      {activeTab === 'routes' && (
+        <Card className="p-12 text-center">
+          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-cyan-100 flex items-center justify-center">
+            <Navigation className="w-10 h-10 text-cyan-600" />
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รถ' : 'Truck'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'คนขับ' : 'Driver'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ลิตร' : 'Liters'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ราคา/ลิตร' : 'Price/L'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'รวม' : 'Total'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขไมล์' : 'Odometer'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                <tr className="text-center text-gray-400 py-8">
-                  <td colSpan="7" className="py-8">{lang === 'th' ? 'ไม่มีข้อมูล' : 'No fuel logs yet'}</td>
-                </tr>
-              </tbody>
-            </table>
+          <h3 className="text-xl font-bold text-gray-800 mb-2">
+            {lang === 'th' ? 'ระบบ GPS กำลังพัฒนา' : 'GPS System Coming Soon'}
+          </h3>
+          <p className="text-gray-500 max-w-md mx-auto">
+            {lang === 'th' 
+              ? 'ระบบติดตาม GPS แบบ Real-time กำลังพัฒนา จะสามารถดูตำแหน่งรถและเส้นทางได้' 
+              : 'Real-time GPS tracking is under development. You will be able to track vehicles and routes.'}
+          </p>
+          <div className="mt-6 flex items-center justify-center gap-2 text-sm text-gray-400">
+            <Cog className="w-4 h-4 animate-spin" />
+            <span>Under Development</span>
           </div>
         </Card>
-      )}
-
-      {/* Allowances Tab */}
-      {activeTab === 'allowances' && (
-        <div className="space-y-6">
-          <Card className="p-4 bg-blue-50 border-blue-200">
-            <h3 className="font-bold text-blue-800 mb-3">{lang === 'th' ? 'กฎค่าเที่ยว IND' : 'IND Allowance Rules'}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-3 bg-white rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">100%</div>
-                <div className="text-sm text-gray-600">{lang === 'th' ? 'จุดไกลสุด' : 'Furthest Stop'}</div>
-              </div>
-              <div className="p-3 bg-white rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">50%</div>
-                <div className="text-sm text-gray-600">{lang === 'th' ? 'จุดอื่นๆ' : 'Other Stops'}</div>
-              </div>
-              <div className="p-3 bg-white rounded-lg">
-                <div className="text-2xl font-bold text-green-600">฿500</div>
-                <div className="text-sm text-gray-600">{lang === 'th' ? 'โบนัส 45+ เที่ยว' : '45+ Trips Bonus'}</div>
-              </div>
-              <div className="p-3 bg-white rounded-lg">
-                <div className="text-2xl font-bold text-orange-600">฿50</div>
-                <div className="text-sm text-gray-600">{lang === 'th' ? 'หลัง 19:00 / วันหยุด' : 'After 7PM / Holiday'}</div>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b">
-              <h3 className="font-bold">{lang === 'th' ? 'สรุปค่าเที่ยวรายเดือน' : 'Monthly Allowance Summary'}</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'คนขับ' : 'Driver'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'เที่ยว' : 'Trips'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ค่าเที่ยว' : 'Trip Allow.'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ค่าอาหาร' : 'Food (7PM)'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'วันหยุด' : 'Holiday'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'โบนัส45+' : '45+ Bonus'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600 bg-green-50">{lang === 'th' ? 'รวมทั้งหมด' : 'Grand Total'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {IND_DRIVERS.map(driver => {
-                    const stats = getDriverMonthlyStats(driver.id, new Date().getMonth())
-                    return (
-                      <tr key={driver.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 font-medium">{driver.name} ({driver.nameTh})</td>
-                        <td className="px-4 py-3 text-right">{stats.trips}</td>
-                        <td className="px-4 py-3 text-right">฿{stats.tripAllowance.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right">฿{stats.lateBonus.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right">฿{stats.holidayBonus.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right">
-                          {stats.tripBonus > 0 ? `฿${stats.tripBonus}` : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-right font-bold text-green-600 bg-green-50">฿{stats.total.toLocaleString()}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Trip Modal */}
-      {showTripModal && (
-        <Modal isOpen={showTripModal} onClose={() => setShowTripModal(false)} title={lang === 'th' ? 'สร้างเที่ยวรถ' : 'Create Trip'} size="lg">
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันที่' : 'Date'}</label>
-                <input type="date" className="w-full px-3 py-2 border rounded-lg" defaultValue={new Date().toISOString().split('T')[0]} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รถ' : 'Truck'}</label>
-                <select className="w-full px-3 py-2 border rounded-lg">
-                  {IND_TRUCKS.filter(t => t.status === 'available').map(t => (
-                    <option key={t.id} value={t.id}>{t.plate} - {t.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'คนขับ' : 'Driver'}</label>
-              <select className="w-full px-3 py-2 border rounded-lg">
-                {IND_DRIVERS.filter(d => d.status === 'active').map(d => (
-                  <option key={d.id} value={d.id}>{d.name} ({d.nameTh})</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ลูกค้า / ปลายทาง' : 'Customer / Destination'}</label>
-              <input type="text" className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., Polyplex - Rayong" />
-            </div>
-            <div className="flex gap-4 pt-4">
-              <Button variant="outline" className="flex-1" onClick={() => setShowTripModal(false)}>
-                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
-              </Button>
-              <Button className="flex-1">
-                {lang === 'th' ? 'สร้างเที่ยว' : 'Create Trip'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
       )}
     </div>
   )
 }
 
 // ============================================
-// MAINTENANCE MODULE - ENHANCED v7.5
-// Types: Equipment, Vehicle, Building/Facility
-// Features: Add Equipment, Request Form, Store Integration
-// MWO Format: MWO-YYMMDD-XXX
+// MAINTENANCE MODULE
 // ============================================
-const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenanceStore, setMaintenanceStore, trucks, employees, lang }) => {
-  const [activeTab, setActiveTab] = useState('dashboard')
-  const [showMWOModal, setShowMWOModal] = useState(false)
-  const [showAddEquipmentModal, setShowAddEquipmentModal] = useState(false)
-  const [showRequestModal, setShowRequestModal] = useState(false)
-  const [showIssuePartsModal, setShowIssuePartsModal] = useState(false)
-  const [showAddStoreItemModal, setShowAddStoreItemModal] = useState(false)
-  const [selectedTask, setSelectedTask] = useState(null)
-  const [selectedEquipment, setSelectedEquipment] = useState(null)
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [filterCategory, setFilterCategory] = useState('all')
-  const [filterType, setFilterType] = useState('all')
-
-  // New equipment form state
-  const [newEquipment, setNewEquipment] = useState({
-    name: '', type: 'machine', category: 'equipment', location: '', 
-    brand: '', model: '', serialNo: '', purchaseDate: '', warrantyExpiry: '',
-    serviceInterval: 90, notes: ''
-  })
-
-  // New request form state
-  const [newRequest, setNewRequest] = useState({
-    department: '', requestedBy: '', category: 'equipment', 
-    subject: '', description: '', priority: 'medium', assetId: ''
-  })
+const MaintenanceModule = ({ tasks, setTasks, equipment, employees, lang }) => {
+  const [activeTab, setActiveTab] = useState('tasks')
+  const [showTaskModal, setShowTaskModal] = useState(false)
 
   const tabs = [
-    { id: 'dashboard', label: lang === 'th' ? 'หน้าหลัก' : 'Dashboard', icon: Home },
-    { id: 'requests', label: lang === 'th' ? 'คำขอซ่อม' : 'Requests', icon: Bell },
-    { id: 'mwo', label: lang === 'th' ? 'ใบงาน' : 'Work Orders', icon: ClipboardList },
-    { id: 'equipment', label: lang === 'th' ? 'เครื่องจักร' : 'Equipment', icon: Cog },
-    { id: 'building', label: lang === 'th' ? 'อาคาร' : 'Building', icon: Building2 },
-    { id: 'vehicles', label: lang === 'th' ? 'ยานพาหนะ' : 'Vehicles', icon: Car },
-    { id: 'store', label: lang === 'th' ? 'คลังอะไหล่' : 'Parts Store', icon: Package },
-    { id: 'pm', label: lang === 'th' ? 'PM Schedule' : 'PM Schedule', icon: Calendar },
+    { id: 'tasks', label: lang === 'th' ? 'งานซ่อมบำรุง' : 'Tasks', icon: Wrench },
+    { id: 'equipment', label: lang === 'th' ? 'อุปกรณ์' : 'Equipment', icon: Cog },
+    { id: 'schedule', label: lang === 'th' ? 'ตารางบำรุงรักษา' : 'PM Schedule', icon: Calendar },
   ]
 
-  // Maintenance Categories
-  const MAINT_CATEGORIES = {
-    equipment: { label: lang === 'th' ? 'เครื่องจักร/อุปกรณ์' : 'Equipment/Machinery', color: 'blue', icon: Cog },
-    vehicle: { label: lang === 'th' ? 'ยานพาหนะ' : 'Vehicle', color: 'green', icon: Car },
-    building: { label: lang === 'th' ? 'อาคาร/สิ่งปลูกสร้าง' : 'Building/Facility', color: 'purple', icon: Building2 },
-    electrical: { label: lang === 'th' ? 'ไฟฟ้า' : 'Electrical', color: 'yellow', icon: Zap },
-    plumbing: { label: lang === 'th' ? 'ประปา' : 'Plumbing', color: 'cyan', icon: Activity },
-  }
+  const tasksList = tasks || INITIAL_MAINTENANCE_TASKS
+  const equipmentList = equipment || INITIAL_EQUIPMENT
+  const technicians = employees?.filter(e => e.department === 'maintenance') || []
 
-  // Equipment Types
-  const EQUIPMENT_TYPES = [
-    { id: 'machine', label: lang === 'th' ? 'เครื่องจักร' : 'Machine' },
-    { id: 'forklift', label: lang === 'th' ? 'รถยก' : 'Forklift' },
-    { id: 'oven', label: lang === 'th' ? 'เตาอบ' : 'Oven/Kiln' },
-    { id: 'compressor', label: lang === 'th' ? 'ปั๊มลม' : 'Compressor' },
-    { id: 'saw', label: lang === 'th' ? 'เลื่อย' : 'Saw' },
-    { id: 'drill', label: lang === 'th' ? 'สว่าน' : 'Drill' },
-    { id: 'welder', label: lang === 'th' ? 'เครื่องเชื่อม' : 'Welder' },
-    { id: 'pump', label: lang === 'th' ? 'ปั๊ม' : 'Pump' },
-    { id: 'generator', label: lang === 'th' ? 'เครื่องปั่นไฟ' : 'Generator' },
-    { id: 'tool', label: lang === 'th' ? 'เครื่องมือ' : 'Tool' },
-    { id: 'other', label: lang === 'th' ? 'อื่นๆ' : 'Other' },
-  ]
-
-  // Building/Facility Areas
-  const BUILDING_AREAS = [
-    { id: 'office', label: lang === 'th' ? 'สำนักงาน' : 'Office' },
-    { id: 'production', label: lang === 'th' ? 'โรงงานผลิต' : 'Production Area' },
-    { id: 'warehouse', label: lang === 'th' ? 'โกดัง' : 'Warehouse' },
-    { id: 'housing', label: lang === 'th' ? 'หอพัก' : 'Staff Housing' },
-    { id: 'parking', label: lang === 'th' ? 'ที่จอดรถ' : 'Parking' },
-    { id: 'canteen', label: lang === 'th' ? 'โรงอาหาร' : 'Canteen' },
-    { id: 'toilet', label: lang === 'th' ? 'ห้องน้ำ' : 'Toilet/Restroom' },
-    { id: 'fence', label: lang === 'th' ? 'รั้ว/ประตู' : 'Fence/Gate' },
-    { id: 'roof', label: lang === 'th' ? 'หลังคา' : 'Roof' },
-    { id: 'electrical', label: lang === 'th' ? 'ระบบไฟฟ้า' : 'Electrical System' },
-    { id: 'plumbing', label: lang === 'th' ? 'ระบบประปา' : 'Plumbing System' },
-    { id: 'aircon', label: lang === 'th' ? 'แอร์/พัดลม' : 'AC/Ventilation' },
-  ]
-
-  // Building Work Types
-  const BUILDING_WORK_TYPES = [
-    { id: 'painting', label: lang === 'th' ? 'ทาสี' : 'Painting' },
-    { id: 'repair', label: lang === 'th' ? 'ซ่อมแซม' : 'Repair' },
-    { id: 'cleaning', label: lang === 'th' ? 'ทำความสะอาด' : 'Deep Cleaning' },
-    { id: 'electrical', label: lang === 'th' ? 'งานไฟฟ้า' : 'Electrical Work' },
-    { id: 'plumbing', label: lang === 'th' ? 'งานประปา' : 'Plumbing Work' },
-    { id: 'carpentry', label: lang === 'th' ? 'งานไม้' : 'Carpentry' },
-    { id: 'welding', label: lang === 'th' ? 'งานเชื่อม' : 'Welding' },
-    { id: 'roofing', label: lang === 'th' ? 'ซ่อมหลังคา' : 'Roofing' },
-    { id: 'pest', label: lang === 'th' ? 'กำจัดแมลง' : 'Pest Control' },
-    { id: 'landscaping', label: lang === 'th' ? 'จัดสวน' : 'Landscaping' },
-  ]
-
-  // Departments that can request maintenance
-  const DEPARTMENTS = [
-    { id: 'C1', label: 'C1 - Cutting 1' },
-    { id: 'C2', label: 'C2 - Cutting 2' },
-    { id: 'P1', label: 'P1 - Processing 1' },
-    { id: 'P2', label: 'P2 - Processing 2' },
-    { id: 'P3', label: 'P3 - Processing 3' },
-    { id: 'ASM1', label: 'ASM1 - Assembly 1' },
-    { id: 'ASM2', label: 'ASM2 - Assembly 2' },
-    { id: 'OVN', label: 'OVN - Oven/HT' },
-    { id: 'QC', label: 'QC - Quality Control' },
-    { id: 'warehouse', label: lang === 'th' ? 'คลังสินค้า' : 'Warehouse' },
-    { id: 'office', label: lang === 'th' ? 'สำนักงาน' : 'Office' },
-    { id: 'transport', label: lang === 'th' ? 'ขนส่ง' : 'Transport' },
-    { id: 'housing', label: lang === 'th' ? 'หอพัก' : 'Staff Housing' },
-  ]
-
-  // Sample equipment data (expanded)
-  const equipmentList = equipment || [
-    { id: 'EQ-001', name: 'Forklift 1', type: 'forklift', category: 'equipment', location: 'Warehouse', status: 'operational', brand: 'Toyota', model: '8FGU25', lastService: '2026-01-15', nextService: '2026-04-15', hoursUsed: 1250 },
-    { id: 'EQ-002', name: 'Forklift 2', type: 'forklift', category: 'equipment', location: 'Production', status: 'operational', brand: 'Toyota', model: '8FGU25', lastService: '2026-01-10', nextService: '2026-04-10', hoursUsed: 980 },
-    { id: 'EQ-003', name: 'Table Saw 1', type: 'saw', category: 'equipment', location: 'C1', status: 'operational', brand: 'Makita', lastService: '2025-12-20', nextService: '2026-03-20' },
-    { id: 'EQ-004', name: 'Table Saw 2', type: 'saw', category: 'equipment', location: 'C2', status: 'operational', brand: 'Makita', lastService: '2025-12-20', nextService: '2026-03-20' },
-    { id: 'EQ-005', name: 'Heat Treatment Oven', type: 'oven', category: 'equipment', location: 'OVN', status: 'operational', brand: 'Custom', lastService: '2026-01-05', nextService: '2026-07-05' },
-    { id: 'EQ-006', name: 'Air Compressor', type: 'compressor', category: 'equipment', location: 'Production', status: 'maintenance', brand: 'Atlas Copco', lastService: '2025-11-15', nextService: '2026-02-15' },
-    { id: 'EQ-007', name: 'Nail Gun 1', type: 'tool', category: 'equipment', location: 'ASM1', status: 'operational', brand: 'Hitachi' },
-    { id: 'EQ-008', name: 'Nail Gun 2', type: 'tool', category: 'equipment', location: 'ASM2', status: 'operational', brand: 'Hitachi' },
-    { id: 'EQ-009', name: 'Welding Machine', type: 'welder', category: 'equipment', location: 'Maintenance', status: 'operational', brand: 'Lincoln' },
-    { id: 'BLD-001', name: 'Production Building', type: 'building', category: 'building', location: 'Main', status: 'operational', lastPaint: '2024-06-01' },
-    { id: 'BLD-002', name: 'Office Building', type: 'building', category: 'building', location: 'Front', status: 'operational', lastPaint: '2024-03-01' },
-    { id: 'BLD-003', name: 'Staff Housing Block A', type: 'building', category: 'building', location: 'Housing', status: 'operational' },
-    { id: 'BLD-004', name: 'Warehouse 1', type: 'building', category: 'building', location: 'MLH Shed', status: 'operational' },
-  ]
-
-  // Sample maintenance requests (from other departments)
-  const [requests, setRequests] = useState([
-    { id: 'REQ-001', date: '2026-02-01', department: 'C1', requestedBy: 'Singh', category: 'equipment', subject: 'Table Saw blade replacement', description: 'Blade is dull, need replacement', priority: 'high', status: 'pending', assetId: 'EQ-003' },
-    { id: 'REQ-002', date: '2026-01-31', department: 'office', requestedBy: 'Noon', category: 'building', subject: 'AC not cooling', description: 'Office AC unit not cooling properly', priority: 'medium', status: 'pending', assetId: '' },
-    { id: 'REQ-003', date: '2026-01-30', department: 'housing', requestedBy: 'Worker', category: 'plumbing', subject: 'Toilet leak Room 5', description: 'Water leaking from toilet in Room 5', priority: 'high', status: 'in_progress', assetId: 'BLD-003' },
-  ])
-
-  // Maintenance store items
-  const storeItems = maintenanceStore || [
-    { id: 'MS-001', name: 'Motor Oil 15W-40', category: 'Lubricants', qty: 24, unit: 'L', minQty: 10, unitCost: 180, location: 'Shelf A1' },
-    { id: 'MS-002', name: 'Hydraulic Fluid', category: 'Lubricants', qty: 15, unit: 'L', minQty: 5, unitCost: 250, location: 'Shelf A2' },
-    { id: 'MS-003', name: 'V-Belt A68', category: 'Belts', qty: 4, unit: 'pcs', minQty: 2, unitCost: 450, location: 'Shelf B1' },
-    { id: 'MS-004', name: 'Bearing 6205', category: 'Bearings', qty: 8, unit: 'pcs', minQty: 4, unitCost: 180, location: 'Shelf B2' },
-    { id: 'MS-005', name: 'Diesel', category: 'Fuel', qty: 50, unit: 'L', minQty: 20, unitCost: 32, location: 'Tank' },
-    { id: 'MS-006', name: 'Welding Rod 2.6mm', category: 'Consumables', qty: 100, unit: 'pcs', minQty: 50, unitCost: 5, location: 'Shelf C1' },
-    { id: 'MS-007', name: 'Forklift Tire', category: 'Tires', qty: 2, unit: 'pcs', minQty: 1, unitCost: 4500, location: 'Floor' },
-    { id: 'MS-008', name: 'Paint - White', category: 'Paint', qty: 20, unit: 'L', minQty: 10, unitCost: 350, location: 'Shelf D1' },
-    { id: 'MS-009', name: 'Paint - Blue (IND)', category: 'Paint', qty: 10, unit: 'L', minQty: 5, unitCost: 380, location: 'Shelf D1' },
-    { id: 'MS-010', name: 'Saw Blade 10"', category: 'Blades', qty: 3, unit: 'pcs', minQty: 2, unitCost: 850, location: 'Shelf B3' },
-    { id: 'MS-011', name: 'Electrical Wire 2.5mm', category: 'Electrical', qty: 100, unit: 'm', minQty: 50, unitCost: 15, location: 'Shelf E1' },
-    { id: 'MS-012', name: 'PVC Pipe 1"', category: 'Plumbing', qty: 20, unit: 'pcs', minQty: 10, unitCost: 85, location: 'Shelf E2' },
-    { id: 'MS-013', name: 'Nails (Maintenance)', category: 'Hardware', qty: 500, unit: 'pcs', minQty: 200, unitCost: 0.5, location: 'Shelf C2' },
-    { id: 'MS-014', name: 'Screws Assorted', category: 'Hardware', qty: 300, unit: 'pcs', minQty: 100, unitCost: 0.8, location: 'Shelf C2' },
-  ]
-
-  // Store categories
-  const STORE_CATEGORIES = ['Lubricants', 'Belts', 'Bearings', 'Fuel', 'Consumables', 'Tires', 'Paint', 'Blades', 'Electrical', 'Plumbing', 'Hardware']
-
-  const technicians = employees?.filter(e => e.department === 'maintenance') || [
-    { id: 'MT-001', name: 'Chai', nameTh: 'ชัย', status: 'active' },
-    { id: 'MT-002', name: 'Som', nameTh: 'สม', status: 'active' },
-  ]
-
-  // MWO list (tasks)
-  const tasksList = tasks || []
-
-  // Generate IDs
-  const generateMWONumber = () => {
-    const now = new Date()
-    const dateStr = `${now.getFullYear().toString().slice(-2)}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}`
-    const seq = (tasksList.length + 1).toString().padStart(3, '0')
-    return `MWO-${dateStr}-${seq}`
-  }
-
-  const generateEquipmentId = () => {
-    const count = equipmentList.filter(e => e.category === 'equipment').length + 1
-    return `EQ-${count.toString().padStart(3, '0')}`
-  }
-
-  const generateRequestId = () => {
-    return `REQ-${(requests.length + 1).toString().padStart(3, '0')}`
-  }
-
-  // Stats
-  const today = new Date()
   const stats = {
-    totalMWO: tasksList.length,
-    open: tasksList.filter(t => t.status === 'open').length,
+    total: tasksList.length,
     inProgress: tasksList.filter(t => t.status === 'in_progress').length,
+    scheduled: tasksList.filter(t => t.status === 'scheduled').length,
     completed: tasksList.filter(t => t.status === 'completed').length,
-    pendingRequests: requests.filter(r => r.status === 'pending').length,
-    equipmentCount: equipmentList.filter(e => e.category === 'equipment').length,
-    buildingCount: equipmentList.filter(e => e.category === 'building').length,
-    needsService: equipmentList.filter(e => e.nextService && new Date(e.nextService) <= new Date(Date.now() + 30*24*60*60*1000)).length,
-    lowStock: storeItems.filter(i => i.qty <= i.minQty).length,
-    storeValue: storeItems.reduce((sum, i) => sum + (i.qty * (i.unitCost || 0)), 0),
-  }
-
-  // Convert request to MWO
-  const convertRequestToMWO = (request) => {
-    const newMWO = {
-      id: Date.now(),
-      mwoNumber: generateMWONumber(),
-      requestId: request.id,
-      category: request.category,
-      equipment: request.assetId ? equipmentList.find(e => e.id === request.assetId)?.name : request.subject,
-      description: request.description,
-      priority: request.priority,
-      status: 'open',
-      requestedBy: request.requestedBy,
-      department: request.department,
-      createdAt: new Date().toISOString(),
-    }
-    
-    if (setTasks) {
-      setTasks([...tasksList, newMWO])
-    }
-    
-    // Update request status
-    setRequests(requests.map(r => 
-      r.id === request.id ? { ...r, status: 'converted', mwoNumber: newMWO.mwoNumber } : r
-    ))
-  }
-
-  // Add new equipment
-  const handleAddEquipment = () => {
-    const newEq = {
-      id: newEquipment.category === 'building' ? `BLD-${(equipmentList.filter(e => e.category === 'building').length + 1).toString().padStart(3, '0')}` : generateEquipmentId(),
-      ...newEquipment,
-      status: 'operational',
-      createdAt: new Date().toISOString(),
-    }
-    
-    if (setEquipment) {
-      setEquipment([...equipmentList, newEq])
-    }
-    
-    setNewEquipment({ name: '', type: 'machine', category: 'equipment', location: '', brand: '', model: '', serialNo: '', purchaseDate: '', warrantyExpiry: '', serviceInterval: 90, notes: '' })
-    setShowAddEquipmentModal(false)
-  }
-
-  // Submit maintenance request
-  const handleSubmitRequest = () => {
-    const newReq = {
-      id: generateRequestId(),
-      ...newRequest,
-      date: new Date().toISOString().split('T')[0],
-      status: 'pending',
-    }
-    
-    setRequests([newReq, ...requests])
-    setNewRequest({ department: '', requestedBy: '', category: 'equipment', subject: '', description: '', priority: 'medium', assetId: '' })
-    setShowRequestModal(false)
-  }
-
-  const priorityColors = {
-    low: 'bg-gray-100 text-gray-700',
-    medium: 'bg-yellow-100 text-yellow-700',
-    high: 'bg-orange-100 text-orange-700',
-    critical: 'bg-red-100 text-red-700',
-  }
-
-  const statusColors = {
-    pending: 'bg-yellow-100 text-yellow-700',
-    open: 'bg-blue-100 text-blue-700',
-    in_progress: 'bg-purple-100 text-purple-700',
-    completed: 'bg-green-100 text-green-700',
-    converted: 'bg-gray-100 text-gray-700',
+    highPriority: tasksList.filter(t => t.priority === 'high').length,
   }
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{t('nav.maintenance', lang)}</h1>
-          <p className="text-gray-500">{lang === 'th' ? 'จัดการซ่อมบำรุง เครื่องจักร อาคาร และอะไหล่' : 'Manage maintenance for equipment, building & spare parts'}</p>
+          <p className="text-gray-500">{lang === 'th' ? 'จัดการงานซ่อมบำรุงและอุปกรณ์' : 'Manage maintenance tasks and equipment'}</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" icon={Bell} onClick={() => setShowRequestModal(true)}>
-            {lang === 'th' ? 'แจ้งซ่อม' : 'Request'}
-            {stats.pendingRequests > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">{stats.pendingRequests}</span>
-            )}
+        <div className="flex gap-2">
+          <Button variant="outline" icon={Upload}>
+            {lang === 'th' ? 'อัพโหลด' : 'Upload'}
           </Button>
-          <Button variant="outline" icon={Cog} onClick={() => setShowAddEquipmentModal(true)}>
-            {lang === 'th' ? 'เพิ่มเครื่อง' : 'Add Equipment'}
-          </Button>
-          <Button icon={Plus} onClick={() => setShowMWOModal(true)}>
-            {lang === 'th' ? 'สร้างใบงาน' : 'New MWO'}
+          <Button icon={Plus} onClick={() => setShowTaskModal(true)}>
+            {lang === 'th' ? 'สร้างงาน' : 'New Task'}
           </Button>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-10 gap-3">
-        <Card className="p-3 border-l-4 border-l-orange-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'คำขอรอ' : 'Pending'}</div>
-          <div className="text-xl font-bold text-orange-600">{stats.pendingRequests}</div>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Card className="p-4">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'งานทั้งหมด' : 'Total Tasks'}</div>
+          <div className="text-2xl font-bold text-gray-800">{stats.total}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-blue-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'ใบงาน' : 'MWO'}</div>
-          <div className="text-xl font-bold text-blue-600">{stats.totalMWO}</div>
+        <Card className="p-4 border-l-4 border-l-orange-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'กำลังดำเนินการ' : 'In Progress'}</div>
+          <div className="text-2xl font-bold text-orange-600">{stats.inProgress}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-yellow-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'รอทำ' : 'Open'}</div>
-          <div className="text-xl font-bold text-yellow-600">{stats.open}</div>
+        <Card className="p-4 border-l-4 border-l-blue-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'กำหนดการ' : 'Scheduled'}</div>
+          <div className="text-2xl font-bold text-blue-600">{stats.scheduled}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-purple-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'กำลังทำ' : 'In Prog'}</div>
-          <div className="text-xl font-bold text-purple-600">{stats.inProgress}</div>
+        <Card className="p-4 border-l-4 border-l-green-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'เสร็จสิ้น' : 'Completed'}</div>
+          <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-green-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'เสร็จ' : 'Done'}</div>
-          <div className="text-xl font-bold text-green-600">{stats.completed}</div>
-        </Card>
-        <Card className="p-3 border-l-4 border-l-cyan-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'เครื่องจักร' : 'Equipment'}</div>
-          <div className="text-xl font-bold text-cyan-600">{stats.equipmentCount}</div>
-        </Card>
-        <Card className="p-3 border-l-4 border-l-indigo-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'อาคาร' : 'Building'}</div>
-          <div className="text-xl font-bold text-indigo-600">{stats.buildingCount}</div>
-        </Card>
-        <Card className="p-3 border-l-4 border-l-red-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'ถึงบำรุง' : 'Due PM'}</div>
-          <div className="text-xl font-bold text-red-600">{stats.needsService}</div>
-        </Card>
-        <Card className="p-3 border-l-4 border-l-pink-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'สต็อกต่ำ' : 'Low Stock'}</div>
-          <div className="text-xl font-bold text-pink-600">{stats.lowStock}</div>
-        </Card>
-        <Card className="p-3 border-l-4 border-l-emerald-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'มูลค่าสต็อก' : 'Stock Value'}</div>
-          <div className="text-lg font-bold text-emerald-600">฿{stats.storeValue.toLocaleString()}</div>
+        <Card className="p-4 border-l-4 border-l-red-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'เร่งด่วน' : 'High Priority'}</div>
+          <div className="text-2xl font-bold text-red-600">{stats.highPriority}</div>
         </Card>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b overflow-x-auto">
+      <div className="flex gap-2 border-b">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
               activeTab === tab.id 
-                ? 'border-[#1A5276] text-[#1A5276] bg-blue-50' 
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-            {tab.id === 'requests' && stats.pendingRequests > 0 && (
-              <span className="px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">{stats.pendingRequests}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Dashboard Tab */}
-      {activeTab === 'dashboard' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Pending Requests */}
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b bg-orange-50 flex items-center justify-between">
-              <h3 className="font-bold text-orange-800 flex items-center gap-2">
-                <Bell className="w-5 h-5" />
-                {lang === 'th' ? 'คำขอซ่อมรอดำเนินการ' : 'Pending Maintenance Requests'}
-              </h3>
-              <Button size="sm" variant="outline" onClick={() => setActiveTab('requests')}>
-                {lang === 'th' ? 'ดูทั้งหมด' : 'View All'}
-              </Button>
-            </div>
-            <div className="divide-y max-h-80 overflow-y-auto">
-              {requests.filter(r => r.status === 'pending').slice(0, 5).map(req => (
-                <div key={req.id} className="p-4 hover:bg-gray-50">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm text-orange-600">{req.id}</span>
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${priorityColors[req.priority]}`}>
-                          {req.priority}
-                        </span>
-                      </div>
-                      <div className="font-medium mt-1">{req.subject}</div>
-                      <div className="text-sm text-gray-500">{req.department} • {req.requestedBy}</div>
-                    </div>
-                    <Button 
-                      size="sm" 
-                      onClick={() => convertRequestToMWO(req)}
-                    >
-                      <ArrowRight className="w-4 h-4 mr-1" />
-                      MWO
-                    </Button>
-                  </div>
-                </div>
-              ))}
-              {requests.filter(r => r.status === 'pending').length === 0 && (
-                <div className="p-8 text-center text-gray-400">
-                  <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
-                  <p>{lang === 'th' ? 'ไม่มีคำขอค้าง' : 'No pending requests'}</p>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* Active Work Orders */}
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b bg-blue-50">
-              <h3 className="font-bold text-blue-800 flex items-center gap-2">
-                <ClipboardList className="w-5 h-5" />
-                {lang === 'th' ? 'งานที่กำลังดำเนินการ' : 'Active Work Orders'}
-              </h3>
-            </div>
-            <div className="divide-y max-h-80 overflow-y-auto">
-              {tasksList.filter(t => t.status === 'open' || t.status === 'in_progress').slice(0, 5).map(task => (
-                <div key={task.id} className="p-4 hover:bg-gray-50">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-mono text-blue-600">{task.mwoNumber}</div>
-                      <div className="text-sm">{task.equipment || task.description}</div>
-                      <div className="text-xs text-gray-400">{task.department}</div>
-                    </div>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[task.status]}`}>
-                      {task.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {tasksList.filter(t => t.status === 'open' || t.status === 'in_progress').length === 0 && (
-                <div className="p-8 text-center text-gray-400">
-                  <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
-                  <p>{lang === 'th' ? 'ไม่มีงานค้าง' : 'No active work orders'}</p>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* Equipment Due Service */}
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b bg-red-50">
-              <h3 className="font-bold text-red-800 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" />
-                {lang === 'th' ? 'เครื่องจักรถึงกำหนดบำรุง' : 'Equipment Due for Service'}
-              </h3>
-            </div>
-            <div className="divide-y max-h-60 overflow-y-auto">
-              {equipmentList.filter(e => e.nextService && new Date(e.nextService) <= new Date(Date.now() + 30*24*60*60*1000)).map(eq => (
-                <div key={eq.id} className="p-4 hover:bg-gray-50">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="font-medium">{eq.name}</div>
-                      <div className="text-sm text-gray-500">{eq.location} • {eq.type}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className={`text-sm font-medium ${new Date(eq.nextService) <= new Date() ? 'text-red-600' : 'text-orange-600'}`}>
-                        {formatDate(eq.nextService)}
-                      </div>
-                      <div className="text-xs text-gray-400">{new Date(eq.nextService) <= new Date() ? 'OVERDUE' : 'Due Soon'}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {equipmentList.filter(e => e.nextService && new Date(e.nextService) <= new Date(Date.now() + 30*24*60*60*1000)).length === 0 && (
-                <div className="p-6 text-center text-gray-400">
-                  <CheckCircle className="w-10 h-10 mx-auto mb-2 text-green-300" />
-                  <p>{lang === 'th' ? 'ไม่มีเครื่องถึงกำหนด' : 'All equipment OK'}</p>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* Low Stock Alert */}
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b bg-pink-50 flex items-center justify-between">
-              <h3 className="font-bold text-pink-800 flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                {lang === 'th' ? 'อะไหล่ใกล้หมด' : 'Low Stock Parts'}
-              </h3>
-              <Button size="sm" variant="outline" onClick={() => setActiveTab('store')}>
-                {lang === 'th' ? 'ดูคลัง' : 'View Store'}
-              </Button>
-            </div>
-            <div className="divide-y max-h-60 overflow-y-auto">
-              {storeItems.filter(i => i.qty <= i.minQty).map(item => (
-                <div key={item.id} className="p-4 hover:bg-gray-50">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="font-medium">{item.name}</div>
-                      <div className="text-xs text-gray-500">{item.category} • {item.location}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-red-600">{item.qty} {item.unit}</div>
-                      <div className="text-xs text-gray-500">Min: {item.minQty}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {storeItems.filter(i => i.qty <= i.minQty).length === 0 && (
-                <div className="p-6 text-center text-gray-400">
-                  <CheckCircle className="w-10 h-10 mx-auto mb-2 text-green-300" />
-                  <p>{lang === 'th' ? 'สต็อกเพียงพอ' : 'Stock levels OK'}</p>
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Requests Tab */}
-      {activeTab === 'requests' && (
-        <div className="space-y-4">
-          <Card className="p-4 bg-orange-50 border-orange-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Bell className="w-8 h-8 text-orange-600" />
-                <div>
-                  <h3 className="font-bold text-orange-800">{lang === 'th' ? 'คำขอซ่อมจากแผนกอื่น' : 'Maintenance Requests from Departments'}</h3>
-                  <p className="text-sm text-orange-600">{lang === 'th' ? 'แผนกอื่นสามารถแจ้งซ่อมได้ที่นี่' : 'Other departments can submit repair requests here'}</p>
-                </div>
-              </div>
-              <Button icon={Plus} onClick={() => setShowRequestModal(true)}>
-                {lang === 'th' ? 'แจ้งซ่อมใหม่' : 'New Request'}
-              </Button>
-            </div>
-          </Card>
-
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'Request #'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'แผนก' : 'Department'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Category'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เรื่อง' : 'Subject'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ความสำคัญ' : 'Priority'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {requests.map(req => (
-                    <tr key={req.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-mono text-orange-600">{req.id}</td>
-                      <td className="px-4 py-3 text-sm">{formatDate(req.date)}</td>
-                      <td className="px-4 py-3">{req.department}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded text-xs font-medium bg-${MAINT_CATEGORIES[req.category]?.color || 'gray'}-100 text-${MAINT_CATEGORIES[req.category]?.color || 'gray'}-700`}>
-                          {MAINT_CATEGORIES[req.category]?.label || req.category}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{req.subject}</div>
-                        <div className="text-xs text-gray-500">{req.requestedBy}</div>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[req.priority]}`}>
-                          {req.priority}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[req.status]}`}>
-                          {req.status === 'converted' ? `→ ${req.mwoNumber}` : req.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {req.status === 'pending' && (
-                          <Button size="sm" onClick={() => convertRequestToMWO(req)}>
-                            <ArrowRight className="w-4 h-4 mr-1" />
-                            {lang === 'th' ? 'สร้าง MWO' : 'Create MWO'}
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Equipment Tab */}
-      {activeTab === 'equipment' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="flex gap-3">
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm"
-              >
-                <option value="all">{lang === 'th' ? 'ทุกประเภท' : 'All Types'}</option>
-                {EQUIPMENT_TYPES.map(t => (
-                  <option key={t.id} value={t.id}>{t.label}</option>
-                ))}
-              </select>
-            </div>
-            <Button icon={Plus} onClick={() => { setNewEquipment({...newEquipment, category: 'equipment'}); setShowAddEquipmentModal(true) }}>
-              {lang === 'th' ? 'เพิ่มเครื่องจักร' : 'Add Equipment'}
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {equipmentList
-              .filter(eq => eq.category === 'equipment')
-              .filter(eq => filterType === 'all' || eq.type === filterType)
-              .map(eq => (
-                <Card key={eq.id} className="overflow-hidden">
-                  <div className={`p-4 ${eq.status === 'operational' ? 'bg-green-50' : 'bg-red-50'}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Cog className={`w-8 h-8 ${eq.status === 'operational' ? 'text-green-600' : 'text-red-600'}`} />
-                        <div>
-                          <div className="font-bold">{eq.name}</div>
-                          <div className="text-sm text-gray-600">{eq.id}</div>
-                        </div>
-                      </div>
-                      <Badge variant={eq.status === 'operational' ? 'success' : 'danger'}>
-                        {eq.status}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="p-4 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">{lang === 'th' ? 'ประเภท' : 'Type'}</span>
-                      <span className="font-medium capitalize">{eq.type}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">{lang === 'th' ? 'ที่ตั้ง' : 'Location'}</span>
-                      <span className="font-medium">{eq.location}</span>
-                    </div>
-                    {eq.brand && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">{lang === 'th' ? 'ยี่ห้อ' : 'Brand'}</span>
-                        <span className="font-medium">{eq.brand} {eq.model}</span>
-                      </div>
-                    )}
-                    {eq.lastService && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">{lang === 'th' ? 'บำรุงล่าสุด' : 'Last Service'}</span>
-                        <span>{formatDate(eq.lastService)}</span>
-                      </div>
-                    )}
-                    {eq.nextService && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">{lang === 'th' ? 'บำรุงถัดไป' : 'Next Service'}</span>
-                        <span className={new Date(eq.nextService) <= new Date() ? 'text-red-500 font-medium' : ''}>
-                          {formatDate(eq.nextService)}
-                        </span>
-                      </div>
-                    )}
-                    {eq.hoursUsed && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">{lang === 'th' ? 'ชั่วโมงใช้งาน' : 'Hours Used'}</span>
-                        <span>{eq.hoursUsed.toLocaleString()} hrs</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-3 border-t bg-gray-50 flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1">
-                      <Eye className="w-4 h-4 mr-1" />
-                      {lang === 'th' ? 'ดู' : 'View'}
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1">
-                      <Wrench className="w-4 h-4 mr-1" />
-                      {lang === 'th' ? 'ซ่อม' : 'Repair'}
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-          </div>
-        </div>
-      )}
-
-      {/* Building Tab */}
-      {activeTab === 'building' && (
-        <div className="space-y-4">
-          <Card className="p-4 bg-purple-50 border-purple-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Building2 className="w-8 h-8 text-purple-600" />
-                <div>
-                  <h3 className="font-bold text-purple-800">{lang === 'th' ? 'งานอาคารและสิ่งปลูกสร้าง' : 'Building & Facility Maintenance'}</h3>
-                  <p className="text-sm text-purple-600">{lang === 'th' ? 'ทาสี ซ่อมแซม งานไฟฟ้า ประปา' : 'Painting, repairs, electrical, plumbing'}</p>
-                </div>
-              </div>
-              <Button icon={Plus} onClick={() => { setNewEquipment({...newEquipment, category: 'building', type: 'building'}); setShowAddEquipmentModal(true) }}>
-                {lang === 'th' ? 'เพิ่มพื้นที่' : 'Add Area'}
-              </Button>
-            </div>
-          </Card>
-
-          {/* Building Work Types */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {BUILDING_WORK_TYPES.slice(0, 5).map(work => (
-              <Card key={work.id} className="p-4 text-center hover:bg-purple-50 cursor-pointer transition-colors">
-                <div className="text-2xl mb-2">
-                  {work.id === 'painting' ? '🎨' :
-                   work.id === 'repair' ? '🔧' :
-                   work.id === 'electrical' ? '⚡' :
-                   work.id === 'plumbing' ? '🚿' :
-                   work.id === 'carpentry' ? '🪚' : '🔨'}
-                </div>
-                <div className="font-medium text-sm">{work.label}</div>
-              </Card>
-            ))}
-          </div>
-
-          {/* Building Assets */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {equipmentList.filter(eq => eq.category === 'building').map(bld => (
-              <Card key={bld.id} className="overflow-hidden">
-                <div className="p-4 bg-purple-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Building2 className="w-8 h-8 text-purple-600" />
-                      <div>
-                        <div className="font-bold">{bld.name}</div>
-                        <div className="text-sm text-gray-600">{bld.id}</div>
-                      </div>
-                    </div>
-                    <Badge variant={bld.status === 'operational' ? 'success' : 'warning'}>
-                      {bld.status}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="p-4 space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">{lang === 'th' ? 'ที่ตั้ง' : 'Location'}</span>
-                    <span className="font-medium">{bld.location}</span>
-                  </div>
-                  {bld.lastPaint && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">{lang === 'th' ? 'ทาสีล่าสุด' : 'Last Painted'}</span>
-                      <span>{formatDate(bld.lastPaint)}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="p-3 border-t bg-gray-50">
-                  <Button size="sm" variant="outline" className="w-full" onClick={() => setShowRequestModal(true)}>
-                    <Wrench className="w-4 h-4 mr-1" />
-                    {lang === 'th' ? 'แจ้งซ่อม' : 'Request Repair'}
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* MWO Tab */}
-      {activeTab === 'mwo' && (
-        <Card className="overflow-hidden">
-          <div className="p-4 border-b flex gap-3 flex-wrap">
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm"
-            >
-              <option value="all">{lang === 'th' ? 'ทุกสถานะ' : 'All Status'}</option>
-              <option value="open">{lang === 'th' ? 'รอดำเนินการ' : 'Open'}</option>
-              <option value="in_progress">{lang === 'th' ? 'กำลังทำ' : 'In Progress'}</option>
-              <option value="completed">{lang === 'th' ? 'เสร็จ' : 'Completed'}</option>
-            </select>
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm"
-            >
-              <option value="all">{lang === 'th' ? 'ทุกประเภท' : 'All Categories'}</option>
-              {Object.entries(MAINT_CATEGORIES).map(([key, val]) => (
-                <option key={key} value={key}>{val.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'MWO #'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Category'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อุปกรณ์/พื้นที่' : 'Equipment/Area'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายละเอียด' : 'Description'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ความสำคัญ' : 'Priority'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'มอบหมาย' : 'Assigned'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {tasksList
-                  .filter(t => filterStatus === 'all' || t.status === filterStatus)
-                  .filter(t => filterCategory === 'all' || t.category === filterCategory)
-                  .map(task => (
-                    <tr key={task.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-mono text-[#1A5276]">{task.mwoNumber}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded text-xs bg-${MAINT_CATEGORIES[task.category]?.color || 'gray'}-100 text-${MAINT_CATEGORIES[task.category]?.color || 'gray'}-700`}>
-                          {MAINT_CATEGORIES[task.category]?.label || task.category}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">{task.equipment}</td>
-                      <td className="px-4 py-3 text-sm max-w-xs truncate">{task.description}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[task.priority]}`}>
-                          {task.priority}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm">{task.assignedTo || '-'}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[task.status]}`}>
-                          {task.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex gap-1 justify-center">
-                          <button className="p-1 text-blue-600 hover:bg-blue-50 rounded">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button className="p-1 text-green-600 hover:bg-green-50 rounded">
-                            <Package className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      {/* Store Tab */}
-      {activeTab === 'store' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="flex gap-3">
-              <select
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm"
-              >
-                <option value="all">{lang === 'th' ? 'ทุกหมวด' : 'All Categories'}</option>
-                {STORE_CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" icon={Package} onClick={() => setShowIssuePartsModal(true)}>
-                {lang === 'th' ? 'เบิกอะไหล่' : 'Issue Parts'}
-              </Button>
-              <Button icon={Plus} onClick={() => setShowAddStoreItemModal(true)}>
-                {lang === 'th' ? 'เพิ่มรายการ' : 'Add Item'}
-              </Button>
-            </div>
-          </div>
-
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b bg-emerald-50">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-emerald-800 flex items-center gap-2">
-                  <Package className="w-5 h-5" />
-                  {lang === 'th' ? 'คลังอะไหล่และวัสดุซ่อมบำรุง' : 'Maintenance Parts & Materials Store'}
-                </h3>
-                <div className="text-right">
-                  <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่ารวม' : 'Total Value'}</div>
-                  <div className="text-lg font-bold text-emerald-600">฿{stats.storeValue.toLocaleString()}</div>
-                </div>
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส' : 'Code'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายการ' : 'Item'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'หมวด' : 'Category'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Qty'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ขั้นต่ำ' : 'Min'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ราคา/หน่วย' : 'Unit Cost'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ที่เก็บ' : 'Location'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {storeItems
-                    .filter(i => filterCategory === 'all' || i.category === filterCategory)
-                    .map(item => (
-                      <tr key={item.id} className={`hover:bg-gray-50 ${item.qty <= item.minQty ? 'bg-red-50' : ''}`}>
-                        <td className="px-4 py-3 font-mono text-sm">{item.id}</td>
-                        <td className="px-4 py-3 font-medium">{item.name}</td>
-                        <td className="px-4 py-3 text-sm">{item.category}</td>
-                        <td className="px-4 py-3 text-right font-medium">{item.qty} {item.unit}</td>
-                        <td className="px-4 py-3 text-right text-gray-500">{item.minQty}</td>
-                        <td className="px-4 py-3 text-right">฿{(item.unitCost || 0).toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right font-medium">฿{(item.qty * (item.unitCost || 0)).toLocaleString()}</td>
-                        <td className="px-4 py-3 text-sm">{item.location}</td>
-                        <td className="px-4 py-3 text-center">
-                          {item.qty <= item.minQty ? (
-                            <Badge variant="danger">{lang === 'th' ? 'ต่ำ' : 'Low'}</Badge>
-                          ) : (
-                            <Badge variant="success">{lang === 'th' ? 'ปกติ' : 'OK'}</Badge>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Vehicles Tab */}
-      {activeTab === 'vehicles' && (
-        <Card className="p-6">
-          <div className="text-center py-8">
-            <Car className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-bold text-gray-600 mb-2">{lang === 'th' ? 'การบำรุงรักษายานพาหนะ' : 'Vehicle Maintenance'}</h3>
-            <p className="text-gray-500 mb-4">{lang === 'th' ? 'เชื่อมต่อกับโมดูลขนส่ง - ดูการบำรุงรักษารถที่นั่น' : 'Linked to Transport module - View vehicle maintenance there'}</p>
-            <Button variant="outline">
-              <ExternalLink className="w-4 h-4 mr-2" />
-              {lang === 'th' ? 'ไปที่โมดูลขนส่ง' : 'Go to Transport Module'}
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* PM Schedule Tab */}
-      {activeTab === 'pm' && (
-        <div className="space-y-4">
-          <Card className="p-4 bg-blue-50 border-blue-200">
-            <h3 className="font-bold text-blue-800">{lang === 'th' ? 'ตารางบำรุงรักษาเชิงป้องกัน' : 'Preventive Maintenance Schedule'}</h3>
-            <p className="text-sm text-blue-600">{lang === 'th' ? 'กำหนดการบำรุงรักษาตามเวลาหรือการใช้งาน' : 'Scheduled maintenance based on time or usage'}</p>
-          </Card>
-          
-          <div className="space-y-3">
-            {equipmentList.filter(e => e.nextService).map(eq => (
-              <Card key={eq.id} className="p-4">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-3 h-3 rounded-full ${
-                      new Date(eq.nextService) <= new Date() ? 'bg-red-500' :
-                      new Date(eq.nextService) <= new Date(Date.now() + 7*24*60*60*1000) ? 'bg-orange-500' :
-                      new Date(eq.nextService) <= new Date(Date.now() + 30*24*60*60*1000) ? 'bg-yellow-500' :
-                      'bg-green-500'
-                    }`} />
-                    <div>
-                      <div className="font-medium">{eq.name}</div>
-                      <div className="text-sm text-gray-500">{eq.location} • {eq.type}</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`text-lg font-bold ${
-                      new Date(eq.nextService) <= new Date() ? 'text-red-600' :
-                      new Date(eq.nextService) <= new Date(Date.now() + 7*24*60*60*1000) ? 'text-orange-600' :
-                      'text-gray-700'
-                    }`}>
-                      {formatDate(eq.nextService)}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(eq.nextService) <= new Date() ? 'OVERDUE' : 
-                       `${Math.ceil((new Date(eq.nextService) - new Date()) / (1000*60*60*24))} days`}
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Add Equipment Modal */}
-      {showAddEquipmentModal && (
-        <Modal isOpen={showAddEquipmentModal} onClose={() => setShowAddEquipmentModal(false)} title={lang === 'th' ? 'เพิ่มเครื่องจักร/อุปกรณ์' : 'Add Equipment'} size="lg">
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภท' : 'Category'}</label>
-                <select
-                  value={newEquipment.category}
-                  onChange={(e) => setNewEquipment({...newEquipment, category: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg"
-                >
-                  <option value="equipment">{lang === 'th' ? 'เครื่องจักร/อุปกรณ์' : 'Equipment/Machinery'}</option>
-                  <option value="building">{lang === 'th' ? 'อาคาร/สิ่งปลูกสร้าง' : 'Building/Facility'}</option>
-                </select>
-              </div>
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ชื่อ' : 'Name'} *</label>
-                <input
-                  type="text"
-                  value={newEquipment.name}
-                  onChange={(e) => setNewEquipment({...newEquipment, name: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder={lang === 'th' ? 'เช่น Table Saw 3, Forklift 3' : 'e.g., Table Saw 3, Forklift 3'}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภทย่อย' : 'Type'}</label>
-                <select
-                  value={newEquipment.type}
-                  onChange={(e) => setNewEquipment({...newEquipment, type: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg"
-                >
-                  {newEquipment.category === 'building' 
-                    ? BUILDING_AREAS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)
-                    : EQUIPMENT_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)
-                  }
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ที่ตั้ง' : 'Location'}</label>
-                <input
-                  type="text"
-                  value={newEquipment.location}
-                  onChange={(e) => setNewEquipment({...newEquipment, location: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder={lang === 'th' ? 'เช่น C1, Warehouse' : 'e.g., C1, Warehouse'}
-                />
-              </div>
-              {newEquipment.category === 'equipment' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ยี่ห้อ' : 'Brand'}</label>
-                    <input
-                      type="text"
-                      value={newEquipment.brand}
-                      onChange={(e) => setNewEquipment({...newEquipment, brand: e.target.value})}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รุ่น' : 'Model'}</label>
-                    <input
-                      type="text"
-                      value={newEquipment.model}
-                      onChange={(e) => setNewEquipment({...newEquipment, model: e.target.value})}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'S/N' : 'Serial No.'}</label>
-                    <input
-                      type="text"
-                      value={newEquipment.serialNo}
-                      onChange={(e) => setNewEquipment({...newEquipment, serialNo: e.target.value})}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รอบบำรุง (วัน)' : 'Service Interval (days)'}</label>
-                    <input
-                      type="number"
-                      value={newEquipment.serviceInterval}
-                      onChange={(e) => setNewEquipment({...newEquipment, serviceInterval: parseInt(e.target.value)})}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันซื้อ' : 'Purchase Date'}</label>
-                    <input
-                      type="date"
-                      value={newEquipment.purchaseDate}
-                      onChange={(e) => setNewEquipment({...newEquipment, purchaseDate: e.target.value})}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'หมดประกัน' : 'Warranty Expiry'}</label>
-                    <input
-                      type="date"
-                      value={newEquipment.warrantyExpiry}
-                      onChange={(e) => setNewEquipment({...newEquipment, warrantyExpiry: e.target.value})}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                </>
-              )}
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'หมายเหตุ' : 'Notes'}</label>
-                <textarea
-                  value={newEquipment.notes}
-                  onChange={(e) => setNewEquipment({...newEquipment, notes: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  rows="2"
-                />
-              </div>
-            </div>
-            <div className="flex gap-4 pt-4">
-              <Button variant="outline" className="flex-1" onClick={() => setShowAddEquipmentModal(false)}>
-                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
-              </Button>
-              <Button className="flex-1" onClick={handleAddEquipment} disabled={!newEquipment.name}>
-                <Plus className="w-4 h-4 mr-2" />
-                {lang === 'th' ? 'เพิ่ม' : 'Add'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Maintenance Request Modal */}
-      {showRequestModal && (
-        <Modal isOpen={showRequestModal} onClose={() => setShowRequestModal(false)} title={lang === 'th' ? 'แจ้งซ่อม / ขอบริการซ่อมบำรุง' : 'Maintenance Request Form'} size="lg">
-          <div className="space-y-4">
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-700">
-                {lang === 'th' ? 'แบบฟอร์มนี้สำหรับแผนกอื่นแจ้งซ่อมหรือขอบริการซ่อมบำรุง' : 'Use this form to request maintenance service from other departments'}
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'แผนกที่แจ้ง' : 'Department'} *</label>
-                <select
-                  value={newRequest.department}
-                  onChange={(e) => setNewRequest({...newRequest, department: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg"
-                >
-                  <option value="">{lang === 'th' ? '-- เลือกแผนก --' : '-- Select Department --'}</option>
-                  {DEPARTMENTS.map(d => (
-                    <option key={d.id} value={d.id}>{d.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ผู้แจ้ง' : 'Requested By'} *</label>
-                <input
-                  type="text"
-                  value={newRequest.requestedBy}
-                  onChange={(e) => setNewRequest({...newRequest, requestedBy: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder={lang === 'th' ? 'ชื่อผู้แจ้ง' : 'Your name'}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภทงาน' : 'Category'}</label>
-                <select
-                  value={newRequest.category}
-                  onChange={(e) => setNewRequest({...newRequest, category: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg"
-                >
-                  {Object.entries(MAINT_CATEGORIES).map(([key, val]) => (
-                    <option key={key} value={key}>{val.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ความเร่งด่วน' : 'Priority'}</label>
-                <select
-                  value={newRequest.priority}
-                  onChange={(e) => setNewRequest({...newRequest, priority: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg"
-                >
-                  <option value="low">{lang === 'th' ? 'ต่ำ' : 'Low'}</option>
-                  <option value="medium">{lang === 'th' ? 'ปานกลาง' : 'Medium'}</option>
-                  <option value="high">{lang === 'th' ? 'สูง' : 'High'}</option>
-                  <option value="critical">{lang === 'th' ? 'วิกฤต (หยุดผลิต)' : 'Critical (Production Stop)'}</option>
-                </select>
-              </div>
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เรื่อง' : 'Subject'} *</label>
-                <input
-                  type="text"
-                  value={newRequest.subject}
-                  onChange={(e) => setNewRequest({...newRequest, subject: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder={lang === 'th' ? 'เช่น เครื่องตัดเสีย, ท่อน้ำรั่ว' : 'e.g., Machine breakdown, Pipe leak'}
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รายละเอียด' : 'Description'}</label>
-                <textarea
-                  value={newRequest.description}
-                  onChange={(e) => setNewRequest({...newRequest, description: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  rows="3"
-                  placeholder={lang === 'th' ? 'อธิบายปัญหาหรืองานที่ต้องการ...' : 'Describe the issue or work needed...'}
-                />
-              </div>
-            </div>
-            <div className="flex gap-4 pt-4">
-              <Button variant="outline" className="flex-1" onClick={() => setShowRequestModal(false)}>
-                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
-              </Button>
-              <Button 
-                className="flex-1" 
-                onClick={handleSubmitRequest}
-                disabled={!newRequest.department || !newRequest.requestedBy || !newRequest.subject}
-              >
-                <Send className="w-4 h-4 mr-2" />
-                {lang === 'th' ? 'ส่งคำขอ' : 'Submit Request'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* MWO Modal */}
-      {showMWOModal && (
-        <Modal isOpen={showMWOModal} onClose={() => setShowMWOModal(false)} title={lang === 'th' ? 'สร้างใบงานซ่อมบำรุง' : 'Create Maintenance Work Order'} size="lg">
-          <div className="space-y-4">
-            <div className="p-3 bg-blue-50 rounded-lg text-center">
-              <div className="font-mono text-lg font-bold text-blue-700">{generateMWONumber()}</div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภทงาน' : 'Category'}</label>
-                <select className="w-full px-3 py-2 border rounded-lg">
-                  {Object.entries(MAINT_CATEGORIES).map(([key, val]) => (
-                    <option key={key} value={key}>{val.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ความสำคัญ' : 'Priority'}</label>
-                <select className="w-full px-3 py-2 border rounded-lg">
-                  <option value="low">{lang === 'th' ? 'ต่ำ' : 'Low'}</option>
-                  <option value="medium">{lang === 'th' ? 'ปานกลาง' : 'Medium'}</option>
-                  <option value="high">{lang === 'th' ? 'สูง' : 'High'}</option>
-                  <option value="critical">{lang === 'th' ? 'วิกฤต' : 'Critical'}</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'อุปกรณ์/พื้นที่' : 'Equipment/Area'}</label>
-              <select className="w-full px-3 py-2 border rounded-lg">
-                <option value="">{lang === 'th' ? '-- เลือก --' : '-- Select --'}</option>
-                {equipmentList.map(eq => (
-                  <option key={eq.id} value={eq.id}>{eq.name} ({eq.location})</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รายละเอียดงาน' : 'Work Description'}</label>
-              <textarea className="w-full px-3 py-2 border rounded-lg" rows="3" placeholder={lang === 'th' ? 'อธิบายงานที่ต้องทำ...' : 'Describe the work required...'}></textarea>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'มอบหมายให้' : 'Assign To'}</label>
-              <select className="w-full px-3 py-2 border rounded-lg">
-                <option value="">{lang === 'th' ? '-- เลือกช่าง --' : '-- Select Technician --'}</option>
-                {technicians.map(t => (
-                  <option key={t.id} value={t.id}>{t.name} ({t.nameTh})</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex gap-4 pt-4">
-              <Button variant="outline" className="flex-1" onClick={() => setShowMWOModal(false)}>
-                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
-              </Button>
-              <Button className="flex-1">
-                {lang === 'th' ? 'สร้างใบงาน' : 'Create MWO'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
-    </div>
-  )
-}
-        </Card>
-        <Card className="p-3 border-l-4 border-l-red-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'วิกฤต' : 'Critical'}</div>
-          <div className="text-xl font-bold text-red-600">{stats.critical}</div>
-        </Card>
-        <Card className="p-3 border-l-4 border-l-cyan-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'อุปกรณ์' : 'Equipment'}</div>
-          <div className="text-xl font-bold text-cyan-600">{stats.equipmentCount}</div>
-        </Card>
-        <Card className="p-3 border-l-4 border-l-orange-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'ถึงบำรุง' : 'Due Service'}</div>
-          <div className="text-xl font-bold text-orange-600">{stats.needsService}</div>
-        </Card>
-        <Card className="p-3 border-l-4 border-l-pink-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'สต็อกต่ำ' : 'Low Stock'}</div>
-          <div className="text-xl font-bold text-pink-600">{stats.lowStock}</div>
-        </Card>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 border-b overflow-x-auto">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap ${
-              activeTab === tab.id 
-                ? 'border-[#1A5276] text-[#1A5276] bg-blue-50' 
+                ? 'border-[#1A5276] text-[#1A5276]' 
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -4155,465 +1877,134 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
         ))}
       </div>
 
-      {/* Dashboard Tab */}
-      {activeTab === 'dashboard' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Critical/Open MWOs */}
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b bg-red-50">
-              <h3 className="font-bold text-red-800 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" />
-                {lang === 'th' ? 'งานเร่งด่วน' : 'Urgent Work Orders'}
-              </h3>
-            </div>
-            <div className="divide-y max-h-80 overflow-y-auto">
-              {tasksList.filter(t => (t.priority === 'critical' || t.priority === 'high') && t.status !== 'completed').map(task => (
-                <div key={task.id} className="p-4 hover:bg-gray-50">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-mono text-sm font-medium">{task.mwoNumber}</div>
-                      <div className="text-sm text-gray-600">{task.description}</div>
-                      <div className="text-xs text-gray-400 mt-1">{task.equipment}</div>
-                    </div>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[task.priority]}`}>
-                      {task.priority}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {tasksList.filter(t => (t.priority === 'critical' || t.priority === 'high') && t.status !== 'completed').length === 0 && (
-                <div className="p-8 text-center text-gray-400">
-                  <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
-                  <p>{lang === 'th' ? 'ไม่มีงานเร่งด่วน' : 'No urgent work orders'}</p>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* Equipment Status */}
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b bg-blue-50">
-              <h3 className="font-bold text-blue-800 flex items-center gap-2">
-                <Cog className="w-5 h-5" />
-                {lang === 'th' ? 'สถานะอุปกรณ์' : 'Equipment Status'}
-              </h3>
-            </div>
-            <div className="divide-y max-h-80 overflow-y-auto">
-              {equipmentList.map(eq => (
-                <div key={eq.id} className="p-4 hover:bg-gray-50">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${
-                        eq.status === 'operational' ? 'bg-green-500' : 'bg-red-500'
-                      }`} />
-                      <div>
-                        <div className="font-medium">{eq.name}</div>
-                        <div className="text-xs text-gray-500">{eq.location}</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs text-gray-500">{lang === 'th' ? 'ถัดไป' : 'Next Service'}</div>
-                      <div className={`text-sm ${new Date(eq.nextService) <= new Date() ? 'text-red-500 font-medium' : ''}`}>
-                        {formatDate(eq.nextService)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Low Stock Alert */}
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b bg-orange-50">
-              <h3 className="font-bold text-orange-800 flex items-center gap-2">
-                <AlertCircle className="w-5 h-5" />
-                {lang === 'th' ? 'อะไหล่ใกล้หมด' : 'Low Stock Parts'}
-              </h3>
-            </div>
-            <div className="divide-y max-h-60 overflow-y-auto">
-              {storeItems.filter(i => i.qty <= i.minQty).map(item => (
-                <div key={item.id} className="p-4 hover:bg-gray-50">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="font-medium">{item.name}</div>
-                      <div className="text-xs text-gray-500">{item.category}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-red-600">{item.qty} {item.unit}</div>
-                      <div className="text-xs text-gray-500">Min: {item.minQty}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {storeItems.filter(i => i.qty <= i.minQty).length === 0 && (
-                <div className="p-8 text-center text-gray-400">
-                  <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
-                  <p>{lang === 'th' ? 'สต็อกเพียงพอ' : 'Stock levels OK'}</p>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* Diesel Usage */}
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b bg-yellow-50">
-              <h3 className="font-bold text-yellow-800 flex items-center gap-2">
-                <Fuel className="w-5 h-5" />
-                {lang === 'th' ? 'การใช้น้ำมันดีเซล' : 'Diesel Usage'}
-              </h3>
-            </div>
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <div className="text-3xl font-bold text-yellow-600">{storeItems.find(i => i.name === 'Diesel')?.qty || 0} L</div>
-                  <div className="text-sm text-gray-500">{lang === 'th' ? 'คงเหลือ' : 'Remaining'}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xl font-medium">~8 L</div>
-                  <div className="text-sm text-gray-500">{lang === 'th' ? '/สัปดาห์' : '/week'}</div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {dieselLogs.slice(0, 3).map(log => (
-                  <div key={log.id} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
-                    <span>{formatDate(log.date)}</span>
-                    <span>{log.equipment}</span>
-                    <span className="font-medium">{log.liters} L</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* MWO Tab */}
-      {activeTab === 'mwo' && (
+      {/* Tasks List */}
+      {activeTab === 'tasks' && (
         <Card className="overflow-hidden">
-          <div className="p-4 border-b flex gap-3 flex-wrap">
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm"
-            >
-              <option value="all">{lang === 'th' ? 'ทุกสถานะ' : 'All Status'}</option>
-              <option value="open">{lang === 'th' ? 'รอดำเนินการ' : 'Open'}</option>
-              <option value="in_progress">{lang === 'th' ? 'กำลังทำ' : 'In Progress'}</option>
-              <option value="completed">{lang === 'th' ? 'เสร็จ' : 'Completed'}</option>
-            </select>
-            <select
-              value={filterPriority}
-              onChange={(e) => setFilterPriority(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm"
-            >
-              <option value="all">{lang === 'th' ? 'ทุกความสำคัญ' : 'All Priority'}</option>
-              <option value="critical">{lang === 'th' ? 'วิกฤต' : 'Critical'}</option>
-              <option value="high">{lang === 'th' ? 'สูง' : 'High'}</option>
-              <option value="medium">{lang === 'th' ? 'ปานกลาง' : 'Medium'}</option>
-              <option value="low">{lang === 'th' ? 'ต่ำ' : 'Low'}</option>
-            </select>
-          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'MWO #'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส' : 'ID'}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อุปกรณ์' : 'Equipment'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ปัญหา' : 'Issue'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายละเอียด' : 'Description'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ผู้รับผิดชอบ' : 'Assigned'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'กำหนด' : 'Due'}</th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ความสำคัญ' : 'Priority'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'มอบหมาย' : 'Assigned'}</th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {filteredTasks.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" className="px-4 py-8 text-center text-gray-400">
-                      {lang === 'th' ? 'ไม่มีใบงาน' : 'No work orders'}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredTasks.map(task => (
+                {tasksList.map(task => {
+                  const assignee = employees?.find(e => e.id === task.assignedTo)
+                  return (
                     <tr key={task.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-mono text-[#1A5276]">{task.mwoNumber}</td>
-                      <td className="px-4 py-3">{task.equipment}</td>
-                      <td className="px-4 py-3 text-sm">{task.description}</td>
-                      <td className="px-4 py-3 text-center">
-                        <Badge variant={task.type === 'corrective' ? 'warning' : 'info'}>
-                          {task.type}
+                      <td className="px-4 py-3 font-mono text-[#1A5276]">{task.id}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Hammer className="w-4 h-4 text-gray-400" />
+                          <span className="font-medium">{task.equipment}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={task.type === 'repair' ? 'danger' : 'info'}>
+                          {task.type === 'repair' ? (lang === 'th' ? 'ซ่อม' : 'Repair') : (lang === 'th' ? 'บำรุงรักษา' : 'Preventive')}
                         </Badge>
                       </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{task.description}</td>
+                      <td className="px-4 py-3">{assignee?.name || '-'}</td>
+                      <td className="px-4 py-3 text-sm">{formatDate(task.scheduledDate)}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[task.priority]}`}>
-                          {task.priority}
-                        </span>
+                        <Badge variant={
+                          task.priority === 'high' ? 'danger' :
+                          task.priority === 'medium' ? 'warning' :
+                          'default'
+                        }>
+                          {task.priority === 'high' ? (lang === 'th' ? 'สูง' : 'High') :
+                           task.priority === 'medium' ? (lang === 'th' ? 'กลาง' : 'Medium') :
+                           (lang === 'th' ? 'ต่ำ' : 'Low')}
+                        </Badge>
                       </td>
-                      <td className="px-4 py-3 text-sm">{task.assignedTo || '-'}</td>
                       <td className="px-4 py-3 text-center">
                         <Badge variant={
                           task.status === 'completed' ? 'success' :
-                          task.status === 'in_progress' ? 'warning' : 'default'
+                          task.status === 'in_progress' ? 'orange' :
+                          'info'
                         }>
-                          {task.status}
+                          {task.status === 'completed' ? (lang === 'th' ? 'เสร็จ' : 'Done') :
+                           task.status === 'in_progress' ? (lang === 'th' ? 'ดำเนินการ' : 'In Progress') :
+                           (lang === 'th' ? 'กำหนด' : 'Scheduled')}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <button className="p-1 text-blue-600 hover:bg-blue-50 rounded">
-                          <Eye className="w-4 h-4" />
-                        </button>
-                      </td>
                     </tr>
-                  ))
-                )}
+                  )
+                })}
               </tbody>
             </table>
           </div>
         </Card>
       )}
 
-      {/* Equipment Tab */}
+      {/* Equipment List */}
       {activeTab === 'equipment' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {equipmentList.map(eq => (
-            <Card key={eq.id} className="overflow-hidden">
-              <div className={`p-4 ${eq.status === 'operational' ? 'bg-green-50' : 'bg-red-50'}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Cog className={`w-8 h-8 ${eq.status === 'operational' ? 'text-green-600' : 'text-red-600'}`} />
-                    <div>
-                      <div className="font-bold">{eq.name}</div>
-                      <div className="text-sm text-gray-600">{eq.id}</div>
-                    </div>
+            <Card key={eq.id} className="p-5">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    eq.status === 'operational' ? 'bg-green-100' :
+                    eq.status === 'under_repair' ? 'bg-orange-100' :
+                    'bg-red-100'
+                  }`}>
+                    <Cog className={`w-6 h-6 ${
+                      eq.status === 'operational' ? 'text-green-600' :
+                      eq.status === 'under_repair' ? 'text-orange-600' :
+                      'text-red-600'
+                    }`} />
                   </div>
-                  <Badge variant={eq.status === 'operational' ? 'success' : 'danger'}>
-                    {eq.status}
-                  </Badge>
+                  <div>
+                    <h3 className="font-bold text-gray-800">{eq.name}</h3>
+                    <p className="text-sm text-gray-500">{eq.code}</p>
+                  </div>
                 </div>
+                <Badge variant={
+                  eq.status === 'operational' ? 'success' :
+                  eq.status === 'under_repair' ? 'orange' :
+                  'danger'
+                }>
+                  {eq.status === 'operational' ? (lang === 'th' ? 'ใช้งานได้' : 'OK') :
+                   eq.status === 'under_repair' ? (lang === 'th' ? 'ซ่อม' : 'Repair') :
+                   (lang === 'th' ? 'หยุด' : 'Down')}
+                </Badge>
               </div>
-              <div className="p-4 space-y-2 text-sm">
+              <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">{lang === 'th' ? 'ประเภท' : 'Type'}</span>
-                  <span className="font-medium capitalize">{eq.type}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">{lang === 'th' ? 'ที่ตั้ง' : 'Location'}</span>
+                  <span className="text-gray-500">{lang === 'th' ? 'ตำแหน่ง' : 'Location'}</span>
                   <span className="font-medium">{eq.location}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">{lang === 'th' ? 'บำรุงล่าสุด' : 'Last Service'}</span>
-                  <span>{formatDate(eq.lastService)}</span>
+                  <span className="text-gray-500">{lang === 'th' ? 'บำรุงล่าสุด' : 'Last PM'}</span>
+                  <span className="font-medium">{formatDate(eq.lastMaintenance)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">{lang === 'th' ? 'บำรุงถัดไป' : 'Next Service'}</span>
-                  <span className={new Date(eq.nextService) <= new Date() ? 'text-red-500 font-medium' : ''}>
-                    {formatDate(eq.nextService)}
-                  </span>
-                </div>
-                {eq.hoursUsed && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">{lang === 'th' ? 'ชั่วโมงใช้งาน' : 'Hours Used'}</span>
-                    <span>{eq.hoursUsed.toLocaleString()} hrs</span>
-                  </div>
-                )}
               </div>
             </Card>
           ))}
         </div>
       )}
 
-      {/* Parts Store Tab */}
-      {activeTab === 'store' && (
-        <Card className="overflow-hidden">
-          <div className="p-4 border-b">
-            <h3 className="font-bold">{lang === 'th' ? 'คลังอะไหล่และวัสดุ' : 'Spare Parts & Materials Store'}</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส' : 'Code'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายการ' : 'Item'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'หมวด' : 'Category'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Qty'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ขั้นต่ำ' : 'Min'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ที่เก็บ' : 'Location'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {storeItems.map(item => (
-                  <tr key={item.id} className={`hover:bg-gray-50 ${item.qty <= item.minQty ? 'bg-red-50' : ''}`}>
-                    <td className="px-4 py-3 font-mono text-sm">{item.id}</td>
-                    <td className="px-4 py-3 font-medium">{item.name}</td>
-                    <td className="px-4 py-3 text-sm">{item.category}</td>
-                    <td className="px-4 py-3 text-right font-medium">{item.qty} {item.unit}</td>
-                    <td className="px-4 py-3 text-right text-gray-500">{item.minQty}</td>
-                    <td className="px-4 py-3 text-sm">{item.location}</td>
-                    <td className="px-4 py-3 text-center">
-                      {item.qty <= item.minQty ? (
-                        <Badge variant="danger">{lang === 'th' ? 'ต่ำ' : 'Low'}</Badge>
-                      ) : (
-                        <Badge variant="success">{lang === 'th' ? 'ปกติ' : 'OK'}</Badge>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      {/* Diesel Tab */}
-      {activeTab === 'diesel' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="p-5 text-center">
-              <Fuel className="w-12 h-12 mx-auto mb-2 text-yellow-500" />
-              <div className="text-3xl font-bold text-yellow-600">{storeItems.find(i => i.name === 'Diesel')?.qty || 0} L</div>
-              <div className="text-gray-500">{lang === 'th' ? 'คงเหลือในถัง' : 'Current Stock'}</div>
-            </Card>
-            <Card className="p-5 text-center">
-              <Activity className="w-12 h-12 mx-auto mb-2 text-blue-500" />
-              <div className="text-3xl font-bold text-blue-600">~8 L</div>
-              <div className="text-gray-500">{lang === 'th' ? 'ใช้ต่อสัปดาห์' : 'Weekly Usage'}</div>
-            </Card>
-            <Card className="p-5 text-center">
-              <Calendar className="w-12 h-12 mx-auto mb-2 text-green-500" />
-              <div className="text-3xl font-bold text-green-600">~6 wks</div>
-              <div className="text-gray-500">{lang === 'th' ? 'เหลือใช้ได้' : 'Remaining'}</div>
-            </Card>
-          </div>
-
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b">
-              <h3 className="font-bold">{lang === 'th' ? 'ประวัติการเติมน้ำมัน' : 'Diesel Usage Log'}</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อุปกรณ์' : 'Equipment'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ลิตร' : 'Liters'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ผู้เบิก' : 'Operator'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {dieselLogs.map(log => (
-                    <tr key={log.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">{formatDate(log.date)}</td>
-                      <td className="px-4 py-3">{log.equipment}</td>
-                      <td className="px-4 py-3 text-right font-medium">{log.liters} L</td>
-                      <td className="px-4 py-3">{log.operator}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* PM Schedule Tab */}
-      {activeTab === 'pm' && (
-        <Card className="p-6">
-          <h3 className="font-bold mb-4">{lang === 'th' ? 'ตารางบำรุงรักษาเชิงป้องกัน' : 'Preventive Maintenance Schedule'}</h3>
-          <div className="space-y-4">
-            {equipmentList.map(eq => (
-              <div key={eq.id} className="p-4 border rounded-lg">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="font-medium">{eq.name}</div>
-                    <div className="text-sm text-gray-500">{eq.location}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`text-lg font-bold ${
-                      new Date(eq.nextService) <= new Date() ? 'text-red-500' :
-                      new Date(eq.nextService) <= new Date(Date.now() + 30*24*60*60*1000) ? 'text-orange-500' :
-                      'text-green-500'
-                    }`}>
-                      {formatDate(eq.nextService)}
-                    </div>
-                    <div className="text-xs text-gray-500">{lang === 'th' ? 'บำรุงถัดไป' : 'Next Service'}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Vehicles Tab */}
-      {activeTab === 'vehicles' && (
+      {/* PM Schedule */}
+      {activeTab === 'schedule' && (
         <Card className="p-6">
           <p className="text-gray-500 text-center py-12">
-            {lang === 'th' ? 'เชื่อมต่อกับโมดูลขนส่ง - ดูการบำรุงรักษารถที่นั่น' : 'Linked to Transport module - View vehicle maintenance there'}
+            {lang === 'th' ? 'ปฏิทินบำรุงรักษาเชิงป้องกัน กำลังพัฒนา' : 'Preventive Maintenance Calendar - Coming Soon'}
           </p>
         </Card>
-      )}
-
-      {/* MWO Modal */}
-      {showMWOModal && (
-        <Modal isOpen={showMWOModal} onClose={() => setShowMWOModal(false)} title={lang === 'th' ? 'สร้างใบงานซ่อมบำรุง' : 'Create Maintenance Work Order'} size="lg">
-          <div className="space-y-4">
-            <div className="p-3 bg-blue-50 rounded-lg text-center">
-              <div className="font-mono text-lg font-bold text-blue-700">{generateMWONumber()}</div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'อุปกรณ์' : 'Equipment'}</label>
-              <select className="w-full px-3 py-2 border rounded-lg">
-                {equipmentList.map(eq => (
-                  <option key={eq.id} value={eq.id}>{eq.name} ({eq.location})</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภท' : 'Type'}</label>
-              <select className="w-full px-3 py-2 border rounded-lg">
-                <option value="corrective">{lang === 'th' ? 'แก้ไข (Breakdown)' : 'Corrective (Breakdown)'}</option>
-                <option value="preventive">{lang === 'th' ? 'ป้องกัน (Scheduled)' : 'Preventive (Scheduled)'}</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ความสำคัญ' : 'Priority'}</label>
-              <select className="w-full px-3 py-2 border rounded-lg">
-                <option value="low">{lang === 'th' ? 'ต่ำ' : 'Low'}</option>
-                <option value="medium">{lang === 'th' ? 'ปานกลาง' : 'Medium'}</option>
-                <option value="high">{lang === 'th' ? 'สูง' : 'High'}</option>
-                <option value="critical">{lang === 'th' ? 'วิกฤต' : 'Critical'}</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รายละเอียดปัญหา' : 'Issue Description'}</label>
-              <textarea className="w-full px-3 py-2 border rounded-lg" rows="3" placeholder="Describe the issue..."></textarea>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'มอบหมายให้' : 'Assign To'}</label>
-              <select className="w-full px-3 py-2 border rounded-lg">
-                <option value="">{lang === 'th' ? '-- เลือกช่าง --' : '-- Select Technician --'}</option>
-                {technicians.map(t => (
-                  <option key={t.id} value={t.id}>{t.name} ({t.nameTh})</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex gap-4 pt-4">
-              <Button variant="outline" className="flex-1" onClick={() => setShowMWOModal(false)}>
-                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
-              </Button>
-              <Button className="flex-1">
-                {lang === 'th' ? 'สร้างใบงาน' : 'Create MWO'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
       )}
     </div>
   )
 }
+
 // ============================================
 // HR MODULE
 // ============================================
@@ -5208,406 +2599,21 @@ const EditLotModal = ({ isOpen, onClose, lot, categories, stores, onSave, onPrin
 }
 
 // ============================================
-// RM LABEL PRINT MODAL (A5 - 2 per page with BARCODE)
-// Spec 4 - LOCKED FORMAT
-// ============================================
-const RMLabelPrintModal = ({ isOpen, onClose, lots, lang }) => {
-  const printRef = useRef()
-
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank')
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>IND RM Labels</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: Arial, sans-serif; }
-          @page { size: A5 landscape; margin: 5mm; }
-          @media print { .page-break { page-break-after: always; } }
-          .label-page { width: 210mm; height: 148mm; display: flex; gap: 4mm; padding: 3mm; }
-          .label { width: 101mm; height: 140mm; border: 2px solid #000; display: flex; flex-direction: column; }
-          .label-header { background: #1A5276; color: white; text-align: center; padding: 3mm; font-weight: bold; font-size: 11pt; }
-          .label-row { display: flex; border-bottom: 1px solid #000; }
-          .label-row:last-child { border-bottom: none; }
-          .label-cell { padding: 2mm 3mm; border-right: 1px solid #000; }
-          .label-cell:last-child { border-right: none; }
-          .label-cell.header { width: 28mm; font-weight: bold; font-size: 9pt; background: #f5f5f5; }
-          .label-cell.value { flex: 1; font-size: 11pt; font-weight: bold; display: flex; align-items: center; }
-          .label-cell.value.large { font-size: 16pt; justify-content: center; padding: 4mm; }
-          .ind-code-row { flex: 1; display: flex; align-items: center; justify-content: center; font-family: monospace; font-size: 14pt; font-weight: bold; border-bottom: 1px solid #000; }
-          .barcode-row { padding: 3mm; text-align: center; border-bottom: 1px solid #000; }
-          .barcode-text { font-family: monospace; font-size: 8pt; margin-top: 1mm; }
-          .issue-section { display: flex; flex-direction: column; }
-          .issue-row { display: flex; border-bottom: 1px solid #000; min-height: 8mm; }
-          .issue-row:last-child { border-bottom: none; }
-        </style>
-      </head>
-      <body>
-    `)
-
-    for (let i = 0; i < lots.length; i += 2) {
-      const lot1 = lots[i]
-      const lot2 = lots[i + 1]
-      printWindow.document.write(`<div class="label-page ${i + 2 < lots.length ? 'page-break' : ''}">`)
-      printWindow.document.write(generateRMLabelHTML(lot1))
-      if (lot2) printWindow.document.write(generateRMLabelHTML(lot2))
-      printWindow.document.write('</div>')
-    }
-    printWindow.document.write('</body></html>')
-    printWindow.document.close()
-    setTimeout(() => printWindow.print(), 500)
-  }
-
-  const generateRMLabelHTML = (lot) => {
-    const barcodeValue = lot.code || `IND-${lot.category}/${lot.thickness}/${lot.width}/${lot.length}`
-    return `
-      <div class="label">
-        <div class="label-header">IND THAI PACKWELL INDUSTRIES CO., LTD.</div>
-        <div class="label-row"><div class="label-cell header">LOT NO:</div><div class="label-cell value large">${lot.lotNo}</div></div>
-        <div class="ind-code-row">${barcodeValue}</div>
-        <div class="label-row"><div class="label-cell header">QUANTITY</div><div class="label-cell value large">${lot.qty}</div></div>
-        <div class="label-row"><div class="label-cell header">DATE RECD</div><div class="label-cell value">${lot.dateIn || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div></div>
-        <div class="barcode-row"><div style="font-family:monospace;letter-spacing:2px">||||||||||||||||||||||||||||||||</div><div class="barcode-text">${barcodeValue}</div></div>
-        <div class="issue-section">
-          <div class="issue-row"><div class="label-cell header">DATE ISSUED</div><div class="label-cell value"></div></div>
-          <div class="issue-row"><div class="label-cell header">PCS ISSUED</div><div class="label-cell value"></div></div>
-          <div class="issue-row"><div class="label-cell header">ISSUED BY</div><div class="label-cell value"></div></div>
-        </div>
-      </div>
-    `
-  }
-
-  if (!isOpen) return null
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={lang === 'th' ? 'พิมพ์ฉลาก RM (A5)' : 'Print RM Labels (A5)'} size="xl">
-      <div className="space-y-4">
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 flex items-center gap-2">
-          <Info className="w-5 h-5" />
-          <span>{lang === 'th' ? `พิมพ์ ${lots.length} ฉลาก (${Math.ceil(lots.length / 2)} แผ่น A5)` : `Printing ${lots.length} labels (${Math.ceil(lots.length / 2)} A5 sheets)`}</span>
-        </div>
-        <div ref={printRef} className="border rounded-lg p-4 bg-gray-50 max-h-[400px] overflow-y-auto space-y-4">
-          {lots.map((lot, idx) => {
-            const barcodeValue = lot.code || `IND-${lot.category}/${lot.thickness}/${lot.width}/${lot.length}`
-            return (
-              <div key={idx} className="bg-white border-2 border-black p-0 w-[380px]">
-                <div className="bg-[#1A5276] text-white text-center py-2 font-bold text-sm">IND THAI PACKWELL INDUSTRIES CO., LTD.</div>
-                <div className="flex border-b border-black">
-                  <div className="w-24 bg-gray-100 px-2 py-1 font-bold text-sm border-r border-black">LOT NO:</div>
-                  <div className="flex-1 px-2 py-1 text-xl font-bold text-center">{lot.lotNo}</div>
-                </div>
-                <div className="py-3 text-center font-mono font-bold text-lg border-b border-black">{barcodeValue}</div>
-                <div className="flex border-b border-black">
-                  <div className="w-24 bg-gray-100 px-2 py-1 font-bold text-sm border-r border-black">QUANTITY</div>
-                  <div className="flex-1 px-2 py-1 text-xl font-bold text-center">{lot.qty}</div>
-                </div>
-                <div className="flex border-b border-black">
-                  <div className="w-24 bg-gray-100 px-2 py-1 font-bold text-sm border-r border-black">DATE RECD</div>
-                  <div className="flex-1 px-2 py-1 font-medium">{lot.dateIn || new Date().toLocaleDateString('en-GB')}</div>
-                </div>
-                <div className="py-2 text-center border-b border-black">
-                  <div className="inline-block px-4 py-2 bg-gray-200 font-mono text-xs">||||||||||||||||||||||||||||||||</div>
-                  <div className="text-xs mt-1 font-mono">{barcodeValue}</div>
-                </div>
-                <div className="flex border-b border-black"><div className="w-24 bg-gray-100 px-2 py-1 font-bold text-sm border-r border-black">DATE ISSUED</div><div className="flex-1 px-2 py-1"></div></div>
-                <div className="flex border-b border-black"><div className="w-24 bg-gray-100 px-2 py-1 font-bold text-sm border-r border-black">PCS ISSUED</div><div className="flex-1 px-2 py-1"></div></div>
-                <div className="flex"><div className="w-24 bg-gray-100 px-2 py-1 font-bold text-sm border-r border-black">ISSUED BY</div><div className="flex-1 px-2 py-1"></div></div>
-              </div>
-            )
-          })}
-        </div>
-        <div className="flex justify-between items-center pt-4 border-t">
-          <div className="text-sm text-gray-500">{lots.length} {lang === 'th' ? 'ฉลาก' : 'labels'} → {Math.ceil(lots.length / 2)} A5</div>
-          <div className="flex gap-3">
-            <Button variant="secondary" onClick={onClose}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
-            <Button icon={Printer} onClick={handlePrint}>{lang === 'th' ? 'พิมพ์' : 'Print'}</Button>
-          </div>
-        </div>
-      </div>
-    </Modal>
-  )
-}
-
-// ============================================
-// MATERIAL ISSUE MODAL (Against WO) - Spec 33
-// ============================================
-const MaterialIssueModal = ({ isOpen, onClose, inventory, workOrders, onIssue, lang }) => {
-  const [selectedWO, setSelectedWO] = useState('')
-  const [selectedLot, setSelectedLot] = useState(null)
-  const [issueQty, setIssueQty] = useState(0)
-  const [searchLot, setSearchLot] = useState('')
-  const [issueNote, setIssueNote] = useState('')
-
-  const filteredLots = inventory.filter(lot => {
-    if (!searchLot) return true
-    return lot.lotNo?.toLowerCase().includes(searchLot.toLowerCase()) || lot.code?.toLowerCase().includes(searchLot.toLowerCase())
-  })
-
-  const activeWOs = (workOrders || []).filter(wo => ['pending', 'in_progress', 'cutting', 'processing', 'assembly'].includes(wo.status))
-
-  const handleIssue = () => {
-    if (!selectedWO || !selectedLot || issueQty <= 0) return
-    onIssue({ lotId: selectedLot.id, lotNo: selectedLot.lotNo, woId: selectedWO, qtyIssued: issueQty, issuedBy: 'Store Keeper', issuedDate: new Date().toISOString(), note: issueNote })
-    setSelectedWO(''); setSelectedLot(null); setIssueQty(0); setIssueNote(''); onClose()
-  }
-
-  if (!isOpen) return null
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={lang === 'th' ? 'เบิกวัสดุ' : 'Material Issue'} size="lg">
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ใบสั่งผลิต (WO) *' : 'Work Order *'}</label>
-          <select value={selectedWO} onChange={(e) => setSelectedWO(e.target.value)} className="w-full px-3 py-2 border rounded-lg">
-            <option value="">{lang === 'th' ? '-- เลือก WO --' : '-- Select WO --'}</option>
-            {activeWOs.map(wo => (<option key={wo.id} value={wo.id}>{wo.id} - {wo.productName} ({wo.status})</option>))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ค้นหาล็อต' : 'Search Lot'}</label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input type="text" value={searchLot} onChange={(e) => setSearchLot(e.target.value)} placeholder={lang === 'th' ? 'พิมพ์เลขล็อต...' : 'Type lot number...'} className="w-full pl-10 pr-4 py-2 border rounded-lg" />
-          </div>
-        </div>
-        {searchLot && (
-          <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
-            {filteredLots.slice(0, 10).map(lot => (
-              <div key={lot.id} onClick={() => { setSelectedLot(lot); setSearchLot(lot.lotNo); setIssueQty(lot.qty); }} className={`p-3 cursor-pointer hover:bg-gray-50 ${selectedLot?.id === lot.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''}`}>
-                <div className="flex justify-between">
-                  <div><span className="font-bold text-[#1A5276]">{lot.lotNo}</span><span className="text-gray-500 ml-2 text-sm">{lot.code}</span></div>
-                  <Badge variant="success">{lot.qty} pcs</Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {selectedLot && (
-          <>
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="text-gray-500">{lang === 'th' ? 'ล็อต:' : 'Lot:'}</span><span className="font-bold ml-2">{selectedLot.lotNo}</span></div>
-                <div><span className="text-gray-500">{lang === 'th' ? 'คงเหลือ:' : 'Available:'}</span><span className="font-bold ml-2 text-green-600">{selectedLot.qty} pcs</span></div>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'จำนวนที่เบิก *' : 'Issue Quantity *'}</label>
-              <input type="number" min="1" max={selectedLot.qty} value={issueQty} onChange={(e) => setIssueQty(Math.min(parseInt(e.target.value) || 0, selectedLot.qty))} className="w-full px-3 py-2 border rounded-lg text-lg font-bold text-center" />
-            </div>
-          </>
-        )}
-        <div className="flex justify-end gap-3 pt-4 border-t">
-          <Button variant="secondary" onClick={onClose}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
-          <Button icon={ArrowRight} onClick={handleIssue} disabled={!selectedWO || !selectedLot || issueQty <= 0}>{lang === 'th' ? 'ยืนยันเบิก' : 'Confirm Issue'}</Button>
-        </div>
-      </div>
-    </Modal>
-  )
-}
-
-// ============================================
-// INTER-STORE TRANSFER MODAL - Spec 33
-// ============================================
-const InterStoreTransferModal = ({ isOpen, onClose, inventory, stores, onTransfer, lang }) => {
-  const [selectedLot, setSelectedLot] = useState(null)
-  const [fromStore, setFromStore] = useState('')
-  const [toStore, setToStore] = useState('')
-  const [transferQty, setTransferQty] = useState(0)
-  const [reason, setReason] = useState('')
-  const [searchLot, setSearchLot] = useState('')
-
-  const availableLots = inventory.filter(lot => {
-    if (fromStore && lot.store !== fromStore) return false
-    if (!searchLot) return true
-    return lot.lotNo?.toLowerCase().includes(searchLot.toLowerCase())
-  })
-
-  const handleTransfer = () => {
-    if (!selectedLot || !fromStore || !toStore || transferQty <= 0 || !reason) return
-    onTransfer({ lotId: selectedLot.id, lotNo: selectedLot.lotNo, fromStore, toStore, qty: transferQty, reason, transferredBy: 'Store Keeper', transferDate: new Date().toISOString() })
-    setSelectedLot(null); setFromStore(''); setToStore(''); setTransferQty(0); setReason(''); setSearchLot(''); onClose()
-  }
-
-  if (!isOpen) return null
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={lang === 'th' ? 'โอนย้ายระหว่างคลัง' : 'Inter-Store Transfer'} size="lg">
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'จากคลัง *' : 'From Store *'}</label>
-            <select value={fromStore} onChange={(e) => { setFromStore(e.target.value); setSelectedLot(null); }} className="w-full px-3 py-2 border rounded-lg">
-              <option value="">{lang === 'th' ? '-- เลือก --' : '-- Select --'}</option>
-              {stores.map(s => (<option key={s.id} value={s.id}>{s.code}</option>))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ไปยังคลัง *' : 'To Store *'}</label>
-            <select value={toStore} onChange={(e) => setToStore(e.target.value)} className="w-full px-3 py-2 border rounded-lg" disabled={!fromStore}>
-              <option value="">{lang === 'th' ? '-- เลือก --' : '-- Select --'}</option>
-              {stores.filter(s => s.id !== fromStore).map(s => (<option key={s.id} value={s.id}>{s.code}</option>))}
-            </select>
-          </div>
-        </div>
-        {fromStore && (
-          <div>
-            <input type="text" value={searchLot} onChange={(e) => setSearchLot(e.target.value)} placeholder={lang === 'th' ? 'ค้นหาล็อต...' : 'Search lot...'} className="w-full px-3 py-2 border rounded-lg mb-2" />
-            <div className="max-h-40 overflow-y-auto border rounded-lg divide-y">
-              {availableLots.slice(0, 10).map(lot => (
-                <div key={lot.id} onClick={() => { setSelectedLot(lot); setTransferQty(lot.qty); }} className={`p-2 cursor-pointer hover:bg-gray-50 ${selectedLot?.id === lot.id ? 'bg-blue-50' : ''}`}>
-                  <div className="flex justify-between items-center"><span className="font-mono text-sm">{lot.lotNo}</span><Badge>{lot.qty} pcs</Badge></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        {selectedLot && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'จำนวนที่โอน *' : 'Transfer Qty *'}</label>
-            <input type="number" min="1" max={selectedLot.qty} value={transferQty} onChange={(e) => setTransferQty(Math.min(parseInt(e.target.value) || 0, selectedLot.qty))} className="w-full px-3 py-2 border rounded-lg" />
-          </div>
-        )}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เหตุผล *' : 'Reason *'}</label>
-          <select value={reason} onChange={(e) => setReason(e.target.value)} className="w-full px-3 py-2 border rounded-lg">
-            <option value="">{lang === 'th' ? '-- เลือก --' : '-- Select --'}</option>
-            <option value="production_need">{lang === 'th' ? 'ใช้ในการผลิต' : 'Production Need'}</option>
-            <option value="stock_balance">{lang === 'th' ? 'ปรับสมดุลสต็อก' : 'Stock Balance'}</option>
-            <option value="relocation">{lang === 'th' ? 'ย้ายที่เก็บ' : 'Relocation'}</option>
-          </select>
-        </div>
-        <div className="flex justify-end gap-3 pt-4 border-t">
-          <Button variant="secondary" onClick={onClose}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
-          <Button icon={ArrowRight} onClick={handleTransfer} disabled={!selectedLot || !fromStore || !toStore || transferQty <= 0 || !reason}>{lang === 'th' ? 'ยืนยันโอน' : 'Confirm Transfer'}</Button>
-        </div>
-      </div>
-    </Modal>
-  )
-}
-
-// ============================================
-// STOCK ADJUSTMENT MODAL - Spec 33
-// ============================================
-const StockAdjustmentModal = ({ isOpen, onClose, inventory, onAdjust, lang }) => {
-  const [selectedLot, setSelectedLot] = useState(null)
-  const [adjustType, setAdjustType] = useState('')
-  const [adjustQty, setAdjustQty] = useState(0)
-  const [reason, setReason] = useState('')
-  const [searchLot, setSearchLot] = useState('')
-
-  const filteredLots = inventory.filter(lot => searchLot && lot.lotNo?.toLowerCase().includes(searchLot.toLowerCase()))
-
-  const handleAdjust = () => {
-    if (!selectedLot || !adjustType || adjustQty <= 0 || !reason) return
-    const newQty = adjustType === 'increase' ? selectedLot.qty + adjustQty : Math.max(0, selectedLot.qty - adjustQty)
-    onAdjust({ lotId: selectedLot.id, lotNo: selectedLot.lotNo, previousQty: selectedLot.qty, newQty, adjustType, adjustQty, reason, adjustedBy: 'Store Keeper', adjustDate: new Date().toISOString(), status: 'pending_approval' })
-    setSelectedLot(null); setAdjustType(''); setAdjustQty(0); setReason(''); setSearchLot(''); onClose()
-  }
-
-  if (!isOpen) return null
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={lang === 'th' ? 'ปรับปรุงสต็อก' : 'Stock Adjustment'} size="lg">
-      <div className="space-y-4">
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2">
-          <AlertTriangle className="w-5 h-5" />
-          <span>{lang === 'th' ? 'การปรับปรุงสต็อกต้องได้รับการอนุมัติจากผู้จัดการ' : 'Stock adjustments require manager approval'}</span>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ค้นหาล็อต *' : 'Search Lot *'}</label>
-          <input type="text" value={searchLot} onChange={(e) => setSearchLot(e.target.value)} placeholder={lang === 'th' ? 'พิมพ์เลขล็อต...' : 'Type lot number...'} className="w-full px-3 py-2 border rounded-lg" />
-          {searchLot && filteredLots.length > 0 && (
-            <div className="mt-2 max-h-32 overflow-y-auto border rounded-lg divide-y">
-              {filteredLots.slice(0, 5).map(lot => (
-                <div key={lot.id} onClick={() => { setSelectedLot(lot); setSearchLot(lot.lotNo); }} className={`p-2 cursor-pointer hover:bg-gray-50 ${selectedLot?.id === lot.id ? 'bg-blue-50' : ''}`}>
-                  <div className="flex justify-between"><span className="font-mono">{lot.lotNo}</span><span className="font-bold">{lot.qty} pcs</span></div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        {selectedLot && (
-          <>
-            <div className="p-3 bg-gray-50 rounded-lg text-sm">
-              <div><span className="text-gray-500">Lot:</span> <strong>{selectedLot.lotNo}</strong> | <span className="text-gray-500">Current:</span> <strong>{selectedLot.qty}</strong></div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <label className={`p-4 border-2 rounded-lg cursor-pointer text-center ${adjustType === 'increase' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
-                <input type="radio" name="adjustType" value="increase" checked={adjustType === 'increase'} onChange={() => setAdjustType('increase')} className="sr-only" />
-                <TrendingUp className={`w-8 h-8 mx-auto mb-2 ${adjustType === 'increase' ? 'text-green-500' : 'text-gray-400'}`} />
-                <div className={`font-medium ${adjustType === 'increase' ? 'text-green-700' : 'text-gray-600'}`}>{lang === 'th' ? 'เพิ่ม' : 'Increase'}</div>
-              </label>
-              <label className={`p-4 border-2 rounded-lg cursor-pointer text-center ${adjustType === 'decrease' ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
-                <input type="radio" name="adjustType" value="decrease" checked={adjustType === 'decrease'} onChange={() => setAdjustType('decrease')} className="sr-only" />
-                <TrendingDown className={`w-8 h-8 mx-auto mb-2 ${adjustType === 'decrease' ? 'text-red-500' : 'text-gray-400'}`} />
-                <div className={`font-medium ${adjustType === 'decrease' ? 'text-red-700' : 'text-gray-600'}`}>{lang === 'th' ? 'ลด' : 'Decrease'}</div>
-              </label>
-            </div>
-          </>
-        )}
-        {adjustType && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'จำนวนที่ปรับ *' : 'Adjustment Qty *'}</label>
-              <input type="number" min="1" value={adjustQty} onChange={(e) => setAdjustQty(parseInt(e.target.value) || 0)} className="w-full px-3 py-2 border rounded-lg text-lg font-bold text-center" />
-              <div className="text-sm text-center mt-1">{lang === 'th' ? 'ผลลัพธ์:' : 'Result:'} <strong className={adjustType === 'increase' ? 'text-green-600' : 'text-red-600'}>{adjustType === 'increase' ? selectedLot.qty + adjustQty : Math.max(0, selectedLot.qty - adjustQty)}</strong></div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เหตุผล *' : 'Reason *'}</label>
-              <select value={reason} onChange={(e) => setReason(e.target.value)} className="w-full px-3 py-2 border rounded-lg">
-                <option value="">{lang === 'th' ? '-- เลือก --' : '-- Select --'}</option>
-                <option value="count_discrepancy">{lang === 'th' ? 'นับได้ไม่ตรง' : 'Physical Count Discrepancy'}</option>
-                <option value="damage">{lang === 'th' ? 'เสียหาย / แตกหัก' : 'Damaged / Broken'}</option>
-                <option value="correction">{lang === 'th' ? 'แก้ไขข้อมูล' : 'Data Correction'}</option>
-              </select>
-            </div>
-          </>
-        )}
-        <div className="flex justify-end gap-3 pt-4 border-t">
-          <Button variant="secondary" onClick={onClose}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
-          <Button icon={Save} onClick={handleAdjust} disabled={!selectedLot || !adjustType || adjustQty <= 0 || !reason}>{lang === 'th' ? 'ส่งขออนุมัติ' : 'Submit for Approval'}</Button>
-        </div>
-      </div>
-    </Modal>
-  )
-}
-
-// ============================================
 // INVENTORY MODULE (Full with CBM tracking)
 // ============================================
-const InventoryModule = ({ inventory, setInventory, stores, categories, workOrders, lang }) => {
-  const [activeTab, setActiveTab] = useState('inventory')
+const InventoryModule = ({ inventory, setInventory, stores, categories, lang }) => {
   const [selectedStore, setSelectedStore] = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [search, setSearch] = useState('')
   const [showEditModal, setShowEditModal] = useState(false)
   const [showLabelModal, setShowLabelModal] = useState(false)
-  const [showRMLabelModal, setShowRMLabelModal] = useState(false)
-  const [showIssueModal, setShowIssueModal] = useState(false)
-  const [showTransferModal, setShowTransferModal] = useState(false)
-  const [showAdjustModal, setShowAdjustModal] = useState(false)
   const [selectedLot, setSelectedLot] = useState(null)
   const [lotsForLabels, setLotsForLabels] = useState([])
   const [expandedCodes, setExpandedCodes] = useState({})
 
-  const tabs = [
-    { id: 'inventory', label: lang === 'th' ? 'สินค้าคงคลัง' : 'Inventory', icon: Package },
-    { id: 'issue', label: lang === 'th' ? 'เบิกวัสดุ' : 'Material Issue', icon: ArrowRight },
-    { id: 'transfer', label: lang === 'th' ? 'โอนย้าย' : 'Transfer', icon: RefreshCw },
-    { id: 'adjust', label: lang === 'th' ? 'ปรับปรุง' : 'Adjustment', icon: Edit3 },
-    { id: 'labels', label: lang === 'th' ? 'พิมพ์ฉลาก' : 'Labels', icon: Printer },
-  ]
-
   const handlePrintLabel = (lot) => {
     setLotsForLabels([lot])
     setShowLabelModal(true)
-  }
-
-  const handlePrintRMLabels = (lots) => {
-    setLotsForLabels(lots || filteredInventory.filter(i => ['MLH', 'PW', 'PWKD', 'PWGRN', 'PLYRR', 'PLYRW', 'PLYWW', 'PRTB'].includes(i.category)))
-    setShowRMLabelModal(true)
   }
 
   const handlePrintAllLabels = () => {
@@ -5619,49 +2625,6 @@ const InventoryModule = ({ inventory, setInventory, stores, categories, workOrde
     setInventory(inv => inv.map(i => i.id === updatedLot.id ? updatedLot : i))
     setLotsForLabels([updatedLot])
     setShowLabelModal(true)
-  }
-
-  const handleMaterialIssue = (issueData) => {
-    setInventory(inv => inv.map(item => {
-      if (item.id === issueData.lotId) {
-        return { ...item, qty: item.qty - issueData.qtyIssued }
-      }
-      return item
-    }))
-  }
-
-  const handleTransfer = (transferData) => {
-    setInventory(inv => {
-      const newInv = inv.map(item => {
-        if (item.id === transferData.lotId) {
-          if (transferData.qty === item.qty) {
-            return { ...item, store: transferData.toStore }
-          } else {
-            return { ...item, qty: item.qty - transferData.qty }
-          }
-        }
-        return item
-      })
-      if (transferData.qty < inv.find(i => i.id === transferData.lotId)?.qty) {
-        const original = inv.find(i => i.id === transferData.lotId)
-        newInv.push({
-          ...original,
-          id: `${original.id}-T${Date.now()}`,
-          qty: transferData.qty,
-          store: transferData.toStore,
-        })
-      }
-      return newInv
-    })
-  }
-
-  const handleAdjust = (adjustData) => {
-    setInventory(inv => inv.map(item => {
-      if (item.id === adjustData.lotId) {
-        return { ...item, qty: adjustData.newQty }
-      }
-      return item
-    }))
   }
 
   // Filter inventory
@@ -5706,41 +2669,15 @@ const InventoryModule = ({ inventory, setInventory, stores, categories, workOrde
           <p className="text-gray-500">{lang === 'th' ? 'ติดตามสินค้าคงคลังทุกคลัง' : 'Track inventory across all stores'}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" icon={ArrowRight} onClick={() => setShowIssueModal(true)}>
-            {lang === 'th' ? 'เบิกวัสดุ' : 'Issue'}
+          <Button variant="outline" icon={Upload}>
+            {lang === 'th' ? 'อัพโหลด' : 'Upload'}
           </Button>
-          <Button variant="outline" icon={RefreshCw} onClick={() => setShowTransferModal(true)}>
-            {lang === 'th' ? 'โอนย้าย' : 'Transfer'}
-          </Button>
-          <Button variant="outline" icon={Edit3} onClick={() => setShowAdjustModal(true)}>
-            {lang === 'th' ? 'ปรับปรุง' : 'Adjust'}
-          </Button>
-          <Button variant="outline" icon={Printer} onClick={() => handlePrintRMLabels()}>
-            {lang === 'th' ? 'พิมพ์ฉลาก A5' : 'Print A5 Labels'}
+          <Button variant="outline" icon={Printer} onClick={handlePrintAllLabels}>
+            {lang === 'th' ? 'พิมพ์ทั้งหมด' : 'Print All'}
           </Button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
-              activeTab === tab.id
-                ? 'border-[#1A5276] text-[#1A5276]'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'inventory' && (
-        <>
       {/* Store Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {stores.map(store => {
@@ -5898,97 +2835,6 @@ const InventoryModule = ({ inventory, setInventory, stores, categories, workOrde
           </tbody>
         </table>
       </Card>
-        </>
-      )}
-
-      {/* Issue Tab */}
-      {activeTab === 'issue' && (
-        <Card className="p-6">
-          <div className="text-center py-8">
-            <Package className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-            <h3 className="text-lg font-bold text-gray-700 mb-2">
-              {lang === 'th' ? 'เบิกวัตถุดิบ' : 'Material Issue'}
-            </h3>
-            <p className="text-gray-500 mb-4">
-              {lang === 'th' ? 'เบิกวัตถุดิบโดยอ้างอิงใบสั่งผลิต (WO)' : 'Issue materials against Work Order (WO)'}
-            </p>
-            <Button icon={ArrowRight} onClick={() => setShowIssueModal(true)}>
-              {lang === 'th' ? 'เบิกวัสดุใหม่' : 'New Issue'}
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* Transfer Tab */}
-      {activeTab === 'transfer' && (
-        <Card className="p-6">
-          <div className="text-center py-8">
-            <RefreshCw className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-            <h3 className="text-lg font-bold text-gray-700 mb-2">
-              {lang === 'th' ? 'โอนระหว่างคลัง' : 'Inter-Store Transfer'}
-            </h3>
-            <p className="text-gray-500 mb-4">
-              {lang === 'th' ? 'โอนวัสดุระหว่างคลังต่างๆ' : 'Transfer materials between stores'}
-            </p>
-            <Button icon={RefreshCw} onClick={() => setShowTransferModal(true)}>
-              {lang === 'th' ? 'โอนย้ายใหม่' : 'New Transfer'}
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* Adjustment Tab */}
-      {activeTab === 'adjust' && (
-        <Card className="p-6">
-          <div className="text-center py-8">
-            <Edit3 className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-            <h3 className="text-lg font-bold text-gray-700 mb-2">
-              {lang === 'th' ? 'ปรับปรุงสต็อก' : 'Stock Adjustment'}
-            </h3>
-            <p className="text-gray-500 mb-4">
-              {lang === 'th' ? 'ปรับปรุงจำนวนสต็อก (ต้องขออนุมัติ)' : 'Adjust stock quantities (requires approval)'}
-            </p>
-            <Button icon={Edit3} onClick={() => setShowAdjustModal(true)}>
-              {lang === 'th' ? 'ปรับปรุงใหม่' : 'New Adjustment'}
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* Labels Tab */}
-      {activeTab === 'labels' && (
-        <Card className="p-6">
-          <h3 className="text-lg font-bold text-gray-700 mb-4">
-            {lang === 'th' ? 'พิมพ์ฉลาก' : 'Print Labels'}
-          </h3>
-          <div className="grid grid-cols-3 gap-4">
-            <button
-              onClick={() => handlePrintRMLabels()}
-              className="p-6 border-2 border-dashed rounded-xl hover:border-[#1A5276] hover:bg-blue-50 transition-all text-center"
-            >
-              <Printer className="w-8 h-8 mx-auto mb-2 text-[#1A5276]" />
-              <div className="font-bold text-gray-700">{lang === 'th' ? 'ฉลาก RM (A5)' : 'RM Labels (A5)'}</div>
-              <div className="text-sm text-gray-500">{lang === 'th' ? '2 ฉลาก/หน้า พร้อมบาร์โค้ด' : '2 labels/page with barcode'}</div>
-            </button>
-            <button
-              onClick={() => alert('Select Sales Order for Allianz labels')}
-              className="p-6 border-2 border-dashed rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
-            >
-              <Printer className="w-8 h-8 mx-auto mb-2 text-blue-600" />
-              <div className="font-bold text-gray-700">Allianz Labels</div>
-              <div className="text-sm text-gray-500">{lang === 'th' ? 'QR Code สำหรับ Alliance' : 'QR Code for Alliance'}</div>
-            </button>
-            <button
-              onClick={() => alert('Select Sales Order for Polyplex labels')}
-              className="p-6 border-2 border-dashed rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all text-center"
-            >
-              <Printer className="w-8 h-8 mx-auto mb-2 text-orange-600" />
-              <div className="font-bold text-gray-700">Polyplex Labels</div>
-              <div className="text-sm text-gray-500">{lang === 'th' ? '4 คอลัมน์ รหัสสี' : '4-column color-coded'}</div>
-            </button>
-          </div>
-        </Card>
-      )}
 
       {/* Modals */}
       <EditLotModal
@@ -6005,39 +2851,6 @@ const InventoryModule = ({ inventory, setInventory, stores, categories, workOrde
         isOpen={showLabelModal}
         onClose={() => setShowLabelModal(false)}
         lots={lotsForLabels}
-        lang={lang}
-      />
-
-      <RMLabelPrintModal
-        isOpen={showRMLabelModal}
-        onClose={() => setShowRMLabelModal(false)}
-        lots={lotsForLabels}
-        lang={lang}
-      />
-
-      <MaterialIssueModal
-        isOpen={showIssueModal}
-        onClose={() => setShowIssueModal(false)}
-        inventory={inventory}
-        workOrders={workOrders || []}
-        onIssue={handleMaterialIssue}
-        lang={lang}
-      />
-
-      <InterStoreTransferModal
-        isOpen={showTransferModal}
-        onClose={() => setShowTransferModal(false)}
-        inventory={inventory}
-        stores={stores}
-        onTransfer={handleTransfer}
-        lang={lang}
-      />
-
-      <StockAdjustmentModal
-        isOpen={showAdjustModal}
-        onClose={() => setShowAdjustModal(false)}
-        inventory={inventory}
-        onAdjust={handleAdjust}
         lang={lang}
       />
     </div>
@@ -6106,6 +2919,7 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
     { id: 'vendors', label: lang === 'th' ? 'ผู้ขาย' : 'Vendors', icon: Users },
     { id: 'reports', label: lang === 'th' ? 'รายงาน' : 'Reports', icon: PieChart },
   ]
+
 
   // Stats
   const stats = {
@@ -6514,152 +3328,6 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
         </Card>
       )}
 
-      {/* Import Tracking Tab */}
-      {activeTab === 'import' && (
-        <Card>
-          <div className="p-4 border-b">
-            <h3 className="text-lg font-bold text-gray-800">
-              {lang === 'th' ? 'ติดตามการนำเข้า' : 'Import Tracking'}
-            </h3>
-            <p className="text-sm text-gray-500">
-              {lang === 'th' ? 'ติดตามสถานะ PO นำเข้า, G Thru Logistics, ศุลกากร' : 'Track import PO status, G Thru Logistics, customs'}
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left">PO</th>
-                  <th className="px-4 py-3 text-left">{lang === 'th' ? 'ผู้ขาย' : 'Vendor'}</th>
-                  <th className="px-4 py-3 text-center">Container</th>
-                  <th className="px-4 py-3 text-center">ETD</th>
-                  <th className="px-4 py-3 text-center">ETA</th>
-                  <th className="px-4 py-3 text-center">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-                  <th className="px-4 py-3 text-center">{lang === 'th' ? 'ศุลกากร' : 'Customs'}</th>
-                  <th className="px-4 py-3 text-center">LC</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {purchaseOrders.filter(po => po.type === 'import').map(po => {
-                  const vendor = vendors.find(v => v.id === po.vendorId)
-                  const importStatus = IMPORT_STATUS.find(s => s.id === (po.logistics?.status || 'pending'))
-                  return (
-                    <tr key={po.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-[#1A5276]">{po.id}</td>
-                      <td className="px-4 py-3">{vendor?.name}</td>
-                      <td className="px-4 py-3 text-center font-mono text-xs">{po.logistics?.containerNo || '-'}</td>
-                      <td className="px-4 py-3 text-center">{po.logistics?.etd || '-'}</td>
-                      <td className="px-4 py-3 text-center">{po.logistics?.eta || '-'}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-1 rounded text-xs text-white ${importStatus?.color || 'bg-gray-500'}`}>
-                          {lang === 'th' ? importStatus?.labelTh : importStatus?.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-xs text-gray-500">{po.logistics?.customsStatus || 'N/A'}</span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {po.lc?.required ? (
-                          <Badge variant={po.lc?.status === 'opened' ? 'success' : 'warning'}>
-                            {po.lc?.status || 'pending'}
-                          </Badge>
-                        ) : (
-                          <span className="text-gray-400">N/A</span>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-                {purchaseOrders.filter(po => po.type === 'import').length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                      {lang === 'th' ? 'ไม่มี PO นำเข้า' : 'No import POs'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      {/* Reports Tab */}
-      {activeTab === 'reports' && (
-        <div className="space-y-6">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-4 gap-4">
-            <Card className="p-4">
-              <div className="text-sm text-gray-500">{lang === 'th' ? 'รวม PO' : 'Total POs'}</div>
-              <div className="text-3xl font-bold text-blue-600">{purchaseOrders.length}</div>
-            </Card>
-            <Card className="p-4">
-              <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่ารวม' : 'Total Value'}</div>
-              <div className="text-2xl font-bold text-green-600">฿{purchaseOrders.reduce((sum, po) => sum + (po.total || 0), 0).toLocaleString()}</div>
-            </Card>
-            <Card className="p-4">
-              <div className="text-sm text-gray-500">{lang === 'th' ? 'นำเข้า' : 'Import'}</div>
-              <div className="text-3xl font-bold text-purple-600">{purchaseOrders.filter(po => po.type === 'import').length}</div>
-            </Card>
-            <Card className="p-4">
-              <div className="text-sm text-gray-500">{lang === 'th' ? 'ในประเทศ' : 'Local'}</div>
-              <div className="text-3xl font-bold text-orange-600">{purchaseOrders.filter(po => po.type === 'local').length}</div>
-            </Card>
-          </div>
-
-          {/* Spend by Vendor */}
-          <Card>
-            <div className="p-4 border-b">
-              <h3 className="font-bold text-gray-800">{lang === 'th' ? 'การใช้จ่ายตามผู้ขาย' : 'Spend by Vendor'}</h3>
-            </div>
-            <div className="p-4 space-y-2">
-              {vendors.map(vendor => {
-                const vendorPOs = purchaseOrders.filter(po => po.vendorId === vendor.id)
-                const total = vendorPOs.reduce((sum, po) => sum + (po.total || 0), 0)
-                const grandTotal = purchaseOrders.reduce((sum, po) => sum + (po.total || 0), 0)
-                const pct = grandTotal > 0 ? ((total / grandTotal) * 100).toFixed(1) : 0
-                return (
-                  <div key={vendor.id} className="p-3 bg-gray-50 rounded-lg flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">{vendor.name}</div>
-                      <div className="text-sm text-gray-500">{vendorPOs.length} POs</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-[#2ECC40]">฿{total.toLocaleString()}</div>
-                      <div className="text-sm text-gray-500">{pct}%</div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </Card>
-
-          {/* Variance Report */}
-          <Card>
-            <div className="p-4 border-b">
-              <h3 className="font-bold text-gray-800">{lang === 'th' ? 'รายงาน Variance' : 'Variance Report'}</h3>
-            </div>
-            <div className="p-4">
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="text-sm text-amber-600">{lang === 'th' ? 'PO มี Variance' : 'POs with Variance'}</div>
-                  <div className="text-3xl font-bold text-amber-700">{purchaseOrders.filter(po => po.hasVariance).length}</div>
-                </div>
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="text-sm text-green-600">{lang === 'th' ? 'PO ปกติ' : 'Normal POs'}</div>
-                  <div className="text-3xl font-bold text-green-700">{purchaseOrders.filter(po => !po.hasVariance).length}</div>
-                </div>
-                <div className="p-4 bg-gray-50 border rounded-lg">
-                  <div className="text-sm text-gray-600">{lang === 'th' ? 'อัตรา Variance' : 'Variance Rate'}</div>
-                  <div className="text-3xl font-bold text-gray-700">
-                    {purchaseOrders.length > 0 ? ((purchaseOrders.filter(po => po.hasVariance).length / purchaseOrders.length) * 100).toFixed(1) : 0}%
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-
       {/* PO Form Modal */}
       {showPOModal && (
         <Modal isOpen={showPOModal} onClose={() => setShowPOModal(false)} title={lang === 'th' ? 'สร้างใบสั่งซื้อ' : 'New Purchase Order'} size="xl">
@@ -6683,6 +3351,8 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
       )}
 
       {/* GRN Modal */}
+
+      {/* GRN Modal - Enhanced with Split Lots */}
       {showGRNModal && selectedPO && (
         <Modal isOpen={showGRNModal} onClose={() => setShowGRNModal(false)} title={lang === 'th' ? 'รับสินค้า' : 'Goods Receipt'} size="xl">
           <GoodsReceiptForm
@@ -6697,6 +3367,7 @@ const PurchaseModule = ({ purchaseOrders, setPurchaseOrders, vendors, categories
           />
         </Modal>
       )}
+
 
       {/* Smart Upload Modal */}
       <SmartDocumentUploadModal
@@ -7114,6 +3785,7 @@ const PurchaseOrderForm = ({ po, vendors, categories, onSave, onCancel, lang }) 
   )
 }
 
+
 // ============================================
 // REJECT ITEM MODAL
 // ============================================
@@ -7177,13 +3849,14 @@ const RejectItemModal = ({ item, lang, onReject, onCancel }) => {
           </div>
 
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-            ⚠️ {lang === 'th' 
+            <AlertTriangle className="w-4 h-4 inline mr-1" />
+            {lang === 'th' 
               ? 'การปฏิเสธจะถูกบันทึก และต้องแจ้ง Vendor เพื่อออกใบแจ้งหนี้ใหม่ (Revised Invoice)' 
               : 'Rejection will be recorded. Vendor must be notified for Revised Invoice.'}
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="secondary" onClick={onCancel}>
               {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
             </Button>
             <Button type="submit" variant="danger" icon={X}>
@@ -7200,6 +3873,7 @@ const RejectItemModal = ({ item, lang, onReject, onCancel }) => {
 // ADD RECEIPT ITEM MODAL (Not on PO)
 // ============================================
 const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
+  const rmCategories = categories?.filter(c => c.type === 'raw_material') || []
   const [formData, setFormData] = useState({
     categoryId: '',
     thickness: 0,
@@ -7234,7 +3908,8 @@ const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
         </div>
 
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg mb-4 text-sm text-blue-800">
-          ℹ️ {lang === 'th' 
+          <Info className="w-4 h-4 inline mr-1" />
+          {lang === 'th' 
             ? 'รายการนี้จะถูกบันทึกเป็น Variance และจะสร้าง Variance Report' 
             : 'This will be recorded as Variance and generate a Variance Report'}
         </div>
@@ -7252,7 +3927,7 @@ const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
                 className="w-full px-3 py-2 border rounded-lg"
               >
                 <option value="">{lang === 'th' ? '-- เลือก --' : '-- Select --'}</option>
-                {categories.map(c => (
+                {rmCategories.map(c => (
                   <option key={c.id} value={c.id}>{c.code} - {c.nameEn}</option>
                 ))}
               </select>
@@ -7342,7 +4017,7 @@ const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="secondary" onClick={onCancel}>
               {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
             </Button>
             <Button type="submit" icon={Plus}>
@@ -7357,7 +4032,7 @@ const AddReceiptItemModal = ({ categories, lang, onAdd, onCancel }) => {
 
 // ============================================
 // ENHANCED GOODS RECEIPT FORM
-// With Split Lots, Reject, Add Items
+// With Split Lots, Reject, Add Items (Spec 3-4)
 // ============================================
 const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGlobalLotSequence, onSave, onCancel, lang }) => {
   const vendor = vendors.find(v => v.id === po.vendorId)
@@ -7400,6 +4075,26 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
     po.items.forEach((_, idx) => { expanded[idx] = true })
     return expanded
   })
+
+  // Generate lot number
+  const generateLotNumber = (categoryCode) => {
+    const seq = (globalLotSequence || 14926) + 1
+    if (setGlobalLotSequence) setGlobalLotSequence(seq)
+    
+    let prefix
+    switch (categoryCode) {
+      case 'MLH': prefix = 'LP'; break
+      case 'PW': prefix = vendor?.initials || 'PW'; break
+      case 'PWKD': prefix = vendor?.initials || 'PW'; break
+      case 'PWGRN': prefix = vendor?.initials || 'PW'; break
+      case 'PLYRR': prefix = 'PLYRR'; break
+      case 'PLYRW': prefix = 'PLYRW'; break
+      case 'PLYWW': prefix = 'PLYWW'; break
+      case 'PRTB': prefix = 'PRTB'; break
+      default: prefix = categoryCode
+    }
+    return `${prefix}${seq}`
+  }
 
   // Toggle item expansion
   const toggleExpand = (idx) => {
@@ -7563,7 +4258,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
   const handleSubmit = (e) => {
     e.preventDefault()
     
-    const allItems = []
+    const allLots = []
     const rejections = []
     
     receiptItems.forEach(item => {
@@ -7581,7 +4276,8 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
       item.lots.forEach(lot => {
         if (lot.qtyToReceive <= 0) return
         
-        allItems.push({
+        allLots.push({
+          poItemIdx: item.poItemIdx,
           id: item.poItem.id,
           category: item.poItem.categoryId,
           thickness: lot.actualThickness,
@@ -7591,14 +4287,16 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
           unitPrice: item.poItem.unitPrice,
           hasVariance: lot.hasVariance,
           varianceType: lot.varianceType,
-          varianceReason: lot.varianceNote || (lot.hasVariance ? `Size: ${lot.actualThickness}x${lot.actualWidth}x${lot.actualLength} vs PO: ${item.poItem.thickness}x${item.poItem.width}x${item.poItem.length}` : ''),
+          varianceNote: lot.varianceNote || (lot.hasVariance ? `Size: ${lot.actualThickness}x${lot.actualWidth}x${lot.actualLength} vs PO: ${item.poItem.thickness}x${item.poItem.width}x${item.poItem.length}` : ''),
+          varianceReason: lot.varianceNote,
         })
       })
     })
     
     // Add additional items
     additionalItems.forEach(item => {
-      allItems.push({
+      allLots.push({
+        poItemIdx: null,
         id: item.id,
         category: item.categoryId,
         thickness: item.thickness,
@@ -7608,6 +4306,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
         unitPrice: item.unitPrice,
         hasVariance: true,
         varianceType: 'not_on_po',
+        varianceNote: item.note || 'Additional item not on PO',
         varianceReason: item.note || 'Additional item not on PO',
         isAdditional: true,
       })
@@ -7617,7 +4316,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
       poId: po.id,
       grnDate,
       notes: grnNotes,
-      items: allItems,
+      items: allLots,
       rejections,
       hasVariance: totals.hasVariance,
       summary: totals,
@@ -7752,7 +4451,8 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
                         {item.rejectNote && ` - ${item.rejectNote}`}
                       </div>
                       <div className="mt-2 p-2 bg-yellow-100 rounded text-sm text-yellow-800">
-                        ⚠️ {lang === 'th' ? 'Vendor ต้องออก Revised Invoice' : 'Vendor must issue Revised Invoice'}
+                        <AlertTriangle className="w-4 h-4 inline mr-1" />
+                        {lang === 'th' ? 'Vendor ต้องออก Revised Invoice' : 'Vendor must issue Revised Invoice'}
                       </div>
                       <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => handleUnrejectItem(itemIdx)}>
                         <RotateCcw className="w-4 h-4 mr-1" /> {lang === 'th' ? 'ยกเลิกปฏิเสธ' : 'Undo'}
@@ -7769,6 +4469,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
                         >
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-sm font-medium text-gray-600">
+                              <Layers className="w-4 h-4 inline mr-1" />
                               {lang === 'th' ? 'ล็อต' : 'Lot'} #{lotIdx + 1}
                               {lot.hasVariance && <span className="ml-2 text-amber-600">⚠️ Size differs</span>}
                             </span>
@@ -7876,7 +4577,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
         <div className="space-y-2">
           <h4 className="font-bold text-gray-700 flex items-center gap-2">
             <Plus className="w-4 h-4 text-blue-500" />
-            {lang === 'th' ? 'รายการเพิ่มเติม' : 'Additional Items'}
+            {lang === 'th' ? 'รายการเพิ่มเติม (ไม่อยู่ใน PO)' : 'Additional Items (Not in PO)'}
           </h4>
           {additionalItems.map((item, idx) => (
             <div key={idx} className="p-3 border-2 border-blue-300 bg-blue-50 rounded-lg flex items-center justify-between">
@@ -7927,7 +4628,10 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
           </div>
         </div>
         {totals.hasVariance && (
-          <div className="mt-2 text-center text-sm text-amber-700">⚠️ Variance detected - Report will be generated</div>
+          <div className="mt-2 text-center text-sm text-amber-700">
+            <AlertTriangle className="w-4 h-4 inline mr-1" />
+            Variance detected - Report will be generated
+          </div>
         )}
       </div>
 
@@ -7951,7 +4655,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
 
       {showAddItemModal && (
         <AddReceiptItemModal
-          categories={rmCategories}
+          categories={categories}
           lang={lang}
           onAdd={handleAddAdditionalItem}
           onCancel={() => setShowAddItemModal(false)}
@@ -7960,254 +4664,78 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
     </form>
   )
 }
+
+
 // ============================================
-// PRODUCTION MODULE - ENHANCED v7.5
-// Full WO Flow: C1/C2 → P1/P2/P3 → ASM1/ASM2 → OVN → QC → FG
-// + Label Printing, QC Checklist, Dept View, BOM
+// PRODUCTION MODULE (With Costing Analysis)
 // ============================================
-const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, inventory, setInventory, categories, stores, salesOrders, setSalesOrders, products, lang, currentUser }) => {
+const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, inventory, setInventory, categories, stores, lang }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [showWOModal, setShowWOModal] = useState(false)
   const [showIssueModal, setShowIssueModal] = useState(false)
-  const [showQCModal, setShowQCModal] = useState(false)
-  const [showHTModal, setShowHTModal] = useState(false)
-  const [showFGTransferModal, setShowFGTransferModal] = useState(false)
-  const [showLabelModal, setShowLabelModal] = useState(false)
-  const [showBOMModal, setShowBOMModal] = useState(false)
-  const [showChecklistConfigModal, setShowChecklistConfigModal] = useState(false)
   const [selectedWO, setSelectedWO] = useState(null)
   const [filterDept, setFilterDept] = useState('all')
-  const [selectedDate, setSelectedDate] = useState(new Date())
-  const [myDept, setMyDept] = useState('C1') // User's department
-  
-  // QC Checklists per product (configurable)
-  const [qcChecklists, setQcChecklists] = useState({
-    'default': [
-      { id: 1, item: 'Dimensions correct', required: true },
-      { id: 2, item: 'No visible defects', required: true },
-      { id: 3, item: 'Proper assembly', required: true },
-      { id: 4, item: 'Surface finish OK', required: true },
-      { id: 5, item: 'Labels attached', required: false },
-    ],
-    'pallet': [
-      { id: 1, item: 'Dimensions per spec', required: true },
-      { id: 2, item: 'No cracks or splits', required: true },
-      { id: 3, item: 'Nail heads flush', required: true },
-      { id: 4, item: 'Heat treatment mark visible', required: true },
-      { id: 5, item: 'Stacking test passed', required: true },
-      { id: 6, item: 'Weight within tolerance', required: false },
-    ],
-    'crate': [
-      { id: 1, item: 'Dimensions per spec', required: true },
-      { id: 2, item: 'Joint strength OK', required: true },
-      { id: 3, item: 'No protruding nails', required: true },
-      { id: 4, item: 'Hinges/latches work', required: false },
-      { id: 5, item: 'Interior clean', required: true },
-    ],
-  })
-
-  // BOM Templates per product type
-  const bomTemplates = {
-    'pallet-standard': [
-      { material: 'Stringer (90x90x1200)', qty: 3, unit: 'pcs', category: 'MLH' },
-      { material: 'Top Board (20x100x1000)', qty: 7, unit: 'pcs', category: 'MLH' },
-      { material: 'Bottom Board (20x100x1000)', qty: 3, unit: 'pcs', category: 'MLH' },
-      { material: 'Nails 3"', qty: 50, unit: 'pcs', category: 'Consumables' },
-    ],
-    'pallet-ht': [
-      { material: 'Stringer HT (90x90x1200)', qty: 3, unit: 'pcs', category: 'MLH' },
-      { material: 'Top Board HT (20x100x1000)', qty: 7, unit: 'pcs', category: 'MLH' },
-      { material: 'Bottom Board HT (20x100x1000)', qty: 3, unit: 'pcs', category: 'MLH' },
-      { material: 'Nails 3"', qty: 50, unit: 'pcs', category: 'Consumables' },
-    ],
-    'crate-standard': [
-      { material: 'Plywood 12mm', qty: 2, unit: 'sheets', category: 'Plywood' },
-      { material: 'Frame Wood (40x40)', qty: 12, unit: 'm', category: 'MLH' },
-      { material: 'Screws', qty: 100, unit: 'pcs', category: 'Consumables' },
-      { material: 'Corner Brackets', qty: 8, unit: 'pcs', category: 'Consumables' },
-    ],
-  }
-
-  // Department flow order
-  const DEPT_FLOW = ['C1', 'C2', 'P1', 'P2', 'P3', 'ASM1', 'ASM2', 'OVN', 'QC', 'FG']
-  
-  // Department colors
-  const DEPT_COLORS = {
-    C1: 'bg-red-100 text-red-700 border-red-300',
-    C2: 'bg-orange-100 text-orange-700 border-orange-300',
-    P1: 'bg-yellow-100 text-yellow-700 border-yellow-300',
-    P2: 'bg-lime-100 text-lime-700 border-lime-300',
-    P3: 'bg-green-100 text-green-700 border-green-300',
-    ASM1: 'bg-teal-100 text-teal-700 border-teal-300',
-    ASM2: 'bg-cyan-100 text-cyan-700 border-cyan-300',
-    OVN: 'bg-blue-100 text-blue-700 border-blue-300',
-    QC: 'bg-purple-100 text-purple-700 border-purple-300',
-    FG: 'bg-emerald-100 text-emerald-700 border-emerald-300',
-  }
 
   const tabs = [
-    { id: 'dashboard', label: lang === 'th' ? 'หน้าหลัก' : 'Dashboard', icon: Home },
-    { id: 'mydept', label: lang === 'th' ? 'แผนกฉัน' : 'My Dept', icon: User },
-    { id: 'schedule', label: lang === 'th' ? 'ตารางงาน' : 'Schedule', icon: Calendar },
+    { id: 'dashboard', label: lang === 'th' ? 'ภาพรวม' : 'Dashboard', icon: BarChart3 },
     { id: 'orders', label: lang === 'th' ? 'ใบสั่งผลิต' : 'Work Orders', icon: ClipboardList },
     { id: 'floor', label: lang === 'th' ? 'หน้างาน' : 'Floor View', icon: Factory },
-    { id: 'labels', label: lang === 'th' ? 'ฉลาก' : 'Labels', icon: Tag },
-    { id: 'bom', label: lang === 'th' ? 'BOM' : 'BOM', icon: Layers },
-    { id: 'qc', label: lang === 'th' ? 'QC' : 'QC Check', icon: CheckCircle },
-    { id: 'ht', label: lang === 'th' ? 'ใบ HT' : 'HT Certs', icon: FileText },
     { id: 'costing', label: lang === 'th' ? 'ต้นทุน' : 'Costing', icon: Calculator },
   ]
 
   // Stats
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  
   const stats = {
     total: workOrders.length,
     pending: workOrders.filter(wo => wo.status === 'pending').length,
     inProgress: workOrders.filter(wo => wo.status === 'in_progress').length,
-    atQC: workOrders.filter(wo => wo.currentDept === 'QC').length,
     completed: workOrders.filter(wo => wo.status === 'completed').length,
-    todayDue: workOrders.filter(wo => {
-      const dueDate = new Date(wo.targetDate)
-      dueDate.setHours(0, 0, 0, 0)
-      return dueDate.getTime() === today.getTime() && wo.status !== 'completed'
-    }).length,
-    overdue: workOrders.filter(wo => {
-      const dueDate = new Date(wo.targetDate)
-      return dueDate < today && wo.status !== 'completed'
-    }).length,
+    totalRevenue: workOrders.reduce((sum, wo) => sum + (wo.totalRevenue || 0), 0),
+    totalCost: workOrders.reduce((sum, wo) => sum + (wo.costs?.total || 0), 0),
   }
 
-  // Get next 7 days for schedule
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(selectedDate)
-    d.setDate(d.getDate() + i)
-    return d
-  })
-
-  // Get WOs for a specific department and date
-  const getWOsForDeptDate = (deptCode, date) => {
-    const dateStr = date.toISOString().split('T')[0]
-    return workOrders.filter(wo => {
-      const woDate = wo.scheduledDate || wo.targetDate
-      if (!woDate) return false
-      const woDateStr = new Date(woDate).toISOString().split('T')[0]
-      return woDateStr === dateStr && (wo.currentDept === deptCode || wo.department === deptCode)
-    })
-  }
-
-  // Move WO to next department
-  const moveToNextDept = (wo) => {
-    const currentIdx = DEPT_FLOW.indexOf(wo.currentDept || wo.department)
-    if (currentIdx === -1 || currentIdx >= DEPT_FLOW.length - 1) return
-
-    const nextDept = DEPT_FLOW[currentIdx + 1]
-    const now = new Date().toISOString()
-
-    setWorkOrders(workOrders.map(w => {
-      if (w.id !== wo.id) return w
-      const deptLog = [...(w.deptLog || []), {
-        dept: w.currentDept || w.department,
-        completedAt: now,
-        completedBy: 'Current User',
-      }]
-      return {
-        ...w,
-        currentDept: nextDept,
-        deptLog,
-        status: nextDept === 'FG' ? 'completed' : 'in_progress',
-      }
-    }))
-  }
-
-  // Start WO in department
-  const startInDept = (wo, deptCode) => {
-    setWorkOrders(workOrders.map(w => {
-      if (w.id !== wo.id) return w
-      return {
-        ...w,
-        currentDept: deptCode,
+  const handleStartOperation = (woId, dept) => {
+    setWorkOrders(workOrders.map(wo => {
+      if (wo.id !== woId) return wo
+      const newOps = [...(wo.operations || []), {
+        dept,
         status: 'in_progress',
-        startedAt: w.startedAt || new Date().toISOString(),
-      }
+        startTime: new Date().toISOString(),
+        endTime: null,
+        hours: 0,
+        operator: 'Current User',
+      }]
+      return { ...wo, status: 'in_progress', operations: newOps }
     }))
   }
 
-  // QC Pass
-  const handleQCPass = (wo, checklist) => {
-    const now = new Date().toISOString()
-    setWorkOrders(workOrders.map(w => {
-      if (w.id !== wo.id) return w
-      return {
-        ...w,
-        currentDept: 'FG',
-        status: 'completed',
-        qcPassedAt: now,
-        qcPassedBy: 'Current User',
-        qcChecklist: checklist,
-        deptLog: [...(w.deptLog || []), { dept: 'QC', completedAt: now, completedBy: 'Current User', result: 'PASS' }],
-      }
+  const handleCompleteOperation = (woId, dept) => {
+    setWorkOrders(workOrders.map(wo => {
+      if (wo.id !== woId) return wo
+      const newOps = wo.operations.map(op => {
+        if (op.dept !== dept || op.status !== 'in_progress') return op
+        const endTime = new Date()
+        const startTime = new Date(op.startTime)
+        const hours = (endTime - startTime) / (1000 * 60 * 60)
+        return { ...op, status: 'completed', endTime: endTime.toISOString(), hours }
+      })
+      return { ...wo, operations: newOps }
     }))
-    // Update sales order if linked
-    if (wo.soId && setSalesOrders) {
-      setSalesOrders(prev => prev.map(so => {
-        if (so.id !== wo.soId) return so
-        const updatedItems = (so.items || []).map(item => ({
-          ...item,
-          fgQty: (item.fgQty || 0) + (wo.quantity || 0),
-        }))
-        return { ...so, items: updatedItems, status: 'ready' }
-      }))
-    }
-    setShowQCModal(false)
   }
 
-  // QC Fail
-  const handleQCFail = (wo, reason) => {
-    setWorkOrders(workOrders.map(w => {
-      if (w.id !== wo.id) return w
-      return {
-        ...w,
-        qcFailed: true,
-        qcFailReason: reason,
-        deptLog: [...(w.deptLog || []), { dept: 'QC', completedAt: new Date().toISOString(), result: 'FAIL', reason }],
-      }
-    }))
-    setShowQCModal(false)
-  }
-
-  // Generate HT Certificate
-  const generateHTCert = (wo) => {
-    const now = new Date()
-    const certNo = `${now.getFullYear().toString().slice(-2)}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}${Math.floor(Math.random()*100).toString().padStart(2,'0')}`
-    
-    setWorkOrders(workOrders.map(w => {
-      if (w.id !== wo.id) return w
-      return {
-        ...w,
-        htCertNo: certNo,
-        htDate: now.toISOString(),
-        htTemp: '56°C',
-        htDuration: '30 min',
-      }
-    }))
-    setShowHTModal(false)
-  }
-
-  // Handle Material Issue
   const handleIssue = (wo) => {
     setSelectedWO(wo)
     setShowIssueModal(true)
   }
 
   const handleMaterialIssue = (issueData) => {
+    // Deduct from inventory
     issueData.items.forEach(item => {
       setInventory(inv => inv.map(i => 
         i.lotNo === item.lotNo ? { ...i, qty: i.qty - item.qty } : i
       ))
     })
 
+    // Update WO with issued materials
     setWorkOrders(workOrders.map(wo => {
       if (wo.id !== selectedWO.id) return wo
       const newIssued = [...(wo.materialsIssued || []), ...issueData.items]
@@ -8227,69 +4755,73 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
     setSelectedWO(null)
   }
 
+  // Filter WOs by department
   const filteredWOs = filterDept === 'all' 
     ? workOrders 
-    : workOrders.filter(wo => wo.currentDept === filterDept || wo.department === filterDept)
-
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const dayNamesTh = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
+    : workOrders.filter(wo => wo.department === filterDept)
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{t('nav.production', lang)}</h1>
-          <p className="text-gray-500">{lang === 'th' ? 'จัดการการผลิต WO และติดตามงาน' : 'Manage Work Orders & Track Production'}</p>
+          <p className="text-gray-500">{lang === 'th' ? 'จัดการการผลิตและต้นทุน' : 'Manage production and costing'}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" icon={Printer}>
-            {lang === 'th' ? 'พิมพ์ตาราง' : 'Print Schedule'}
+          <select
+            value={filterDept}
+            onChange={(e) => setFilterDept(e.target.value)}
+            className="px-3 py-2 border rounded-lg"
+          >
+            <option value="all">{lang === 'th' ? 'ทุกแผนก' : 'All Depts'}</option>
+            {departments.filter(d => d.isActive).map(d => (
+              <option key={d.id} value={d.id}>{d.code} - {d.nameEn}</option>
+            ))}
+          </select>
+          <Button icon={Plus} onClick={() => setShowWOModal(true)}>
+            {lang === 'th' ? 'สร้างใบสั่งผลิต' : 'New WO'}
           </Button>
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-        <Card className="p-3 border-l-4 border-l-blue-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'ทั้งหมด' : 'Total'}</div>
-          <div className="text-xl font-bold text-blue-600">{stats.total}</div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <Card className="p-4">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ทั้งหมด' : 'Total'}</div>
+          <div className="text-2xl font-bold text-gray-800">{stats.total}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-yellow-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'รอเริ่ม' : 'Pending'}</div>
-          <div className="text-xl font-bold text-yellow-600">{stats.pending}</div>
+        <Card className="p-4 border-l-4 border-l-yellow-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รอ' : 'Pending'}</div>
+          <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-purple-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'กำลังผลิต' : 'In Progress'}</div>
-          <div className="text-xl font-bold text-purple-600">{stats.inProgress}</div>
+        <Card className="p-4 border-l-4 border-l-blue-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ผลิต' : 'In Progress'}</div>
+          <div className="text-2xl font-bold text-blue-600">{stats.inProgress}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-indigo-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'ที่ QC' : 'At QC'}</div>
-          <div className="text-xl font-bold text-indigo-600">{stats.atQC}</div>
+        <Card className="p-4 border-l-4 border-l-green-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'เสร็จ' : 'Completed'}</div>
+          <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-green-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'เสร็จ' : 'Completed'}</div>
-          <div className="text-xl font-bold text-green-600">{stats.completed}</div>
+        <Card className="p-4 border-l-4 border-l-purple-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รายได้' : 'Revenue'}</div>
+          <div className="text-2xl font-bold text-purple-600">{formatCurrency(stats.totalRevenue)}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-orange-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'ครบวันนี้' : 'Due Today'}</div>
-          <div className="text-xl font-bold text-orange-600">{stats.todayDue}</div>
-        </Card>
-        <Card className="p-3 border-l-4 border-l-red-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'เกินกำหนด' : 'Overdue'}</div>
-          <div className="text-xl font-bold text-red-600">{stats.overdue}</div>
+        <Card className="p-4 border-l-4 border-l-red-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ต้นทุน' : 'Cost'}</div>
+          <div className="text-2xl font-bold text-red-600">{formatCurrency(stats.totalCost)}</div>
         </Card>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b overflow-x-auto">
+      <div className="flex gap-2 border-b">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
               activeTab === tab.id 
-                ? 'border-[#1A5276] text-[#1A5276] bg-blue-50' 
+                ? 'border-[#1A5276] text-[#1A5276]' 
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -8299,333 +4831,132 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
         ))}
       </div>
 
-      {/* Dashboard Tab */}
+      {/* Dashboard */}
       {activeTab === 'dashboard' && (
-        <div className="space-y-6">
-          {/* Alerts */}
-          {(stats.overdue > 0 || stats.todayDue > 0) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {stats.overdue > 0 && (
-                <Card className="p-4 bg-red-50 border-red-200 border-2">
-                  <h3 className="font-bold text-red-800 flex items-center gap-2 mb-3">
-                    <AlertTriangle className="w-5 h-5" />
-                    {lang === 'th' ? `เกินกำหนด (${stats.overdue})` : `Overdue (${stats.overdue})`}
-                  </h3>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {workOrders.filter(wo => new Date(wo.targetDate) < today && wo.status !== 'completed').slice(0, 3).map(wo => (
-                      <div key={wo.id} className="flex justify-between items-center p-2 bg-white rounded">
-                        <div>
-                          <div className="font-mono text-sm">{wo.woNumber || wo.id}</div>
-                          <div className="text-xs text-gray-500">{wo.productName}</div>
-                        </div>
-                        <Badge variant="danger">{wo.currentDept || wo.department}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              )}
-              {stats.todayDue > 0 && (
-                <Card className="p-4 bg-orange-50 border-orange-200 border-2">
-                  <h3 className="font-bold text-orange-800 flex items-center gap-2 mb-3">
-                    <Clock className="w-5 h-5" />
-                    {lang === 'th' ? `ครบกำหนดวันนี้ (${stats.todayDue})` : `Due Today (${stats.todayDue})`}
-                  </h3>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {workOrders.filter(wo => {
-                      const dueDate = new Date(wo.targetDate)
-                      dueDate.setHours(0, 0, 0, 0)
-                      return dueDate.getTime() === today.getTime() && wo.status !== 'completed'
-                    }).slice(0, 3).map(wo => (
-                      <div key={wo.id} className="flex justify-between items-center p-2 bg-white rounded">
-                        <div>
-                          <div className="font-mono text-sm">{wo.woNumber || wo.id}</div>
-                          <div className="text-xs text-gray-500">{wo.productName}</div>
-                        </div>
-                        <Badge variant="warning">{wo.currentDept || wo.department}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              )}
-            </div>
-          )}
-
-          {/* Department Status Grid */}
-          <Card className="overflow-hidden">
-            <div className="p-4 bg-gradient-to-r from-[#1A5276] to-purple-600 text-white">
-              <h3 className="font-bold flex items-center gap-2">
-                <Factory className="w-5 h-5" />
-                {lang === 'th' ? 'สถานะแผนก' : 'Department Status'}
-              </h3>
-            </div>
-            <div className="p-4">
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {DEPT_FLOW.slice(0, -1).map((dept, idx) => {
-                  const deptWOs = workOrders.filter(wo => (wo.currentDept === dept || (!wo.currentDept && wo.department === dept)) && wo.status !== 'completed')
-                  return (
-                    <div key={dept} className="flex items-center">
-                      <div className={`min-w-[100px] p-3 rounded-lg border-2 ${DEPT_COLORS[dept]}`}>
-                        <div className="font-bold text-center">{dept}</div>
-                        <div className="text-2xl font-bold text-center">{deptWOs.length}</div>
-                        <div className="text-xs text-center">{lang === 'th' ? 'งาน' : 'jobs'}</div>
-                      </div>
-                      {idx < DEPT_FLOW.length - 2 && (
-                        <ChevronRight className="w-6 h-6 text-gray-400 mx-1" />
-                      )}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Active WOs */}
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'งานที่กำลังผลิต' : 'Active Work Orders'}</h3>
+            <div className="space-y-3">
+              {workOrders.filter(wo => wo.status === 'in_progress').slice(0, 5).map(wo => {
+                const customer = customers.find(c => c.id === wo.customerId)
+                const progress = wo.quantity > 0 ? ((wo.completedQty || 0) / wo.quantity * 100) : 0
+                return (
+                  <div key={wo.id} className="p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-mono text-[#1A5276] font-medium">{wo.id}</div>
+                      <Badge variant={wo.department === 'C1' ? 'danger' : wo.department === 'C2' ? 'orange' : 'info'}>
+                        {wo.department}
+                      </Badge>
                     </div>
-                  )
-                })}
-              </div>
+                    <div className="text-sm text-gray-600">{wo.productName}</div>
+                    <div className="text-xs text-gray-400">{customer?.name}</div>
+                    <div className="mt-2">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>{wo.completedQty || 0} / {wo.quantity}</span>
+                        <span>{progress.toFixed(0)}%</span>
+                      </div>
+                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-[#1A5276] to-[#2ECC40]"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </Card>
 
-          {/* Active WOs and WOs at QC */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Active WOs */}
-            <Card className="p-5">
-              <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'งานที่กำลังผลิต' : 'Active Work Orders'}</h3>
-              <div className="space-y-3 max-h-80 overflow-y-auto">
-                {workOrders.filter(wo => wo.status === 'in_progress').slice(0, 6).map(wo => {
-                  const customer = customers?.find(c => c.id === wo.customerId)
-                  const progress = wo.quantity > 0 ? ((wo.completedQty || 0) / wo.quantity * 100) : 0
-                  return (
-                    <div key={wo.id} className="p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="font-mono text-[#1A5276] font-medium">{wo.woNumber || wo.id}</div>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${DEPT_COLORS[wo.currentDept || wo.department]}`}>
-                          {wo.currentDept || wo.department}
-                        </span>
-                      </div>
-                      <div className="text-sm text-gray-600">{wo.productName}</div>
-                      <div className="text-xs text-gray-400">{customer?.name}</div>
-                      <div className="mt-2">
-                        <div className="flex justify-between text-xs text-gray-500 mb-1">
-                          <span>{wo.completedQty || 0} / {wo.quantity}</span>
-                          <span>{progress.toFixed(0)}%</span>
-                        </div>
-                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-gradient-to-r from-[#1A5276] to-[#2ECC40]"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                      </div>
+          {/* Department Status */}
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'สถานะแผนก' : 'Department Status'}</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {departments.filter(d => d.isActive).slice(0, 6).map(dept => {
+                const deptWOs = workOrders.filter(wo => wo.department === dept.id && wo.status === 'in_progress')
+                const typeColor = DEPARTMENT_TYPES.find(t => t.id === dept.type)?.color || '#gray'
+                return (
+                  <div key={dept.id} className="p-3 rounded-lg border" style={{ borderLeftWidth: 4, borderLeftColor: typeColor }}>
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{dept.code}</div>
+                      <Badge variant={deptWOs.length > 0 ? 'success' : 'default'}>
+                        {deptWOs.length} {lang === 'th' ? 'งาน' : 'jobs'}
+                      </Badge>
                     </div>
-                  )
-                })}
-                {workOrders.filter(wo => wo.status === 'in_progress').length === 0 && (
-                  <p className="text-gray-400 text-center py-4">{lang === 'th' ? 'ไม่มีงานกำลังผลิต' : 'No active jobs'}</p>
-                )}
-              </div>
-            </Card>
-
-            {/* WOs at QC */}
-            <Card className="p-5">
-              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-purple-500" />
-                {lang === 'th' ? 'รอตรวจ QC' : 'Awaiting QC'}
-              </h3>
-              <div className="space-y-3 max-h-80 overflow-y-auto">
-                {workOrders.filter(wo => wo.currentDept === 'QC' && wo.status !== 'completed').map(wo => {
-                  const customer = customers?.find(c => c.id === wo.customerId)
-                  return (
-                    <div key={wo.id} className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="font-mono text-purple-700 font-medium">{wo.woNumber || wo.id}</div>
-                        <button
-                          onClick={() => { setSelectedWO(wo); setShowQCModal(true) }}
-                          className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700"
-                        >
-                          {lang === 'th' ? 'ตรวจ QC' : 'QC Check'}
-                        </button>
-                      </div>
-                      <div className="text-sm text-gray-600">{wo.productName}</div>
-                      <div className="text-xs text-gray-400">{customer?.name} • {wo.quantity} pcs</div>
-                      {wo.requiresHT && (
-                        <div className="mt-2">
-                          <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">HT Required</span>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-                {workOrders.filter(wo => wo.currentDept === 'QC' && wo.status !== 'completed').length === 0 && (
-                  <p className="text-gray-400 text-center py-4">{lang === 'th' ? 'ไม่มีงานรอ QC' : 'No jobs awaiting QC'}</p>
-                )}
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* Schedule Tab - Department Calendar */}
-      {activeTab === 'schedule' && (
-        <div className="space-y-4">
-          {/* Date Navigation */}
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <button 
-                onClick={() => setSelectedDate(d => { const nd = new Date(d); nd.setDate(nd.getDate() - 7); return nd })}
-                className="p-2 hover:bg-gray-100 rounded"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <h3 className="font-bold text-lg">
-                {selectedDate.toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US', { month: 'long', year: 'numeric' })}
-              </h3>
-              <button 
-                onClick={() => setSelectedDate(d => { const nd = new Date(d); nd.setDate(nd.getDate() + 7); return nd })}
-                className="p-2 hover:bg-gray-100 rounded"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-          </Card>
-
-          {/* Schedule Grid */}
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b w-24">
-                      {lang === 'th' ? 'แผนก' : 'Dept'}
-                    </th>
-                    {weekDays.map((day, idx) => {
-                      const isToday = day.toDateString() === new Date().toDateString()
-                      return (
-                        <th key={idx} className={`px-2 py-2 text-center border-b min-w-[120px] ${isToday ? 'bg-blue-100' : ''}`}>
-                          <div className="text-xs text-gray-500">
-                            {lang === 'th' ? dayNamesTh[day.getDay()] : dayNames[day.getDay()]}
-                          </div>
-                          <div className={`text-lg font-bold ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>
-                            {day.getDate()}
-                          </div>
-                        </th>
-                      )
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {DEPT_FLOW.slice(0, -1).map(dept => (
-                    <tr key={dept} className="border-b hover:bg-gray-50">
-                      <td className="px-3 py-2">
-                        <span className={`px-2 py-1 rounded text-sm font-medium ${DEPT_COLORS[dept]}`}>
-                          {dept}
-                        </span>
-                      </td>
-                      {weekDays.map((day, idx) => {
-                        const dayWOs = getWOsForDeptDate(dept, day)
-                        const isToday = day.toDateString() === new Date().toDateString()
-                        return (
-                          <td key={idx} className={`px-2 py-2 align-top ${isToday ? 'bg-blue-50' : ''}`}>
-                            <div className="space-y-1">
-                              {dayWOs.slice(0, 3).map(wo => (
-                                <div 
-                                  key={wo.id}
-                                  className="p-1.5 bg-white border rounded text-xs shadow-sm cursor-pointer hover:shadow"
-                                  onClick={() => setSelectedWO(wo)}
-                                >
-                                  <div className="font-medium truncate">{wo.woNumber?.slice(-6) || wo.id.slice(-6)}</div>
-                                  <div className="text-gray-500 truncate">{wo.quantity} pcs</div>
-                                </div>
-                              ))}
-                              {dayWOs.length > 3 && (
-                                <div className="text-xs text-center text-gray-400">+{dayWOs.length - 3}</div>
-                              )}
-                            </div>
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    <div className="text-xs text-gray-500 mt-1">{dept.nameEn}</div>
+                  </div>
+                )
+              })}
             </div>
           </Card>
         </div>
       )}
 
-      {/* Work Orders Tab */}
+      {/* Work Orders List */}
       {activeTab === 'orders' && (
         <Card className="overflow-hidden">
-          <div className="p-4 border-b flex justify-between items-center">
-            <select
-              value={filterDept}
-              onChange={(e) => setFilterDept(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm"
-            >
-              <option value="all">{lang === 'th' ? 'ทุกแผนก' : 'All Departments'}</option>
-              {DEPT_FLOW.map(dept => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
-          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'WO #' : 'WO #'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'WO #'}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'แผนกปัจจุบัน' : 'Current Dept'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'กำหนด' : 'Due'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'แผนก' : 'Dept'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'วัสดุ' : 'Material'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ต้นทุน' : 'Cost'}</th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {filteredWOs.map(wo => {
-                  const customer = customers?.find(c => c.id === wo.customerId)
-                  const isOverdue = new Date(wo.targetDate) < today && wo.status !== 'completed'
+                  const customer = customers.find(c => c.id === wo.customerId)
                   return (
-                    <tr key={wo.id} className={`hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''}`}>
-                      <td className="px-4 py-3 font-mono text-[#1A5276]">{wo.woNumber || wo.id}</td>
+                    <tr key={wo.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">
-                        <div className="text-sm">{wo.productName}</div>
-                        <div className="text-xs text-gray-400">{wo.customerPO}</div>
+                        <div className="font-mono text-[#1A5276] font-medium">{wo.id}</div>
+                        <div className="text-xs text-gray-400">{wo.soId}</div>
                       </td>
-                      <td className="px-4 py-3 text-sm">{customer?.name || customer?.code}</td>
-                      <td className="px-4 py-3 text-right">{wo.quantity}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{wo.productName}</div>
+                        <div className="text-xs text-gray-400">{wo.materialType}</div>
+                      </td>
+                      <td className="px-4 py-3">{customer?.name || wo.customerId}</td>
+                      <td className="px-4 py-3 text-right">
+                        <div>{wo.completedQty || 0} / {wo.quantity}</div>
+                        <div className="text-xs text-gray-400">
+                          {wo.quantity > 0 ? ((wo.completedQty || 0) / wo.quantity * 100).toFixed(0) : 0}%
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${DEPT_COLORS[wo.currentDept || wo.department]}`}>
-                          {wo.currentDept || wo.department}
-                        </span>
+                        <Badge variant="info">{wo.department}</Badge>
                       </td>
-                      <td className="px-4 py-3 text-center text-sm">
-                        <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
-                          {formatDate(wo.targetDate)}
-                        </span>
-                      </td>
+                      <td className="px-4 py-3 text-right">{formatCurrency(wo.costs?.material || 0)}</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(wo.costs?.total || 0)}</td>
                       <td className="px-4 py-3 text-center">
                         <Badge variant={
                           wo.status === 'completed' ? 'success' :
-                          wo.status === 'in_progress' ? 'warning' : 'default'
+                          wo.status === 'in_progress' ? 'info' :
+                          'warning'
                         }>
                           {wo.status}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1 justify-center">
-                          {wo.status !== 'completed' && (
-                            <>
-                              <button
-                                onClick={() => handleIssue(wo)}
-                                className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                                title="Issue Materials"
-                              >
-                                <Package className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => moveToNextDept(wo)}
-                                className="p-1 text-green-600 hover:bg-green-50 rounded"
-                                title="Move to Next Dept"
-                              >
-                                <ChevronRight className="w-4 h-4" />
-                              </button>
-                            </>
-                          )}
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button 
+                            className="p-1 hover:bg-gray-100 rounded" 
+                            title="Issue Materials"
+                            onClick={() => handleIssue(wo)}
+                          >
+                            <Package className="w-4 h-4 text-blue-500" />
+                          </button>
+                          <button className="p-1 hover:bg-gray-100 rounded" title="View">
+                            <Eye className="w-4 h-4 text-gray-500" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -8637,43 +4968,49 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
         </Card>
       )}
 
-      {/* Floor View Tab */}
+      {/* Floor View */}
       {activeTab === 'floor' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {DEPT_FLOW.slice(0, -1).map(dept => {
-            const deptWOs = workOrders.filter(wo => (wo.currentDept === dept || (!wo.currentDept && wo.department === dept)) && wo.status !== 'completed')
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {departments.filter(d => d.isActive).map(dept => {
+            const deptWOs = workOrders.filter(wo => wo.department === dept.id)
+            const activeWOs = deptWOs.filter(wo => wo.status === 'in_progress')
+            const typeColor = DEPARTMENT_TYPES.find(t => t.id === dept.type)?.color || '#6B7280'
+            
             return (
-              <Card key={dept} className="overflow-hidden">
-                <div className={`p-3 border-b ${DEPT_COLORS[dept]}`}>
+              <Card key={dept.id} className="overflow-hidden">
+                <div className="p-4" style={{ backgroundColor: typeColor + '20' }}>
                   <div className="flex items-center justify-between">
-                    <span className="font-bold">{dept}</span>
-                    <Badge variant="default">{deptWOs.length}</Badge>
+                    <div>
+                      <div className="font-bold text-gray-800">{dept.code}</div>
+                      <div className="text-sm text-gray-600">{dept.nameEn}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold" style={{ color: typeColor }}>{activeWOs.length}</div>
+                      <div className="text-xs text-gray-500">{lang === 'th' ? 'งานกำลังทำ' : 'active'}</div>
+                    </div>
                   </div>
                 </div>
-                <div className="p-3 space-y-2 max-h-80 overflow-y-auto">
-                  {deptWOs.map(wo => {
-                    const customer = customers?.find(c => c.id === wo.customerId)
-                    return (
-                      <div key={wo.id} className="p-2 bg-gray-50 rounded border">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="font-mono text-sm font-medium">{wo.woNumber?.slice(-8) || wo.id.slice(-8)}</div>
-                            <div className="text-xs text-gray-500">{wo.productName}</div>
-                            <div className="text-xs text-gray-400">{wo.quantity} pcs • {customer?.code}</div>
-                          </div>
-                          <button
-                            onClick={() => moveToNextDept(wo)}
-                            className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
-                            title="Move to Next"
-                          >
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
+                <div className="p-4 space-y-2">
+                  {activeWOs.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-4">
+                      {lang === 'th' ? 'ไม่มีงาน' : 'No active jobs'}
+                    </p>
+                  ) : (
+                    activeWOs.map(wo => (
+                      <div key={wo.id} className="p-2 bg-gray-50 rounded flex items-center justify-between">
+                        <div>
+                          <div className="font-mono text-sm text-[#1A5276]">{wo.id}</div>
+                          <div className="text-xs text-gray-500">{wo.productName}</div>
                         </div>
+                        <Button 
+                          size="sm" 
+                          variant="success"
+                          onClick={() => handleCompleteOperation(wo.id, dept.id)}
+                        >
+                          ✓
+                        </Button>
                       </div>
-                    )
-                  })}
-                  {deptWOs.length === 0 && (
-                    <p className="text-gray-400 text-center py-4 text-sm">{lang === 'th' ? 'ว่าง' : 'Empty'}</p>
+                    ))
                   )}
                 </div>
               </Card>
@@ -8682,570 +5019,37 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
         </div>
       )}
 
-      {/* My Department Tab - Shows only WOs for user's department */}
-      {activeTab === 'mydept' && (
-        <div className="space-y-4">
-          {/* Department Selector */}
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <label className="font-medium">{lang === 'th' ? 'แผนกของฉัน:' : 'My Department:'}</label>
-                <select
-                  value={myDept}
-                  onChange={(e) => setMyDept(e.target.value)}
-                  className="px-4 py-2 border rounded-lg text-lg font-bold"
-                >
-                  {DEPT_FLOW.slice(0, -1).map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
-                  ))}
-                </select>
-              </div>
-              <div className={`px-4 py-2 rounded-lg font-bold text-lg ${DEPT_COLORS[myDept]}`}>
-                {workOrders.filter(wo => (wo.currentDept === myDept || (!wo.currentDept && wo.department === myDept)) && wo.status !== 'completed').length} {lang === 'th' ? 'งาน' : 'jobs'}
-              </div>
-            </div>
-          </Card>
-
-          {/* WOs for My Department */}
-          <Card className="overflow-hidden">
-            <div className={`p-4 border-b ${DEPT_COLORS[myDept]}`}>
-              <h3 className="font-bold text-lg flex items-center gap-2">
-                <Factory className="w-5 h-5" />
-                {lang === 'th' ? `งานในแผนก ${myDept}` : `Work Orders in ${myDept}`}
-              </h3>
-            </div>
-            <div className="divide-y">
-              {workOrders
-                .filter(wo => (wo.currentDept === myDept || (!wo.currentDept && wo.department === myDept)) && wo.status !== 'completed')
-                .map(wo => {
-                  const customer = customers?.find(c => c.id === wo.customerId)
-                  const nextDeptIdx = DEPT_FLOW.indexOf(myDept) + 1
-                  const nextDept = DEPT_FLOW[nextDeptIdx] || 'FG'
-                  return (
-                    <div key={wo.id} className="p-4 hover:bg-gray-50">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <div className="font-mono text-lg font-bold text-[#1A5276]">{wo.woNumber || wo.id}</div>
-                            <Badge variant={wo.status === 'in_progress' ? 'warning' : 'default'}>{wo.status}</Badge>
-                          </div>
-                          <div className="text-gray-600 mt-1">{wo.productName}</div>
-                          <div className="text-sm text-gray-500">{customer?.name} • {wo.quantity} pcs</div>
-                          <div className="text-xs text-gray-400 mt-1">Due: {formatDate(wo.targetDate)}</div>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <Button 
-                            size="sm"
-                            onClick={() => handleIssue(wo)}
-                            variant="outline"
-                          >
-                            <Package className="w-4 h-4 mr-1" />
-                            {lang === 'th' ? 'เบิกวัสดุ' : 'Issue'}
-                          </Button>
-                          <Button 
-                            size="sm"
-                            onClick={() => moveToNextDept(wo)}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <ChevronRight className="w-4 h-4 mr-1" />
-                            {lang === 'th' ? `ส่งไป ${nextDept}` : `To ${nextDept}`}
-                          </Button>
-                        </div>
-                      </div>
-                      {/* BOM Preview */}
-                      {wo.bom && wo.bom.length > 0 && (
-                        <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
-                          <div className="font-medium mb-1">{lang === 'th' ? 'วัสดุที่ต้องใช้:' : 'Materials Required:'}</div>
-                          {wo.bom.slice(0, 3).map((item, idx) => (
-                            <div key={idx} className="text-gray-600">• {item.material}: {item.qty} {item.unit}</div>
-                          ))}
-                          {wo.bom.length > 3 && <div className="text-gray-400">+{wo.bom.length - 3} more...</div>}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              {workOrders.filter(wo => (wo.currentDept === myDept || (!wo.currentDept && wo.department === myDept)) && wo.status !== 'completed').length === 0 && (
-                <div className="p-8 text-center text-gray-400">
-                  <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
-                  <p>{lang === 'th' ? 'ไม่มีงานในแผนกนี้' : 'No jobs in this department'}</p>
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Labels Tab - Sales prints labels for QC to paste */}
-      {activeTab === 'labels' && (
-        <div className="space-y-6">
-          <Card className="p-4 bg-blue-50 border-blue-200">
-            <div className="flex items-center gap-3">
-              <Tag className="w-8 h-8 text-blue-600" />
-              <div>
-                <h3 className="font-bold text-blue-800">{lang === 'th' ? 'ฉลากสินค้า' : 'Product Labels'}</h3>
-                <p className="text-sm text-blue-600">{lang === 'th' ? 'Sales พิมพ์ฉลาก → QC ติดที่สินค้า' : 'Sales prints labels → QC pastes on products'}</p>
-              </div>
-            </div>
-          </Card>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Pending Labels */}
-            <Card className="overflow-hidden">
-              <div className="p-4 border-b bg-orange-50">
-                <h3 className="font-bold text-orange-800 flex items-center gap-2">
-                  <Clock className="w-5 h-5" />
-                  {lang === 'th' ? 'รอพิมพ์ฉลาก' : 'Pending Labels'}
-                </h3>
-              </div>
-              <div className="divide-y max-h-96 overflow-y-auto">
-                {workOrders.filter(wo => !wo.labelsPrinted && wo.status !== 'completed').map(wo => {
-                  const customer = customers?.find(c => c.id === wo.customerId)
-                  return (
-                    <div key={wo.id} className="p-4 hover:bg-gray-50">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-mono font-medium">{wo.woNumber || wo.id}</div>
-                          <div className="text-sm text-gray-600">{wo.productName}</div>
-                          <div className="text-xs text-gray-400">{customer?.name} • {wo.quantity} pcs</div>
-                          {customer?.code === 'PPT' && (
-                            <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded mt-1 inline-block">Polyplex 4-Column</span>
-                          )}
-                          {customer?.code === 'ALZ' && (
-                            <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded mt-1 inline-block">Allianz QR</span>
-                          )}
-                        </div>
-                        <Button
-                          size="sm"
-                          onClick={() => { setSelectedWO(wo); setShowLabelModal(true) }}
-                        >
-                          <Printer className="w-4 h-4 mr-1" />
-                          {lang === 'th' ? 'พิมพ์' : 'Print'}
-                        </Button>
-                      </div>
-                    </div>
-                  )
-                })}
-                {workOrders.filter(wo => !wo.labelsPrinted && wo.status !== 'completed').length === 0 && (
-                  <div className="p-8 text-center text-gray-400">
-                    <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
-                    <p>{lang === 'th' ? 'พิมพ์ฉลากครบแล้ว' : 'All labels printed'}</p>
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Label Formats */}
-            <Card className="overflow-hidden">
-              <div className="p-4 border-b bg-green-50">
-                <h3 className="font-bold text-green-800 flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  {lang === 'th' ? 'รูปแบบฉลาก' : 'Label Formats'}
-                </h3>
-              </div>
-              <div className="p-4 space-y-4">
-                {/* Polyplex Format */}
-                <div className="p-3 border rounded-lg">
-                  <div className="font-bold text-orange-700 mb-2">Polyplex - 4 Column Format</div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs border">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="p-1 border">ITEM CODE</th>
-                          <th className="p-1 border">DESCRIPTION</th>
-                          <th className="p-1 border">ORDER NO / DEL LOC</th>
-                          <th className="p-1 border">PO NO</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td className="p-1 border">21028562</td>
-                          <td className="p-1 border">PT 700X1250</td>
-                          <td className="p-1 border bg-white">FILM</td>
-                          <td className="p-1 border">25-263106062</td>
-                        </tr>
-                        <tr>
-                          <td className="p-1 border">21040305</td>
-                          <td className="p-1 border">PT 1100X1100</td>
-                          <td className="p-1 border" style={{backgroundColor: '#FFDAB9'}}>CPP</td>
-                          <td className="p-1 border">25-263103642</td>
-                        </tr>
-                        <tr>
-                          <td className="p-1 border">21040306</td>
-                          <td className="p-1 border">PT 1200X1000</td>
-                          <td className="p-1 border" style={{backgroundColor: '#FF6B6B'}}>LINE 10</td>
-                          <td className="p-1 border">25-263103643</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="mt-2 text-xs text-gray-500">
-                    Colors: FILM=White, CPP=Peach, Line10=Red
-                  </div>
-                </div>
-
-                {/* Allianz Format */}
-                <div className="p-3 border rounded-lg">
-                  <div className="font-bold text-blue-700 mb-2">Allianz - QR Code Label</div>
-                  <div className="flex gap-4">
-                    <div className="flex-1 p-2 bg-gray-50 rounded text-xs">
-                      <div className="font-medium mb-1">Invoice QR:</div>
-                      <code className="text-blue-600">PO#$INV#$VendorCode</code>
-                      <div className="mt-1 text-gray-500">Example: 5100026898$IVT-202601185$115050</div>
-                    </div>
-                    <div className="flex-1 p-2 bg-gray-50 rounded text-xs">
-                      <div className="font-medium mb-1">Package QR:</div>
-                      <code className="text-blue-600">PartNo$Qty$PO#$VendorCode</code>
-                      <div className="mt-1 text-gray-500">Example: 70653302$10$5100026898$115050</div>
-                    </div>
-                  </div>
-                  <div className="mt-2 text-xs text-orange-600">
-                    ⚠️ Allianz also requires HT Certificate (TH-0950)
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* BOM Tab - Materials required per WO */}
-      {activeTab === 'bom' && (
-        <div className="space-y-6">
-          <Card className="p-4 bg-purple-50 border-purple-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Layers className="w-8 h-8 text-purple-600" />
-                <div>
-                  <h3 className="font-bold text-purple-800">{lang === 'th' ? 'รายการวัสดุ (BOM)' : 'Bill of Materials'}</h3>
-                  <p className="text-sm text-purple-600">{lang === 'th' ? 'วัสดุที่ต้องใช้ต่อ Work Order' : 'Materials required per Work Order'}</p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm">
-                <Plus className="w-4 h-4 mr-1" />
-                {lang === 'th' ? 'เพิ่ม BOM Template' : 'Add BOM Template'}
-              </Button>
-            </div>
-          </Card>
-
-          {/* BOM Templates */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(bomTemplates).map(([key, items]) => (
-              <Card key={key} className="overflow-hidden">
-                <div className="p-3 border-b bg-gray-50">
-                  <div className="font-bold capitalize">{key.replace('-', ' ')}</div>
-                </div>
-                <div className="p-3">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-xs text-gray-500">
-                        <th className="text-left pb-2">{lang === 'th' ? 'วัสดุ' : 'Material'}</th>
-                        <th className="text-right pb-2">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {items.map((item, idx) => (
-                        <tr key={idx}>
-                          <td className="py-1">{item.material}</td>
-                          <td className="py-1 text-right">{item.qty} {item.unit}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            ))}
-          </div>
-
-          {/* WOs with BOM */}
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b">
-              <h3 className="font-bold">{lang === 'th' ? 'BOM ตาม Work Order' : 'BOM by Work Order'}</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'WO #' : 'WO #'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วัสดุหลัก' : 'Main Material'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'เบิกแล้ว' : 'Issued'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {workOrders.filter(wo => wo.status !== 'completed').slice(0, 10).map(wo => (
-                    <tr key={wo.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-mono text-[#1A5276]">{wo.woNumber || wo.id}</td>
-                      <td className="px-4 py-3">{wo.productName}</td>
-                      <td className="px-4 py-3 text-right">{wo.quantity}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {wo.bom?.[0]?.material || 'MLH / Plywood'}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {wo.materialsIssued?.length > 0 ? (
-                          <Badge variant="success">{lang === 'th' ? 'เบิกแล้ว' : 'Issued'}</Badge>
-                        ) : (
-                          <Badge variant="default">{lang === 'th' ? 'ยังไม่เบิก' : 'Not Issued'}</Badge>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => { setSelectedWO(wo); setShowBOMModal(true) }}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* QC Tab */}
-      {activeTab === 'qc' && (
-        <div className="space-y-6">
-          {/* QC Checklist Config Button */}
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => setShowChecklistConfigModal(true)}>
-              <Settings className="w-4 h-4 mr-1" />
-              {lang === 'th' ? 'ตั้งค่า Checklist' : 'Configure Checklists'}
-            </Button>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Pending QC */}
-            <Card className="overflow-hidden">
-              <div className="p-4 border-b bg-purple-50">
-                <h3 className="font-bold text-purple-800 flex items-center gap-2">
-                  <Clock className="w-5 h-5" />
-                  {lang === 'th' ? 'รอตรวจ QC' : 'Pending QC'}
-                </h3>
-              </div>
-              <div className="divide-y max-h-96 overflow-y-auto">
-                {workOrders.filter(wo => wo.currentDept === 'QC' && wo.status !== 'completed' && !wo.qcFailed).map(wo => {
-                  const customer = customers?.find(c => c.id === wo.customerId)
-                  return (
-                    <div key={wo.id} className="p-4 hover:bg-gray-50">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-mono text-purple-700 font-medium">{wo.woNumber || wo.id}</div>
-                          <div className="text-sm text-gray-600">{wo.productName}</div>
-                          <div className="text-xs text-gray-400">{customer?.name} • {wo.quantity} pcs</div>
-                          {wo.requiresHT && !wo.htCertNo && (
-                            <span className="text-xs text-orange-600 mt-1 inline-block">⚠️ HT Required</span>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => { setSelectedWO(wo); setShowQCModal(true) }}
-                          className="px-3 py-1.5 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
-                        >
-                          {lang === 'th' ? 'ตรวจ QC' : 'QC Check'}
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-                {workOrders.filter(wo => wo.currentDept === 'QC' && wo.status !== 'completed' && !wo.qcFailed).length === 0 && (
-                  <div className="p-8 text-center text-gray-400">
-                    <CheckCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>{lang === 'th' ? 'ไม่มีงานรอตรวจ' : 'No pending QC'}</p>
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* QC Failed */}
-            <Card className="overflow-hidden">
-              <div className="p-4 border-b bg-red-50">
-                <h3 className="font-bold text-red-800 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5" />
-                  {lang === 'th' ? 'QC ไม่ผ่าน' : 'QC Failed'}
-                </h3>
-              </div>
-              <div className="divide-y max-h-96 overflow-y-auto">
-                {workOrders.filter(wo => wo.qcFailed).map(wo => (
-                  <div key={wo.id} className="p-4 hover:bg-gray-50">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-mono text-red-700 font-medium">{wo.woNumber || wo.id}</div>
-                        <div className="text-sm text-gray-600">{wo.productName}</div>
-                        <div className="text-xs text-red-500 mt-1">Reason: {wo.qcFailReason}</div>
-                      </div>
-                      <Badge variant="danger">Failed</Badge>
-                    </div>
-                  </div>
-                ))}
-                {workOrders.filter(wo => wo.qcFailed).length === 0 && (
-                  <div className="p-8 text-center text-gray-400">
-                    <CheckCircle className="w-12 h-12 mx-auto mb-2 opacity-50 text-green-300" />
-                    <p>{lang === 'th' ? 'ไม่มีงาน QC ไม่ผ่าน' : 'No QC failures'}</p>
-                  </div>
-                )}
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* HT Certificates Tab */}
-      {activeTab === 'ht' && (
-        <div className="space-y-6">
-          <Card className="p-4 bg-blue-50 border-blue-200">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-                HT
-              </div>
-              <div>
-                <h3 className="font-bold text-blue-800">ISPM15 Heat Treatment</h3>
-                <p className="text-sm text-blue-600">IND Thai Packwell - TH-0950 • 56°C for 30 minutes</p>
-              </div>
-            </div>
-          </Card>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Pending HT */}
-            <Card className="overflow-hidden">
-              <div className="p-4 border-b bg-orange-50">
-                <h3 className="font-bold text-orange-800">{lang === 'th' ? 'รอออกใบ HT' : 'Pending HT Certs'}</h3>
-              </div>
-              <div className="divide-y max-h-96 overflow-y-auto">
-                {workOrders.filter(wo => wo.requiresHT && !wo.htCertNo && wo.status === 'completed').map(wo => (
-                  <div key={wo.id} className="p-4 hover:bg-gray-50">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-mono font-medium">{wo.woNumber || wo.id}</div>
-                        <div className="text-sm text-gray-600">{wo.productName}</div>
-                        <div className="text-xs text-gray-400">{wo.quantity} pcs</div>
-                      </div>
-                      <button
-                        onClick={() => { setSelectedWO(wo); setShowHTModal(true) }}
-                        className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-                      >
-                        {lang === 'th' ? 'ออกใบ HT' : 'Generate'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {workOrders.filter(wo => wo.requiresHT && !wo.htCertNo && wo.status === 'completed').length === 0 && (
-                  <div className="p-8 text-center text-gray-400">
-                    <p>{lang === 'th' ? 'ไม่มีงานรอใบ HT' : 'No pending HT certs'}</p>
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Issued HT Certs */}
-            <Card className="overflow-hidden">
-              <div className="p-4 border-b bg-green-50">
-                <h3 className="font-bold text-green-800">{lang === 'th' ? 'ใบ HT ที่ออกแล้ว' : 'Issued HT Certs'}</h3>
-              </div>
-              <div className="divide-y max-h-96 overflow-y-auto">
-                {workOrders.filter(wo => wo.htCertNo).map(wo => (
-                  <div key={wo.id} className="p-4 hover:bg-gray-50">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-mono text-green-700 font-medium">HT-{wo.htCertNo}</div>
-                        <div className="text-sm text-gray-600">{wo.productName}</div>
-                        <div className="text-xs text-gray-400">{formatDate(wo.htDate)} • {wo.quantity} pcs</div>
-                      </div>
-                      <button className="p-1 text-blue-600 hover:bg-blue-50 rounded">
-                        <Printer className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* Costing Tab */}
+      {/* Costing Tab - THE FEATURE USER LOVES */}
       {activeTab === 'costing' && (
         <ProductionCosting workOrders={workOrders} customers={customers} lang={lang} />
       )}
 
-      {/* QC Modal */}
-      {showQCModal && selectedWO && (
-        <Modal isOpen={showQCModal} onClose={() => setShowQCModal(false)} title={lang === 'th' ? 'ตรวจ QC' : 'QC Inspection'} size="md">
-          <div className="space-y-4">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <div className="font-mono text-lg font-bold">{selectedWO.woNumber || selectedWO.id}</div>
-              <div className="text-gray-600">{selectedWO.productName}</div>
-              <div className="text-sm text-gray-500">{selectedWO.quantity} pcs</div>
-            </div>
-            
-            <div className="space-y-3">
-              <h4 className="font-medium">{lang === 'th' ? 'รายการตรวจสอบ' : 'Checklist'}</h4>
-              {['Dimensions correct', 'No visible defects', 'Proper assembly', 'Labels attached'].map((item, idx) => (
-                <label key={idx} className="flex items-center gap-2">
-                  <input type="checkbox" className="w-4 h-4 rounded" defaultChecked />
-                  <span>{item}</span>
-                </label>
-              ))}
-            </div>
-
-            {selectedWO.requiresHT && (
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <span className="text-blue-700 text-sm">⚠️ {lang === 'th' ? 'ลูกค้าต้องการใบ HT' : 'Customer requires HT Certificate'}</span>
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-4">
-              <Button variant="outline" className="flex-1" onClick={() => {
-                const reason = prompt(lang === 'th' ? 'เหตุผลที่ไม่ผ่าน:' : 'Reason for failure:')
-                if (reason) handleQCFail(selectedWO, reason)
-              }}>
-                <X className="w-4 h-4 mr-1" />
-                {lang === 'th' ? 'ไม่ผ่าน' : 'Fail'}
-              </Button>
-              <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => handleQCPass(selectedWO, {})}>
-                <CheckCircle className="w-4 h-4 mr-1" />
-                {lang === 'th' ? 'ผ่าน QC' : 'Pass QC'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* HT Modal */}
-      {showHTModal && selectedWO && (
-        <Modal isOpen={showHTModal} onClose={() => setShowHTModal(false)} title={lang === 'th' ? 'ออกใบ Heat Treatment' : 'Generate HT Certificate'} size="md">
-          <div className="space-y-4">
-            <div className="p-4 bg-blue-50 rounded-lg text-center">
-              <div className="text-2xl font-bold text-blue-800">TH-0950</div>
-              <div className="text-blue-600">ISPM15 Heat Treatment</div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-gray-500">{lang === 'th' ? 'อุณหภูมิ' : 'Temperature'}</label>
-                <div className="font-bold">56°C</div>
-              </div>
-              <div>
-                <label className="text-sm text-gray-500">{lang === 'th' ? 'ระยะเวลา' : 'Duration'}</label>
-                <div className="font-bold">30 minutes</div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <div className="text-sm text-gray-500">{lang === 'th' ? 'สินค้า' : 'Product'}</div>
-              <div className="font-bold">{selectedWO.productName}</div>
-              <div className="text-sm text-gray-600">{selectedWO.quantity} pcs</div>
-            </div>
-
-            <Button className="w-full" onClick={() => generateHTCert(selectedWO)}>
-              <FileText className="w-4 h-4 mr-2" />
-              {lang === 'th' ? 'ออกใบรับรอง' : 'Generate Certificate'}
-            </Button>
-          </div>
+      {/* WO Form Modal */}
+      {showWOModal && (
+        <Modal isOpen={showWOModal} onClose={() => setShowWOModal(false)} title={lang === 'th' ? 'สร้างใบสั่งผลิต' : 'New Work Order'} size="lg">
+          <WorkOrderForm
+            customers={customers}
+            departments={departments}
+            inventory={inventory}
+            categories={categories}
+            lang={lang}
+            onSave={(woData) => {
+              const newWO = {
+                id: `WO-${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(workOrders.length + 1).padStart(3, '0')}`,
+                ...woData,
+                status: 'pending',
+                completedQty: 0,
+                operations: [],
+                materialsIssued: [],
+                costs: { material: 0, labor: 0, overhead: 0, total: 0, perUnit: 0 },
+                profit: { amount: 0, margin: 0 },
+                createdAt: new Date().toISOString().split('T')[0],
+              }
+              setWorkOrders([...workOrders, newWO])
+              setShowWOModal(false)
+            }}
+            onCancel={() => setShowWOModal(false)}
+          />
         </Modal>
       )}
 
@@ -9259,221 +5063,6 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
             onIssue={handleMaterialIssue}
             onCancel={() => setShowIssueModal(false)}
           />
-        </Modal>
-      )}
-
-      {/* Label Print Modal */}
-      {showLabelModal && selectedWO && (
-        <Modal isOpen={showLabelModal} onClose={() => setShowLabelModal(false)} title={lang === 'th' ? 'พิมพ์ฉลาก' : 'Print Labels'} size="lg">
-          <div className="space-y-4">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <div className="font-mono text-lg font-bold">{selectedWO.woNumber || selectedWO.id}</div>
-              <div className="text-gray-600">{selectedWO.productName}</div>
-              <div className="text-sm text-gray-500">{selectedWO.quantity} pcs</div>
-            </div>
-
-            {/* Label Format Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">{lang === 'th' ? 'รูปแบบฉลาก' : 'Label Format'}</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button className="p-3 border-2 rounded-lg text-left hover:border-blue-500 focus:border-blue-500">
-                  <div className="font-medium">Standard Label</div>
-                  <div className="text-xs text-gray-500">Basic product label</div>
-                </button>
-                <button className="p-3 border-2 rounded-lg text-left hover:border-orange-500 focus:border-orange-500">
-                  <div className="font-medium text-orange-600">Polyplex 4-Column</div>
-                  <div className="text-xs text-gray-500">Color-coded sheet</div>
-                </button>
-                <button className="p-3 border-2 rounded-lg text-left hover:border-blue-500 focus:border-blue-500">
-                  <div className="font-medium text-blue-600">Allianz QR Code</div>
-                  <div className="text-xs text-gray-500">QR with part info</div>
-                </button>
-                <button className="p-3 border-2 rounded-lg text-left hover:border-gray-500 focus:border-gray-500">
-                  <div className="font-medium">Custom</div>
-                  <div className="text-xs text-gray-500">Configure manually</div>
-                </button>
-              </div>
-            </div>
-
-            {/* Quantity */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'จำนวนฉลาก' : 'Label Quantity'}</label>
-              <input 
-                type="number" 
-                className="w-full px-3 py-2 border rounded-lg" 
-                defaultValue={selectedWO.quantity}
-              />
-            </div>
-
-            {/* Preview */}
-            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="text-sm text-yellow-800">
-                <strong>{lang === 'th' ? 'ขั้นตอน:' : 'Process:'}</strong>
-                <ol className="mt-1 list-decimal list-inside">
-                  <li>{lang === 'th' ? 'Sales พิมพ์ฉลากจากที่นี่' : 'Sales prints labels from here'}</li>
-                  <li>{lang === 'th' ? 'ส่งฉลากให้ QC' : 'Pass labels to QC'}</li>
-                  <li>{lang === 'th' ? 'QC ติดฉลากระหว่างตรวจสอบ' : 'QC pastes labels during inspection'}</li>
-                </ol>
-              </div>
-            </div>
-
-            <div className="flex gap-4 pt-4">
-              <Button variant="outline" className="flex-1" onClick={() => setShowLabelModal(false)}>
-                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
-              </Button>
-              <Button 
-                className="flex-1" 
-                onClick={() => {
-                  setWorkOrders(workOrders.map(wo => 
-                    wo.id === selectedWO.id ? { ...wo, labelsPrinted: true, labelsPrintedAt: new Date().toISOString() } : wo
-                  ))
-                  setShowLabelModal(false)
-                }}
-              >
-                <Printer className="w-4 h-4 mr-2" />
-                {lang === 'th' ? 'พิมพ์ฉลาก' : 'Print Labels'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* BOM Modal */}
-      {showBOMModal && selectedWO && (
-        <Modal isOpen={showBOMModal} onClose={() => setShowBOMModal(false)} title={lang === 'th' ? 'รายการวัสดุ (BOM)' : 'Bill of Materials'} size="lg">
-          <div className="space-y-4">
-            <div className="p-4 bg-purple-50 rounded-lg">
-              <div className="font-mono text-lg font-bold text-purple-700">{selectedWO.woNumber || selectedWO.id}</div>
-              <div className="text-gray-600">{selectedWO.productName}</div>
-              <div className="text-sm text-gray-500">{selectedWO.quantity} pcs</div>
-            </div>
-
-            {/* BOM Table */}
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">#</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วัสดุ' : 'Material'}</th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ต่อหน่วย' : 'Per Unit'}</th>
-                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'รวม' : 'Total'}</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'หมวด' : 'Category'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {(selectedWO.bom || [
-                    { material: 'Stringer (90x90x1200)', qty: 3, unit: 'pcs', category: 'MLH' },
-                    { material: 'Top Board (20x100x1000)', qty: 7, unit: 'pcs', category: 'MLH' },
-                    { material: 'Bottom Board (20x100x1000)', qty: 3, unit: 'pcs', category: 'MLH' },
-                    { material: 'Nails 3"', qty: 50, unit: 'pcs', category: 'Consumables' },
-                  ]).map((item, idx) => (
-                    <tr key={idx}>
-                      <td className="px-4 py-2 text-gray-400">{idx + 1}</td>
-                      <td className="px-4 py-2 font-medium">{item.material}</td>
-                      <td className="px-4 py-2 text-right">{item.qty} {item.unit}</td>
-                      <td className="px-4 py-2 text-right font-medium">{item.qty * selectedWO.quantity} {item.unit}</td>
-                      <td className="px-4 py-2 text-sm text-gray-500">{item.category}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Material Status */}
-            <div className="p-3 bg-green-50 rounded-lg">
-              <div className="flex items-center gap-2 text-green-800">
-                <CheckCircle className="w-5 h-5" />
-                <span className="font-medium">{lang === 'th' ? 'สถานะวัสดุ:' : 'Material Status:'}</span>
-                {selectedWO.materialsIssued?.length > 0 ? (
-                  <span className="text-green-600">{lang === 'th' ? 'เบิกแล้ว' : 'Issued'}</span>
-                ) : (
-                  <span className="text-orange-600">{lang === 'th' ? 'ยังไม่เบิก' : 'Not yet issued'}</span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-4 pt-4">
-              <Button variant="outline" className="flex-1" onClick={() => setShowBOMModal(false)}>
-                {lang === 'th' ? 'ปิด' : 'Close'}
-              </Button>
-              {!selectedWO.materialsIssued?.length && (
-                <Button 
-                  className="flex-1"
-                  onClick={() => {
-                    setShowBOMModal(false)
-                    handleIssue(selectedWO)
-                  }}
-                >
-                  <Package className="w-4 h-4 mr-2" />
-                  {lang === 'th' ? 'เบิกวัสดุ' : 'Issue Materials'}
-                </Button>
-              )}
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Checklist Config Modal */}
-      {showChecklistConfigModal && (
-        <Modal isOpen={showChecklistConfigModal} onClose={() => setShowChecklistConfigModal(false)} title={lang === 'th' ? 'ตั้งค่า QC Checklist' : 'Configure QC Checklists'} size="lg">
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600">
-              {lang === 'th' ? 'กำหนดรายการตรวจสอบ QC สำหรับแต่ละประเภทสินค้า' : 'Define QC checklist items for each product type'}
-            </p>
-
-            {Object.entries(qcChecklists).map(([productType, items]) => (
-              <div key={productType} className="border rounded-lg overflow-hidden">
-                <div className="p-3 bg-gray-50 border-b">
-                  <div className="font-bold capitalize">{productType}</div>
-                </div>
-                <div className="p-3">
-                  {items.map((item, idx) => (
-                    <div key={item.id} className="flex items-center gap-3 py-2">
-                      <span className="text-gray-400 w-6">{idx + 1}.</span>
-                      <input 
-                        type="text" 
-                        value={item.item} 
-                        className="flex-1 px-2 py-1 border rounded"
-                        onChange={(e) => {
-                          const newChecklists = { ...qcChecklists }
-                          newChecklists[productType][idx].item = e.target.value
-                          setQcChecklists(newChecklists)
-                        }}
-                      />
-                      <label className="flex items-center gap-1 text-sm">
-                        <input 
-                          type="checkbox" 
-                          checked={item.required}
-                          onChange={(e) => {
-                            const newChecklists = { ...qcChecklists }
-                            newChecklists[productType][idx].required = e.target.checked
-                            setQcChecklists(newChecklists)
-                          }}
-                        />
-                        {lang === 'th' ? 'บังคับ' : 'Required'}
-                      </label>
-                      <button className="p-1 text-red-500 hover:bg-red-50 rounded">
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                  <button className="mt-2 text-sm text-blue-600 hover:underline">
-                    + {lang === 'th' ? 'เพิ่มรายการ' : 'Add Item'}
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            <div className="flex gap-4 pt-4">
-              <Button variant="outline" className="flex-1" onClick={() => setShowChecklistConfigModal(false)}>
-                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
-              </Button>
-              <Button className="flex-1" onClick={() => setShowChecklistConfigModal(false)}>
-                <Save className="w-4 h-4 mr-2" />
-                {lang === 'th' ? 'บันทึก' : 'Save'}
-              </Button>
-            </div>
-          </div>
         </Modal>
       )}
     </div>
@@ -10719,1336 +6308,75 @@ const Dashboard = ({ stores, inventory, categories, purchaseOrders, workOrders, 
 // ============================================
 // SALES MODULE (Simplified)
 // ============================================
-// ============================================
-// SALES MODULE - ENHANCED v7.3
-// Complete Sales Operations with Production Plan View
-// ============================================
-
-// Document Number Generators (Actual IND Formats)
-const generateInvoiceNumber = () => {
-  // Format: IVT-YYYYMMXXX (e.g., IVT-202511090)
-  const now = new Date()
-  const yyyy = now.getFullYear()
-  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
-  const seq = Math.floor(Math.random() * 900 + 100)
-  return `IVT-${yyyy}${mm}${seq}`
-}
-
-const generateBillingNumber = () => {
-  // Format: BN-YYYYMMXXX (e.g., BN-202511022)
-  const now = new Date()
-  const yyyy = now.getFullYear()
-  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
-  const seq = Math.floor(Math.random() * 900 + 100)
-  return `BN-${yyyy}${mm}${seq}`
-}
-
-const generateReceiptNumber = () => {
-  // Format: RE-YYYYMMXXX (e.g., RE-202601002)
-  const now = new Date()
-  const yyyy = now.getFullYear()
-  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
-  const seq = Math.floor(Math.random() * 900 + 100)
-  return `RE-${yyyy}${mm}${seq}`
-}
-
-const generateQuotationNumber = () => {
-  // Format: QO-YYYYMMXX/ (e.g., QO-20251101/)
-  const now = new Date()
-  const yyyy = now.getFullYear()
-  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
-  const seq = Math.floor(Math.random() * 90 + 10)
-  return `QO-${yyyy}${mm}${seq}/`
-}
-
-const generateSONumber = () => {
-  const now = new Date()
-  const yy = now.getFullYear().toString().slice(-2)
-  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
-  const seq = Math.floor(Math.random() * 900 + 100)
-  return `SO-${yy}${mm}-${seq}`
-}
-
-const generateDONumber = (customerCode) => {
-  const now = new Date()
-  const yy = now.getFullYear().toString().slice(-2)
-  const seq = Math.floor(Math.random() * 900 + 100)
-  return `${customerCode}-${yy}-${seq}`
-}
-
-const generateWONumber = () => {
-  const now = new Date()
-  const yy = now.getFullYear().toString().slice(-2)
-  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
-  const dd = now.getDate().toString().padStart(2, '0')
-  const seq = Math.floor(Math.random() * 900 + 100)
-  return `WO-${yy}${mm}${dd}-${seq}`
-}
-
-const generateRejectionNumber = () => {
-  const now = new Date()
-  const yy = now.getFullYear().toString().slice(-2)
-  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
-  const seq = Math.floor(Math.random() * 900 + 100)
-  return `REJ-${yy}${mm}-${seq}`
-}
-
-const generateClaimNumber = () => {
-  const now = new Date()
-  const yy = now.getFullYear().toString().slice(-2)
-  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
-  const seq = Math.floor(Math.random() * 900 + 100)
-  return `CLM-${yy}${mm}-${seq}`
-}
-
-const generateCreditNoteNumber = () => {
-  const now = new Date()
-  const yy = now.getFullYear().toString().slice(-2)
-  const mm = (now.getMonth() + 1).toString().padStart(2, '0')
-  const seq = Math.floor(Math.random() * 900 + 100)
-  return `CN-${yy}${mm}-${seq}`
-}
-
-// Customer PO Entry Modal (Spec 24, 28: Customer PO = SO)
-const CustomerPOEntryModal = ({ isOpen, onClose, customers, products, onSave, lang }) => {
-  const [formData, setFormData] = useState({
-    customerPO: '',
-    customerId: '',
-    poDate: new Date().toISOString().split('T')[0],
-    deliveryDate: '',
-    deliveryLocation: '',
-    paymentTerms: '30',
-    items: [],
-    notes: '',
-    requiresHT: false,
-    specialLabels: 'none',
-  })
-  const [newItem, setNewItem] = useState({ productId: '', description: '', dimensions: '', qty: 0, unit: 'SET', unitPrice: 0 })
-
-  useEffect(() => {
-    if (isOpen) {
-      setFormData({
-        customerPO: '',
-        customerId: '',
-        poDate: new Date().toISOString().split('T')[0],
-        deliveryDate: '',
-        deliveryLocation: '',
-        paymentTerms: '30',
-        items: [],
-        notes: '',
-        requiresHT: false,
-        specialLabels: 'none',
-      })
-    }
-  }, [isOpen])
-
-  if (!isOpen) return null
-
-  const selectedCustomer = customers?.find(c => c.id === formData.customerId)
-
-  // Auto-detect special customer requirements
-  const handleCustomerChange = (customerId) => {
-    const customer = customers?.find(c => c.id === customerId)
-    let specialLabels = 'none'
-    let requiresHT = false
-    
-    if (customer) {
-      // Allianz detection
-      if (customer.code === 'ALL-013' || customer.name?.toLowerCase().includes('alliance') || customer.name?.toLowerCase().includes('allianz')) {
-        specialLabels = 'allianz'
-        requiresHT = true
-      }
-      // Polyplex detection
-      else if (customer.code === 'PLX-002' || customer.name?.toLowerCase().includes('polyplex')) {
-        specialLabels = 'polyplex'
-      }
-    }
-    
-    setFormData(prev => ({ ...prev, customerId, specialLabels, requiresHT }))
-  }
-
-  const addItem = () => {
-    if (newItem.qty <= 0) return
-    const product = products?.find(p => p.id === newItem.productId)
-    setFormData(prev => ({
-      ...prev,
-      items: [...prev.items, {
-        id: `ITEM-${Date.now()}`,
-        productId: newItem.productId,
-        productCode: product?.code || '',
-        productName: product?.name || newItem.description,
-        description: newItem.description || product?.name,
-        dimensions: newItem.dimensions,
-        qty: newItem.qty,
-        unit: newItem.unit,
-        unitPrice: newItem.unitPrice || product?.price || 0,
-        lineTotal: newItem.qty * (newItem.unitPrice || product?.price || 0),
-      }]
-    }))
-    setNewItem({ productId: '', description: '', dimensions: '', qty: 0, unit: 'SET', unitPrice: 0 })
-  }
-
-  const removeItem = (idx) => {
-    setFormData(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }))
-  }
-
-  const subtotal = formData.items.reduce((sum, item) => sum + item.lineTotal, 0)
-  const vat = selectedCustomer?.isExport ? 0 : subtotal * 0.07
-  const grandTotal = subtotal + vat
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!formData.customerPO || !formData.customerId || formData.items.length === 0) return
-    
-    const soNumber = generateSONumber()
-    onSave({
-      id: soNumber,
-      soNumber,
-      customerPO: formData.customerPO,
-      customerId: formData.customerId,
-      customer: selectedCustomer,
-      poDate: formData.poDate,
-      orderDate: new Date().toISOString(),
-      deliveryDate: formData.deliveryDate,
-      deliveryLocation: formData.deliveryLocation,
-      paymentTerms: formData.paymentTerms,
-      items: formData.items,
-      subtotal,
-      vat,
-      grandTotal,
-      notes: formData.notes,
-      requiresHT: formData.requiresHT,
-      specialLabels: formData.specialLabels,
-      status: 'confirmed',
-      woId: null,
-      invoiceId: null,
-      doId: null,
-      createdAt: new Date().toISOString(),
-    })
-    onClose()
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <div className="p-4 border-b bg-gradient-to-r from-[#2ECC40] to-[#1A5276] text-white rounded-t-xl sticky top-0 z-10">
-          <h3 className="text-lg font-bold flex items-center gap-2">
-            <FileText className="w-5 h-5" />
-            {lang === 'th' ? 'รับ PO ลูกค้า (= ใบสั่งขาย)' : 'Enter Customer PO (= Sales Order)'}
-          </h3>
-          <p className="text-sm opacity-80">
-            {lang === 'th' ? 'PO ลูกค้าจะถูกใช้เป็นใบสั่งขายโดยตรง ไม่ต้องสร้าง SO แยก' : 'Customer PO is treated as Sales Order directly'}
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Header Info */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {lang === 'th' ? 'เลข PO ลูกค้า *' : 'Customer PO # *'}
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.customerPO}
-                onChange={(e) => setFormData({ ...formData, customerPO: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A5276]"
-                placeholder="e.g., 5100026898"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {lang === 'th' ? 'ลูกค้า *' : 'Customer *'}
-              </label>
-              <select
-                required
-                value={formData.customerId}
-                onChange={(e) => handleCustomerChange(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A5276]"
-              >
-                <option value="">{lang === 'th' ? '-- เลือกลูกค้า --' : '-- Select Customer --'}</option>
-                {customers?.filter(c => c.isActive !== false).map(c => (
-                  <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {lang === 'th' ? 'วันที่ PO' : 'PO Date'}
-              </label>
-              <input
-                type="date"
-                value={formData.poDate}
-                onChange={(e) => setFormData({ ...formData, poDate: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {lang === 'th' ? 'กำหนดส่ง *' : 'Delivery Date *'}
-              </label>
-              <input
-                type="date"
-                required
-                value={formData.deliveryDate}
-                onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {lang === 'th' ? 'สถานที่ส่ง' : 'Delivery Location'}
-              </label>
-              <input
-                type="text"
-                value={formData.deliveryLocation}
-                onChange={(e) => setFormData({ ...formData, deliveryLocation: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                placeholder="e.g., PLOT 1, Factory Gate"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {lang === 'th' ? 'เงื่อนไขชำระ' : 'Payment Terms'}
-              </label>
-              <select
-                value={formData.paymentTerms}
-                onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-              >
-                <option value="0">Cash / COD</option>
-                <option value="15">Net 15 Days</option>
-                <option value="30">Net 30 Days</option>
-                <option value="45">Net 45 Days</option>
-                <option value="60">Net 60 Days</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Special Customer Alert */}
-          {formData.specialLabels !== 'none' && (
-            <div className={`p-4 rounded-lg border-2 ${
-              formData.specialLabels === 'allianz' 
-                ? 'bg-blue-50 border-blue-300' 
-                : 'bg-orange-50 border-orange-300'
-            }`}>
-              <div className="flex items-center gap-3">
-                <AlertTriangle className={`w-6 h-6 ${
-                  formData.specialLabels === 'allianz' ? 'text-blue-600' : 'text-orange-600'
-                }`} />
-                <div>
-                  <div className="font-bold">
-                    {formData.specialLabels === 'allianz' 
-                      ? 'ALLIANZ Customer - Special Requirements'
-                      : 'POLYPLEX Customer - Special Requirements'
-                    }
-                  </div>
-                  <div className="text-sm">
-                    {formData.specialLabels === 'allianz' 
-                      ? '• QR Code Labels (Part# format) • Heat Treatment Certificate (TH-0950) Required'
-                      : '• 4-Column Color-Coded Labels (FILM=white, CPP=peach, Line10=red)'
-                    }
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Line Items */}
-          <div className="border rounded-lg p-4">
-            <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              {lang === 'th' ? 'รายการสินค้า' : 'Line Items'}
-            </h4>
-            
-            {/* Add Item Row */}
-            <div className="grid grid-cols-12 gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
-              <div className="col-span-3">
-                <input
-                  type="text"
-                  value={newItem.description}
-                  onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                  className="w-full px-2 py-2 border rounded text-sm"
-                  placeholder={lang === 'th' ? 'รายละเอียด' : 'Description'}
-                />
-              </div>
-              <div className="col-span-2">
-                <input
-                  type="text"
-                  value={newItem.dimensions}
-                  onChange={(e) => setNewItem({ ...newItem, dimensions: e.target.value })}
-                  className="w-full px-2 py-2 border rounded text-sm"
-                  placeholder="H×W×L"
-                />
-              </div>
-              <div className="col-span-2">
-                <input
-                  type="number"
-                  min="1"
-                  value={newItem.qty || ''}
-                  onChange={(e) => setNewItem({ ...newItem, qty: parseInt(e.target.value) || 0 })}
-                  className="w-full px-2 py-2 border rounded text-sm"
-                  placeholder={lang === 'th' ? 'จำนวน' : 'Qty'}
-                />
-              </div>
-              <div className="col-span-1">
-                <select
-                  value={newItem.unit}
-                  onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
-                  className="w-full px-2 py-2 border rounded text-sm"
-                >
-                  <option value="SET">SET</option>
-                  <option value="PC">PC</option>
-                  <option value="M3">M³</option>
-                </select>
-              </div>
-              <div className="col-span-2">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={newItem.unitPrice || ''}
-                  onChange={(e) => setNewItem({ ...newItem, unitPrice: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-2 py-2 border rounded text-sm"
-                  placeholder={lang === 'th' ? 'ราคา/หน่วย' : 'Unit Price'}
-                />
-              </div>
-              <div className="col-span-2">
-                <button
-                  type="button"
-                  onClick={addItem}
-                  disabled={newItem.qty <= 0}
-                  className="w-full py-2 bg-[#2ECC40] text-white rounded hover:bg-[#2ECC40]/90 disabled:opacity-50 text-sm font-medium"
-                >
-                  + {lang === 'th' ? 'เพิ่ม' : 'Add'}
-                </button>
-              </div>
-            </div>
-
-            {/* Items Table */}
-            {formData.items.length > 0 && (
-              <table className="w-full text-sm">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="px-3 py-2 text-left">#</th>
-                    <th className="px-3 py-2 text-left">{lang === 'th' ? 'รายละเอียด' : 'Description'}</th>
-                    <th className="px-3 py-2 text-left">{lang === 'th' ? 'ขนาด' : 'Dimensions'}</th>
-                    <th className="px-3 py-2 text-right">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
-                    <th className="px-3 py-2 text-right">{lang === 'th' ? 'ราคา' : 'Price'}</th>
-                    <th className="px-3 py-2 text-right">{lang === 'th' ? 'รวม' : 'Total'}</th>
-                    <th className="px-3 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {formData.items.map((item, idx) => (
-                    <tr key={item.id}>
-                      <td className="px-3 py-2">{idx + 1}</td>
-                      <td className="px-3 py-2">{item.description || item.productName}</td>
-                      <td className="px-3 py-2 text-gray-500">{item.dimensions}</td>
-                      <td className="px-3 py-2 text-right">{item.qty} {item.unit}</td>
-                      <td className="px-3 py-2 text-right">฿{item.unitPrice.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right font-medium">฿{item.lineTotal.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right">
-                        <button type="button" onClick={() => removeItem(idx)} className="text-red-500 hover:text-red-700">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="border-t-2 bg-gray-50">
-                  <tr>
-                    <td colSpan="5" className="px-3 py-2 text-right font-medium">{lang === 'th' ? 'ยอดรวมก่อน VAT' : 'Subtotal'}:</td>
-                    <td className="px-3 py-2 text-right font-bold">฿{subtotal.toLocaleString()}</td>
-                    <td></td>
-                  </tr>
-                  {vat > 0 && (
-                    <tr>
-                      <td colSpan="5" className="px-3 py-2 text-right font-medium">VAT 7%:</td>
-                      <td className="px-3 py-2 text-right">฿{vat.toLocaleString()}</td>
-                      <td></td>
-                    </tr>
-                  )}
-                  <tr className="text-lg">
-                    <td colSpan="5" className="px-3 py-3 text-right font-bold">{lang === 'th' ? 'ยอดรวมทั้งสิ้น' : 'Grand Total'}:</td>
-                    <td className="px-3 py-3 text-right font-bold text-[#2ECC40]">฿{grandTotal.toLocaleString()}</td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
-            )}
-
-            {formData.items.length === 0 && (
-              <div className="text-center py-8 text-gray-400">
-                <Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>{lang === 'th' ? 'ยังไม่มีรายการสินค้า' : 'No items added yet'}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Options */}
-          <div className="flex items-center gap-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.requiresHT}
-                onChange={(e) => setFormData({ ...formData, requiresHT: e.target.checked })}
-                className="w-4 h-4 rounded text-[#1A5276]"
-              />
-              <span className="text-sm">
-                {lang === 'th' ? 'ต้องการใบรับรองอบความร้อน (ISPM15 - TH-0950)' : 'Heat Treatment Certificate Required (ISPM15 - TH-0950)'}
-              </span>
-            </label>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {lang === 'th' ? 'หมายเหตุ' : 'Notes'}
-            </label>
-            <textarea
-              rows={2}
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg"
-              placeholder={lang === 'th' ? 'หมายเหตุเพิ่มเติม...' : 'Additional notes...'}
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">
-              {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
-            </button>
-            <button
-              type="submit"
-              disabled={!formData.customerPO || !formData.customerId || formData.items.length === 0}
-              className="px-6 py-2 bg-gradient-to-r from-[#2ECC40] to-[#1A5276] text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
-            >
-              <Save className="w-4 h-4" />
-              {lang === 'th' ? 'บันทึก PO' : 'Save Customer PO'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// Quotation Modal (Spec 25: For new products)
-const QuotationModal = ({ isOpen, onClose, customers, products, onSave, lang }) => {
-  const [formData, setFormData] = useState({
-    customerId: '',
-    validDays: 30,
-    items: [],
-    terms: 'Standard payment terms apply. Prices valid for quoted period only.',
-    discount: 0,
-    discountApproval: '',
-    notes: '',
-  })
-  const [newItem, setNewItem] = useState({ description: '', dimensions: '', qty: 0, unit: 'SET', unitPrice: 0 })
-
-  useEffect(() => {
-    if (isOpen) {
-      setFormData({
-        customerId: '',
-        validDays: 30,
-        items: [],
-        terms: 'Standard payment terms apply. Prices valid for quoted period only.',
-        discount: 0,
-        discountApproval: '',
-        notes: '',
-      })
-    }
-  }, [isOpen])
-
-  if (!isOpen) return null
-
-  const addItem = () => {
-    if (newItem.qty <= 0 || !newItem.description) return
-    setFormData(prev => ({
-      ...prev,
-      items: [...prev.items, {
-        id: `QI-${Date.now()}`,
-        ...newItem,
-        lineTotal: newItem.qty * newItem.unitPrice,
-      }]
-    }))
-    setNewItem({ description: '', dimensions: '', qty: 0, unit: 'SET', unitPrice: 0 })
-  }
-
-  const subtotal = formData.items.reduce((sum, item) => sum + item.lineTotal, 0)
-  const discountAmount = subtotal * (formData.discount / 100)
-  const afterDiscount = subtotal - discountAmount
-  const selectedCustomer = customers?.find(c => c.id === formData.customerId)
-  const vat = selectedCustomer?.isExport ? 0 : afterDiscount * 0.07
-  const grandTotal = afterDiscount + vat
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    const qtNumber = generateQuotationNumber()
-    const validUntil = new Date()
-    validUntil.setDate(validUntil.getDate() + formData.validDays)
-    
-    onSave({
-      id: qtNumber,
-      quotationNumber: qtNumber,
-      customerId: formData.customerId,
-      customer: selectedCustomer,
-      date: new Date().toISOString(),
-      validUntil: validUntil.toISOString(),
-      items: formData.items,
-      subtotal,
-      discount: formData.discount,
-      discountAmount,
-      vat,
-      grandTotal,
-      terms: formData.terms,
-      notes: formData.notes,
-      discountApproval: formData.discountApproval,
-      status: formData.discount > 0 && !formData.discountApproval ? 'pending_approval' : 'sent',
-      createdAt: new Date().toISOString(),
-    })
-    onClose()
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <div className="p-4 border-b bg-purple-600 text-white rounded-t-xl sticky top-0 z-10">
-          <h3 className="text-lg font-bold flex items-center gap-2">
-            <FileText className="w-5 h-5" />
-            {lang === 'th' ? 'สร้างใบเสนอราคา' : 'Create Quotation'}
-          </h3>
-          <p className="text-sm opacity-80">{lang === 'th' ? 'สำหรับสินค้าใหม่หรือเปลี่ยนราคา' : 'For new products or price changes'}</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ลูกค้า *' : 'Customer *'}</label>
-              <select
-                required
-                value={formData.customerId}
-                onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-              >
-                <option value="">-- Select --</option>
-                {customers?.filter(c => c.isActive !== false).map(c => (
-                  <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ใช้ได้ถึง' : 'Valid For (Days)'}</label>
-              <select
-                value={formData.validDays}
-                onChange={(e) => setFormData({ ...formData, validDays: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border rounded-lg"
-              >
-                <option value={7}>7 Days</option>
-                <option value={14}>14 Days</option>
-                <option value={30}>30 Days</option>
-                <option value={60}>60 Days</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Items */}
-          <div className="border rounded-lg p-4">
-            <h4 className="font-medium mb-3">{lang === 'th' ? 'รายการ' : 'Items'}</h4>
-            <div className="grid grid-cols-6 gap-2 mb-3">
-              <input
-                className="col-span-2 px-2 py-2 border rounded text-sm"
-                placeholder="Description"
-                value={newItem.description}
-                onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-              />
-              <input
-                className="px-2 py-2 border rounded text-sm"
-                placeholder="Dimensions"
-                value={newItem.dimensions}
-                onChange={(e) => setNewItem({ ...newItem, dimensions: e.target.value })}
-              />
-              <input
-                className="px-2 py-2 border rounded text-sm"
-                type="number"
-                placeholder="Qty"
-                value={newItem.qty || ''}
-                onChange={(e) => setNewItem({ ...newItem, qty: parseInt(e.target.value) || 0 })}
-              />
-              <input
-                className="px-2 py-2 border rounded text-sm"
-                type="number"
-                placeholder="Price"
-                value={newItem.unitPrice || ''}
-                onChange={(e) => setNewItem({ ...newItem, unitPrice: parseFloat(e.target.value) || 0 })}
-              />
-              <button type="button" onClick={addItem} className="bg-purple-600 text-white rounded hover:bg-purple-700">+</button>
-            </div>
-            
-            {formData.items.length > 0 && (
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-2 py-1 text-left">Description</th>
-                    <th className="px-2 py-1 text-right">Qty</th>
-                    <th className="px-2 py-1 text-right">Price</th>
-                    <th className="px-2 py-1 text-right">Total</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {formData.items.map((item, idx) => (
-                    <tr key={item.id}>
-                      <td className="px-2 py-1">{item.description}</td>
-                      <td className="px-2 py-1 text-right">{item.qty}</td>
-                      <td className="px-2 py-1 text-right">฿{item.unitPrice.toLocaleString()}</td>
-                      <td className="px-2 py-1 text-right font-medium">฿{item.lineTotal.toLocaleString()}</td>
-                      <td className="px-2 py-1">
-                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }))} className="text-red-500">×</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* Discount */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ส่วนลด %' : 'Discount %'}</label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={formData.discount || ''}
-                onChange={(e) => setFormData({ ...formData, discount: parseFloat(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border rounded-lg"
-              />
-            </div>
-            {formData.discount > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'อนุมัติโดย (CEO) *' : 'Approved By (CEO) *'}</label>
-                <input
-                  type="text"
-                  value={formData.discountApproval}
-                  onChange={(e) => setFormData({ ...formData, discountApproval: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg border-red-300"
-                  placeholder="CEO approval required for ALL discounts"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Totals */}
-          <div className="bg-gray-50 p-4 rounded-lg text-right space-y-1">
-            <div>Subtotal: ฿{subtotal.toLocaleString()}</div>
-            {discountAmount > 0 && <div className="text-red-600">Discount ({formData.discount}%): -฿{discountAmount.toLocaleString()}</div>}
-            {vat > 0 && <div>VAT 7%: ฿{vat.toLocaleString()}</div>}
-            <div className="text-xl font-bold text-purple-600">Total: ฿{grandTotal.toLocaleString()}</div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-            <button type="submit" className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Create Quotation</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// Create WO from SO Modal
-const CreateWOModal = ({ isOpen, onClose, salesOrder, onCreateWO, lang }) => {
-  const [woData, setWoData] = useState({
-    priority: 'normal',
-    targetDate: '',
-    notes: '',
-  })
-
-  if (!isOpen || !salesOrder) return null
-
-  const woNumber = generateWONumber()
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    onCreateWO({
-      id: woNumber,
-      woNumber,
-      soId: salesOrder.id,
-      soNumber: salesOrder.soNumber,
-      customerPO: salesOrder.customerPO,
-      customerId: salesOrder.customerId,
-      customerName: salesOrder.customer?.name,
-      items: salesOrder.items,
-      priority: woData.priority,
-      targetDate: woData.targetDate || salesOrder.deliveryDate,
-      requiresHT: salesOrder.requiresHT,
-      specialLabels: salesOrder.specialLabels,
-      status: 'pending',
-      department: 'C1', // Starts at Cutting
-      currentDept: 'C1',
-      completedQty: 0,
-      quantity: salesOrder.items.reduce((sum, i) => sum + i.qty, 0),
-      materialsIssued: [],
-      operations: [],
-      qcChecklist: [],
-      costs: { material: 0, labor: 0, overhead: 0, total: 0 },
-      createdAt: new Date().toISOString(),
-      notes: woData.notes,
-    })
-    onClose()
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <div className="p-4 border-b bg-[#1A5276] text-white rounded-t-xl">
-          <h3 className="text-lg font-bold flex items-center gap-2">
-            <Factory className="w-5 h-5" />
-            {lang === 'th' ? 'สร้างใบสั่งผลิต' : 'Create Work Order'}
-          </h3>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="p-4 bg-blue-50 rounded-lg text-center">
-            <div className="text-sm text-gray-500">WO Number</div>
-            <div className="text-2xl font-bold text-[#1A5276] font-mono">{woNumber}</div>
-          </div>
-
-          <div className="p-3 bg-gray-50 rounded-lg text-sm space-y-1">
-            <div><span className="text-gray-500">Customer PO:</span> <strong>{salesOrder.customerPO}</strong></div>
-            <div><span className="text-gray-500">Customer:</span> <strong>{salesOrder.customer?.name}</strong></div>
-            <div><span className="text-gray-500">Items:</span> <strong>{salesOrder.items?.length}</strong></div>
-            <div><span className="text-gray-500">Delivery:</span> <strong>{formatDate(salesOrder.deliveryDate)}</strong></div>
-          </div>
-
-          {(salesOrder.requiresHT || salesOrder.specialLabels !== 'none') && (
-            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm">
-              <div className="font-medium text-yellow-800 mb-1">Special Requirements:</div>
-              <ul className="list-disc list-inside text-yellow-700">
-                {salesOrder.requiresHT && <li>Heat Treatment Certificate (TH-0950)</li>}
-                {salesOrder.specialLabels === 'allianz' && <li>Allianz QR Labels</li>}
-                {salesOrder.specialLabels === 'polyplex' && <li>Polyplex Color-Coded Labels</li>}
-              </ul>
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-            <select
-              value={woData.priority}
-              onChange={(e) => setWoData({ ...woData, priority: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg"
-            >
-              <option value="low">Low</option>
-              <option value="normal">Normal</option>
-              <option value="high">High</option>
-              <option value="urgent">Urgent</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Target Date</label>
-            <input
-              type="date"
-              value={woData.targetDate || salesOrder.deliveryDate}
-              onChange={(e) => setWoData({ ...woData, targetDate: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-            <button type="submit" className="px-6 py-2 bg-[#1A5276] text-white rounded-lg hover:bg-[#1A5276]/90">
-              Create WO
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// Invoice Modal
-const CreateInvoiceModal = ({ isOpen, onClose, salesOrder, onCreateInvoice, lang }) => {
-  const [invoiceData, setInvoiceData] = useState({
-    invoiceDate: new Date().toISOString().split('T')[0],
-    dueDate: '',
-    isExport: false,
-  })
-
-  useEffect(() => {
-    if (salesOrder) {
-      const due = new Date()
-      due.setDate(due.getDate() + parseInt(salesOrder.paymentTerms || 30))
-      setInvoiceData(prev => ({
-        ...prev,
-        dueDate: due.toISOString().split('T')[0],
-        isExport: salesOrder.customer?.isExport || false,
-      }))
-    }
-  }, [salesOrder])
-
-  if (!isOpen || !salesOrder) return null
-
-  const invoiceNumber = generateInvoiceNumber()
-  const subtotal = salesOrder.subtotal || salesOrder.items?.reduce((sum, i) => sum + i.lineTotal, 0) || 0
-  const vat = invoiceData.isExport ? 0 : subtotal * 0.07
-  const grandTotal = subtotal + vat
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    onCreateInvoice({
-      id: invoiceNumber,
-      invoiceNumber,
-      soId: salesOrder.id,
-      customerPO: salesOrder.customerPO,
-      customerId: salesOrder.customerId,
-      invoiceDate: invoiceData.invoiceDate,
-      dueDate: invoiceData.dueDate,
-      isExport: invoiceData.isExport,
-      items: salesOrder.items,
-      subtotal,
-      vat,
-      grandTotal,
-      paidAmount: 0,
-      balance: grandTotal,
-      status: 'unpaid',
-      payments: [],
-      createdAt: new Date().toISOString(),
-    })
-    onClose()
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <div className="p-4 border-b bg-green-600 text-white rounded-t-xl">
-          <h3 className="text-lg font-bold flex items-center gap-2">
-            <Receipt className="w-5 h-5" />
-            {lang === 'th' ? 'สร้างใบแจ้งหนี้' : 'Create Invoice'}
-          </h3>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="p-4 bg-green-50 rounded-lg text-center">
-            <div className="text-sm text-gray-500">Invoice Number</div>
-            <div className="text-2xl font-bold text-green-600 font-mono">{invoiceNumber}</div>
-          </div>
-
-          <div className="p-3 bg-gray-50 rounded-lg text-sm">
-            <div><span className="text-gray-500">SO:</span> <strong>{salesOrder.soNumber}</strong></div>
-            <div><span className="text-gray-500">Customer PO:</span> <strong>{salesOrder.customerPO}</strong></div>
-            <div><span className="text-gray-500">Customer:</span> <strong>{salesOrder.customer?.name}</strong></div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Date</label>
-              <input
-                type="date"
-                value={invoiceData.invoiceDate}
-                onChange={(e) => setInvoiceData({ ...invoiceData, invoiceDate: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-              <input
-                type="date"
-                value={invoiceData.dueDate}
-                onChange={(e) => setInvoiceData({ ...invoiceData, dueDate: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-              />
-            </div>
-          </div>
-
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={invoiceData.isExport}
-              onChange={(e) => setInvoiceData({ ...invoiceData, isExport: e.target.checked })}
-              className="w-4 h-4 rounded"
-            />
-            <span className="text-sm">Export Invoice (No VAT)</span>
-          </label>
-
-          <div className="bg-gray-50 p-4 rounded-lg text-right space-y-1">
-            <div>Subtotal: ฿{subtotal.toLocaleString()}</div>
-            {!invoiceData.isExport && <div>VAT 7%: ฿{vat.toLocaleString()}</div>}
-            <div className="text-xl font-bold text-green-600">Total: ฿{grandTotal.toLocaleString()}</div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-            <button type="submit" className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Create Invoice</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// Record Payment Modal
-const RecordPaymentModal = ({ isOpen, onClose, invoice, onRecordPayment, lang }) => {
-  const [payment, setPayment] = useState({
-    amount: 0,
-    method: 'transfer',
-    reference: '',
-    date: new Date().toISOString().split('T')[0],
-    notes: '',
-  })
-
-  useEffect(() => {
-    if (invoice) {
-      setPayment(prev => ({ ...prev, amount: invoice.balance || 0 }))
-    }
-  }, [invoice])
-
-  if (!isOpen || !invoice) return null
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    onRecordPayment({
-      invoiceId: invoice.id,
-      payment: {
-        id: `PAY-${Date.now()}`,
-        ...payment,
-        recordedAt: new Date().toISOString(),
-      }
-    })
-    onClose()
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <div className="p-4 border-b bg-blue-600 text-white rounded-t-xl">
-          <h3 className="text-lg font-bold flex items-center gap-2">
-            <CreditCard className="w-5 h-5" />
-            {lang === 'th' ? 'บันทึกการชำระเงิน' : 'Record Payment'}
-          </h3>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="p-3 bg-gray-50 rounded-lg text-sm">
-            <div><span className="text-gray-500">Invoice:</span> <strong>{invoice.invoiceNumber || invoice.id}</strong></div>
-            <div><span className="text-gray-500">Total:</span> <strong>฿{invoice.grandTotal?.toLocaleString()}</strong></div>
-            <div><span className="text-gray-500">Paid:</span> <strong className="text-green-600">฿{invoice.paidAmount?.toLocaleString()}</strong></div>
-            <div><span className="text-gray-500">Balance:</span> <strong className="text-red-600">฿{invoice.balance?.toLocaleString()}</strong></div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
-            <input
-              type="number"
-              required
-              min="0.01"
-              max={invoice.balance}
-              step="0.01"
-              value={payment.amount || ''}
-              onChange={(e) => setPayment({ ...payment, amount: parseFloat(e.target.value) || 0 })}
-              className="w-full px-3 py-2 border rounded-lg"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Method</label>
-            <select
-              value={payment.method}
-              onChange={(e) => setPayment({ ...payment, method: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg"
-            >
-              <option value="transfer">Bank Transfer</option>
-              <option value="cheque">Cheque</option>
-              <option value="cash">Cash</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Reference</label>
-            <input
-              type="text"
-              value={payment.reference}
-              onChange={(e) => setPayment({ ...payment, reference: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg"
-              placeholder="Cheque #, Transfer Ref, etc."
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-            <input
-              type="date"
-              value={payment.date}
-              onChange={(e) => setPayment({ ...payment, date: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-            <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Record Payment</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// Main Sales Module
-const SalesModule = ({ 
-  salesOrders, setSalesOrders, 
-  invoices, setInvoices, 
-  customers, setCustomers,
-  workOrders, setWorkOrders,
-  products,
-  quotations = [], setQuotations,
-  dispatchOrders = [], setDispatchOrders,
-  rejections = [], setRejections,
-  finishedGoods = [], setFinishedGoods,
-  lang 
-}) => {
+const SalesModule = ({ salesOrders, setSalesOrders, invoices, setInvoices, customers, workOrders, lang }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
-  const [showPOModal, setShowPOModal] = useState(false)
-  const [showQuotationModal, setShowQuotationModal] = useState(false)
-  const [showWOModal, setShowWOModal] = useState(false)
-  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [showDOModal, setShowDOModal] = useState(false)
-  const [showRejectionModal, setShowRejectionModal] = useState(false)
-  const [showClaimModal, setShowClaimModal] = useState(false)
-  const [showLocationModal, setShowLocationModal] = useState(false)
-  const [selectedSO, setSelectedSO] = useState(null)
-  const [selectedInvoice, setSelectedInvoice] = useState(null)
-  const [selectedFG, setSelectedFG] = useState([])
-  const [selectedCustomer, setSelectedCustomer] = useState(null)
-  const [filterCustomer, setFilterCustomer] = useState('all')
-  const [filterMonth, setFilterMonth] = useState('all')
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [viewMode, setViewMode] = useState('list')
 
-  // Enhanced tabs with all features
   const tabs = [
-    { id: 'operations', label: lang === 'th' ? 'แผนงาน' : 'Operations', icon: ClipboardList, color: 'text-blue-600' },
-    { id: 'orders', label: lang === 'th' ? 'PO ลูกค้า' : 'Customer POs', icon: FileText, color: 'text-green-600' },
-    { id: 'dispatch', label: lang === 'th' ? 'จัดส่ง' : 'Dispatch', icon: Truck, color: 'text-purple-600' },
-    { id: 'invoices', label: lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices', icon: Receipt, color: 'text-emerald-600' },
-    { id: 'payments', label: lang === 'th' ? 'การชำระ' : 'Payments', icon: CreditCard, color: 'text-cyan-600' },
-    { id: 'customers', label: lang === 'th' ? 'ลูกค้า' : 'Customers', icon: Users, color: 'text-orange-600' },
-    { id: 'returns', label: lang === 'th' ? 'คืน/เคลม' : 'Returns', icon: RotateCcw, color: 'text-red-600' },
-    { id: 'quotations', label: lang === 'th' ? 'ใบเสนอราคา' : 'Quotations', icon: FileText, color: 'text-indigo-600' },
-    { id: 'reports', label: lang === 'th' ? 'รายงาน' : 'Reports', icon: BarChart3, color: 'text-gray-600' },
+    { id: 'dashboard', label: lang === 'th' ? 'ภาพรวม' : 'Dashboard', icon: BarChart3 },
+    { id: 'orders', label: lang === 'th' ? 'ใบสั่งขาย' : 'Sales Orders', icon: ClipboardList },
+    { id: 'invoices', label: lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices', icon: Receipt },
+    { id: 'payments', label: lang === 'th' ? 'การชำระ' : 'Payments', icon: CreditCard },
   ]
-
-  // Calculate stats
-  const currentMonth = new Date().getMonth()
-  const currentYear = new Date().getFullYear()
-  
-  const thisMonthOrders = salesOrders.filter(so => {
-    const d = new Date(so.orderDate || so.createdAt)
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear
-  })
 
   const stats = {
     totalOrders: salesOrders.length,
-    thisMonthOrders: thisMonthOrders.length,
-    thisMonthValue: thisMonthOrders.reduce((sum, so) => sum + (so.grandTotal || 0), 0),
-    pendingWO: salesOrders.filter(so => so.status === 'confirmed' && !so.woId).length,
-    inProduction: salesOrders.filter(so => so.status === 'in_production').length,
-    readyToShip: salesOrders.filter(so => so.status === 'ready').length,
+    pendingOrders: salesOrders.filter(so => so.status === 'confirmed').length,
     totalInvoices: invoices.length,
     unpaidInvoices: invoices.filter(inv => inv.balance > 0).length,
     totalRevenue: invoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0),
     totalReceived: invoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0),
-    overdueInvoices: invoices.filter(inv => inv.balance > 0 && new Date(inv.dueDate) < new Date()).length,
   }
-
-  // Monthly Sales Data
-  const getMonthlyData = () => {
-    const months = []
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date()
-      d.setMonth(d.getMonth() - i)
-      const month = d.getMonth()
-      const year = d.getFullYear()
-      const monthOrders = salesOrders.filter(so => {
-        const od = new Date(so.orderDate || so.createdAt)
-        return od.getMonth() === month && od.getFullYear() === year
-      })
-      const monthInvoices = invoices.filter(inv => {
-        const id = new Date(inv.invoiceDate || inv.createdAt)
-        return id.getMonth() === month && id.getFullYear() === year
-      })
-      months.push({
-        label: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-        month,
-        year,
-        orders: monthOrders.length,
-        orderValue: monthOrders.reduce((sum, so) => sum + (so.grandTotal || 0), 0),
-        invoices: monthInvoices.length,
-        invoiceValue: monthInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0),
-        received: monthInvoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0),
-      })
-    }
-    return months
-  }
-
-  // Customer-wise Sales Data
-  const getCustomerData = () => {
-    const customerMap = {}
-    salesOrders.forEach(so => {
-      const custId = so.customerId
-      if (!customerMap[custId]) {
-        const cust = customers.find(c => c.id === custId)
-        customerMap[custId] = {
-          customerId: custId,
-          customerCode: cust?.code || custId,
-          customerName: cust?.name || custId,
-          orderCount: 0,
-          orderValue: 0,
-          invoiceCount: 0,
-          invoiceValue: 0,
-          paidAmount: 0,
-          balance: 0,
-        }
-      }
-      customerMap[custId].orderCount++
-      customerMap[custId].orderValue += so.grandTotal || 0
-    })
-    invoices.forEach(inv => {
-      const custId = inv.customerId
-      if (customerMap[custId]) {
-        customerMap[custId].invoiceCount++
-        customerMap[custId].invoiceValue += inv.grandTotal || 0
-        customerMap[custId].paidAmount += inv.paidAmount || 0
-        customerMap[custId].balance += inv.balance || 0
-      }
-    })
-    return Object.values(customerMap).sort((a, b) => b.orderValue - a.orderValue)
-  }
-
-  // Open PO/PR (Orders without WO)
-  const openOrders = salesOrders.filter(so => so.status === 'confirmed' && !so.woId)
-
-  // Handlers
-  const handleSavePO = (poData) => {
-    setSalesOrders([...salesOrders, poData])
-  }
-
-  const handleSaveQuotation = (qtData) => {
-    if (setQuotations) setQuotations(prev => [...(prev || []), qtData])
-  }
-
-  const handleCreateWO = (woData) => {
-    if (setWorkOrders) {
-      setWorkOrders(prev => [...prev, woData])
-    }
-    // Update SO with WO reference
-    setSalesOrders(salesOrders.map(so => 
-      so.id === selectedSO.id ? { ...so, woId: woData.id, status: 'in_production' } : so
-    ))
-    setSelectedSO(null)
-  }
-
-  const handleCreateInvoice = (invData) => {
-    setInvoices([...invoices, invData])
-    // Update SO status
-    setSalesOrders(salesOrders.map(so => 
-      so.id === selectedSO.id ? { ...so, invoiceId: invData.id } : so
-    ))
-    setSelectedSO(null)
-  }
-
-  const handleRecordPayment = ({ invoiceId, payment }) => {
-    setInvoices(invoices.map(inv => {
-      if (inv.id !== invoiceId) return inv
-      const newPaidAmount = (inv.paidAmount || 0) + payment.amount
-      const newBalance = inv.grandTotal - newPaidAmount
-      return {
-        ...inv,
-        paidAmount: newPaidAmount,
-        balance: newBalance,
-        status: newBalance <= 0 ? 'paid' : newPaidAmount > 0 ? 'partial' : 'unpaid',
-        payments: [...(inv.payments || []), payment],
-      }
-    }))
-    setSelectedInvoice(null)
-  }
-
-  const monthlyData = getMonthlyData()
-  const customerData = getCustomerData()
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{t('nav.sales', lang)}</h1>
-          <p className="text-gray-500">{lang === 'th' ? 'จัดการการขาย PO ลูกค้า ใบแจ้งหนี้ และการชำระเงิน' : 'Manage Customer POs, Invoices & Payments'}</p>
+          <p className="text-gray-500">{lang === 'th' ? 'จัดการการขายและใบแจ้งหนี้' : 'Manage sales and invoices'}</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" icon={FileText} onClick={() => setShowQuotationModal(true)}>
-            {lang === 'th' ? 'ใบเสนอราคา' : 'Quotation'}
-          </Button>
-          <Button icon={Plus} onClick={() => setShowPOModal(true)}>
-            {lang === 'th' ? 'รับ PO ลูกค้า' : 'Enter Customer PO'}
-          </Button>
-        </div>
+        <Button icon={Plus}>
+          {lang === 'th' ? 'สร้างใบสั่งขาย' : 'New Sales Order'}
+        </Button>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-        <Card className="p-3 border-l-4 border-l-blue-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'PO ทั้งหมด' : 'Total POs'}</div>
-          <div className="text-xl font-bold text-blue-600">{stats.totalOrders}</div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <Card className="p-4">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบสั่งขาย' : 'Orders'}</div>
+          <div className="text-2xl font-bold text-gray-800">{stats.totalOrders}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-green-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'เดือนนี้' : 'This Month'}</div>
-          <div className="text-xl font-bold text-green-600">{stats.thisMonthOrders}</div>
+        <Card className="p-4 border-l-4 border-l-yellow-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รอผลิต' : 'Pending'}</div>
+          <div className="text-2xl font-bold text-yellow-600">{stats.pendingOrders}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-yellow-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'รอสร้าง WO' : 'Pending WO'}</div>
-          <div className="text-xl font-bold text-yellow-600">{stats.pendingWO}</div>
+        <Card className="p-4 border-l-4 border-l-blue-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices'}</div>
+          <div className="text-2xl font-bold text-blue-600">{stats.totalInvoices}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-purple-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'กำลังผลิต' : 'In Production'}</div>
-          <div className="text-xl font-bold text-purple-600">{stats.inProduction}</div>
+        <Card className="p-4 border-l-4 border-l-red-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'ยังไม่ชำระ' : 'Unpaid'}</div>
+          <div className="text-2xl font-bold text-red-600">{stats.unpaidInvoices}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-cyan-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'พร้อมส่ง' : 'Ready to Ship'}</div>
-          <div className="text-xl font-bold text-cyan-600">{stats.readyToShip}</div>
+        <Card className="p-4 border-l-4 border-l-purple-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รายได้รวม' : 'Revenue'}</div>
+          <div className="text-2xl font-bold text-purple-600">{formatCurrency(stats.totalRevenue)}</div>
         </Card>
-        <Card className="p-3 border-l-4 border-l-emerald-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'รายได้' : 'Revenue'}</div>
-          <div className="text-lg font-bold text-emerald-600">฿{(stats.totalRevenue / 1000).toFixed(0)}K</div>
-        </Card>
-        <Card className="p-3 border-l-4 border-l-red-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'ค้างชำระ' : 'Outstanding'}</div>
-          <div className="text-lg font-bold text-red-600">฿{((stats.totalRevenue - stats.totalReceived) / 1000).toFixed(0)}K</div>
-        </Card>
-        <Card className="p-3 border-l-4 border-l-orange-500">
-          <div className="text-xs text-gray-500">{lang === 'th' ? 'เกินกำหนด' : 'Overdue'}</div>
-          <div className="text-xl font-bold text-orange-600">{stats.overdueInvoices}</div>
+        <Card className="p-4 border-l-4 border-l-green-500">
+          <div className="text-sm text-gray-500">{lang === 'th' ? 'รับแล้ว' : 'Received'}</div>
+          <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.totalReceived)}</div>
         </Card>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b overflow-x-auto">
-        {[{ id: 'dashboard', label: lang === 'th' ? 'หน้าหลัก' : 'Dashboard', icon: Home, color: 'text-gray-600' }, ...tabs].map(tab => (
+      <div className="flex gap-2 border-b">
+        {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
               activeTab === tab.id 
-                ? 'border-[#1A5276] text-[#1A5276] bg-blue-50' 
+                ? 'border-[#1A5276] text-[#1A5276]' 
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -12058,745 +6386,84 @@ const SalesModule = ({
         ))}
       </div>
 
-      {/* Dashboard Tab - Daily & Weekly Tasks */}
-      {activeTab === 'dashboard' && (() => {
-        // Calculate daily and weekly tasks
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const weekEnd = new Date(today)
-        weekEnd.setDate(weekEnd.getDate() + 7)
-        
-        // Get next 7 days
-        const weekDays = Array.from({ length: 7 }, (_, i) => {
-          const d = new Date(today)
-          d.setDate(d.getDate() + i)
-          return d
-        })
-        
-        // Today's deliveries
-        const todayDeliveries = salesOrders.filter(so => {
-          const delDate = new Date(so.deliveryDate)
-          delDate.setHours(0, 0, 0, 0)
-          return delDate.getTime() === today.getTime() && so.status !== 'delivered'
-        })
-        
-        // This week's deliveries (grouped by day)
-        const weekDeliveries = weekDays.map(day => {
-          const dayDeliveries = salesOrders.filter(so => {
-            const delDate = new Date(so.deliveryDate)
-            delDate.setHours(0, 0, 0, 0)
-            return delDate.getTime() === day.getTime() && so.status !== 'delivered'
-          })
-          return { date: day, deliveries: dayDeliveries }
-        })
-        
-        // Overdue items
-        const overdueOrders = salesOrders.filter(so => {
-          const delDate = new Date(so.deliveryDate)
-          return delDate < today && so.status !== 'delivered'
-        })
-        
-        // Ready to ship (in FG)
-        const readyToShip = salesOrders.filter(so => 
-          so.status === 'ready' || so.items?.some(i => (i.fgQty || 0) > 0)
-        )
-        
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-        const dayNamesTh = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
-        
-        return (
-          <div className="space-y-6">
-            {/* Alert Section */}
-            {(overdueOrders.length > 0 || todayDeliveries.length > 0) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {overdueOrders.length > 0 && (
-                  <Card className="p-4 bg-red-50 border-red-200 border-2">
-                    <h3 className="font-bold text-red-800 flex items-center gap-2 mb-3">
-                      <AlertTriangle className="w-5 h-5" />
-                      {lang === 'th' ? `เกินกำหนด (${overdueOrders.length})` : `Overdue (${overdueOrders.length})`}
-                    </h3>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {overdueOrders.slice(0, 5).map(so => {
-                        const customer = customers?.find(c => c.id === so.customerId)
-                        const daysOverdue = Math.floor((today - new Date(so.deliveryDate)) / (1000 * 60 * 60 * 24))
-                        return (
-                          <div key={so.id} className="flex justify-between items-center p-2 bg-white rounded border border-red-200">
-                            <div>
-                              <div className="font-mono text-sm font-medium text-red-700">{so.customerPO}</div>
-                              <div className="text-xs text-gray-500">{customer?.code}</div>
-                            </div>
-                            <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full font-medium">
-                              {daysOverdue} {lang === 'th' ? 'วัน' : 'days'}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </Card>
-                )}
-                
-                {todayDeliveries.length > 0 && (
-                  <Card className="p-4 bg-blue-50 border-blue-200 border-2">
-                    <h3 className="font-bold text-blue-800 flex items-center gap-2 mb-3">
-                      <Truck className="w-5 h-5" />
-                      {lang === 'th' ? `ส่งวันนี้ (${todayDeliveries.length})` : `Due Today (${todayDeliveries.length})`}
-                    </h3>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {todayDeliveries.map(so => {
-                        const customer = customers?.find(c => c.id === so.customerId)
-                        return (
-                          <div key={so.id} className="flex justify-between items-center p-2 bg-white rounded border border-blue-200">
-                            <div>
-                              <div className="font-mono text-sm font-medium text-blue-700">{so.customerPO}</div>
-                              <div className="text-xs text-gray-500">{customer?.code} • {so.deliveryLocation || '-'}</div>
-                            </div>
-                            <Badge variant={so.status === 'ready' ? 'success' : 'warning'}>
-                              {so.status === 'ready' ? 'Ready' : so.status}
-                            </Badge>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </Card>
-                )}
-              </div>
-            )}
-
-            {/* Week Calendar View */}
-            <Card className="overflow-hidden">
-              <div className="p-4 bg-gradient-to-r from-[#1A5276] to-[#2ECC40] text-white">
-                <h3 className="font-bold flex items-center gap-2">
-                  <Calendar className="w-5 h-5" />
-                  {lang === 'th' ? 'แผนงานสัปดาห์นี้' : 'This Week\'s Schedule'}
-                </h3>
-                <p className="text-sm opacity-80 mt-1">
-                  {today.toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US', { month: 'long', year: 'numeric' })}
-                </p>
-              </div>
-              
-              <div className="grid grid-cols-7 divide-x border-b bg-gray-50">
-                {weekDays.map((day, idx) => {
-                  const isToday = day.getTime() === today.getTime()
-                  const deliveryCount = weekDeliveries[idx].deliveries.length
-                  return (
-                    <div 
-                      key={idx} 
-                      className={`p-3 text-center ${isToday ? 'bg-blue-100' : ''}`}
-                    >
-                      <div className={`text-xs font-medium ${isToday ? 'text-blue-600' : 'text-gray-500'}`}>
-                        {lang === 'th' ? dayNamesTh[day.getDay()] : dayNames[day.getDay()]}
-                      </div>
-                      <div className={`text-lg font-bold ${isToday ? 'text-blue-700' : 'text-gray-700'}`}>
-                        {day.getDate()}
-                      </div>
-                      {deliveryCount > 0 && (
-                        <div className={`mt-1 text-xs px-2 py-0.5 rounded-full ${
-                          isToday ? 'bg-blue-500 text-white' : 'bg-orange-100 text-orange-700'
-                        }`}>
-                          {deliveryCount}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-              
-              <div className="grid grid-cols-7 divide-x min-h-[200px]">
-                {weekDays.map((day, idx) => {
-                  const isToday = day.getTime() === today.getTime()
-                  const dayDeliveries = weekDeliveries[idx].deliveries
-                  return (
-                    <div 
-                      key={idx} 
-                      className={`p-2 ${isToday ? 'bg-blue-50' : ''}`}
-                    >
-                      <div className="space-y-1.5">
-                        {dayDeliveries.slice(0, 4).map(so => {
-                          const customer = customers?.find(c => c.id === so.customerId)
-                          return (
-                            <div 
-                              key={so.id}
-                              className={`p-1.5 rounded text-xs ${
-                                so.status === 'ready' 
-                                  ? 'bg-green-100 border-l-2 border-green-500' 
-                                  : so.status === 'in_production'
-                                  ? 'bg-yellow-100 border-l-2 border-yellow-500'
-                                  : 'bg-gray-100 border-l-2 border-gray-400'
-                              }`}
-                            >
-                              <div className="font-medium truncate">{customer?.code}</div>
-                              <div className="text-gray-500 truncate">{so.customerPO?.slice(-6)}</div>
-                            </div>
-                          )
-                        })}
-                        {dayDeliveries.length > 4 && (
-                          <div className="text-xs text-center text-gray-400">
-                            +{dayDeliveries.length - 4} more
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </Card>
-
-            {/* Quick Actions & Summary */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Today's Tasks */}
-              <Card className="p-5">
-                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-blue-500" />
-                  {lang === 'th' ? 'งานวันนี้' : 'Today\'s Tasks'}
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm">{lang === 'th' ? 'รอส่งวันนี้' : 'Deliveries Due'}</span>
-                    </div>
-                    <span className="font-bold text-blue-600">{todayDeliveries.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Package className="w-4 h-4 text-green-600" />
-                      <span className="text-sm">{lang === 'th' ? 'พร้อมส่ง (FG)' : 'Ready in FG'}</span>
-                    </div>
-                    <span className="font-bold text-green-600">{readyToShip.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Factory className="w-4 h-4 text-yellow-600" />
-                      <span className="text-sm">{lang === 'th' ? 'รอสร้าง WO' : 'Pending WO'}</span>
-                    </div>
-                    <span className="font-bold text-yellow-600">{openOrders.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-red-600" />
-                      <span className="text-sm">{lang === 'th' ? 'เกินกำหนด' : 'Overdue'}</span>
-                    </div>
-                    <span className="font-bold text-red-600">{overdueOrders.length}</span>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Open POs needing WO */}
-              <Card className="p-5">
-                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-yellow-500" />
-                  {lang === 'th' ? 'PO รอสร้าง WO' : 'Open POs (Need WO)'}
-                </h3>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {openOrders.length === 0 ? (
-                    <p className="text-gray-400 text-center py-4">
-                      {lang === 'th' ? 'ไม่มี PO รอดำเนินการ' : 'No pending POs'}
-                    </p>
-                  ) : (
-                    openOrders.slice(0, 6).map(so => {
-                      const customer = customers?.find(c => c.id === so.customerId)
-                      return (
-                        <div key={so.id} className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="font-mono text-sm font-medium">{so.customerPO}</div>
-                              <div className="text-xs text-gray-500">{customer?.name}</div>
-                            </div>
-                            <button
-                              onClick={() => { setSelectedSO(so); setShowWOModal(true) }}
-                              className="px-2 py-1 text-xs bg-[#1A5276] text-white rounded hover:bg-[#1A5276]/90"
-                            >
-                              + WO
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
-              </Card>
-
-              {/* Monthly Summary */}
-              <Card className="p-5">
-                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-purple-500" />
-                  {lang === 'th' ? 'สรุปเดือนนี้' : 'This Month'}
-                </h3>
-                <div className="space-y-3">
-                  <div className="text-center p-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
-                    <div className="text-3xl font-bold">฿{(stats.thisMonthValue / 1000).toFixed(0)}K</div>
-                    <div className="text-sm opacity-80">{lang === 'th' ? 'ยอดขายเดือนนี้' : 'This Month Sales'}</div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="p-3 bg-gray-50 rounded text-center">
-                      <div className="text-xl font-bold text-gray-700">{stats.thisMonthOrders}</div>
-                      <div className="text-xs text-gray-500">{lang === 'th' ? 'ออเดอร์' : 'Orders'}</div>
-                    </div>
-                    <div className="p-3 bg-gray-50 rounded text-center">
-                      <div className="text-xl font-bold text-green-600">{stats.totalReceived > 0 ? Math.round(stats.totalReceived / stats.totalRevenue * 100) : 0}%</div>
-                      <div className="text-xs text-gray-500">{lang === 'th' ? 'รับเงินแล้ว' : 'Collected'}</div>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* Operations Tab - Production Plan Style View */}
-      {activeTab === 'operations' && (
-        <div className="space-y-4">
-          {/* Filters */}
-          <Card className="p-4">
-            <div className="flex flex-wrap gap-3 items-center">
-              <select
-                value={filterCustomer}
-                onChange={(e) => setFilterCustomer(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm"
-              >
-                <option value="all">{lang === 'th' ? 'ลูกค้าทั้งหมด' : 'All Customers'}</option>
-                {customers?.filter(c => c.isActive !== false).map(c => (
-                  <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
-                ))}
-              </select>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm"
-              >
-                <option value="all">{lang === 'th' ? 'ทุกสถานะ' : 'All Status'}</option>
-                <option value="open">{lang === 'th' ? 'เปิดอยู่' : 'Open'}</option>
-                <option value="in_production">{lang === 'th' ? 'กำลังผลิต' : 'In Production'}</option>
-                <option value="in_fg">{lang === 'th' ? 'ใน FG' : 'In FG Store'}</option>
-                <option value="partial">{lang === 'th' ? 'ส่งบางส่วน' : 'Partial'}</option>
-                <option value="completed">{lang === 'th' ? 'เสร็จสิ้น' : 'Completed'}</option>
-              </select>
-              <select
-                value={filterMonth}
-                onChange={(e) => setFilterMonth(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm"
-              >
-                <option value="all">{lang === 'th' ? 'ทุกเดือน' : 'All Months'}</option>
-                {monthlyData.slice(-6).reverse().map((m, idx) => (
-                  <option key={idx} value={`${m.year}-${m.month}`}>{m.label}</option>
-                ))}
-              </select>
-              <div className="flex-1" />
-              <Button size="sm" variant="outline" onClick={() => setShowPOModal(true)}>
-                <Plus className="w-4 h-4 mr-1" />
-                {lang === 'th' ? 'รับ PO' : 'New PO'}
-              </Button>
-            </div>
-          </Card>
-
-          {/* Production Plan Style Table */}
-          <Card className="overflow-hidden">
-            <div className="p-3 bg-gradient-to-r from-blue-600 to-blue-800 text-white">
-              <h3 className="font-bold flex items-center gap-2">
-                <ClipboardList className="w-5 h-5" />
-                {lang === 'th' ? 'แผนงานขาย/ผลิต (ทุก PO/PR)' : 'Sales/Production Plan (All PO/PR)'}
-              </h3>
-              <p className="text-xs opacity-80 mt-1">
-                {lang === 'th' ? 'เหมือน Production Plan from PO - ดูสถานะทุก order ในที่เดียว' : 'Like Production Plan from PO - All orders at a glance'}
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-100 sticky top-0">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">{lang === 'th' ? 'PO ลูกค้า' : 'Cust PO'}</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">{lang === 'th' ? 'รายการ' : 'Item'}</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">{lang === 'th' ? 'ขนาด' : 'Size'}</th>
-                    <th className="px-3 py-2 text-center font-medium text-gray-600 border-b">{lang === 'th' ? 'สั่ง' : 'Ord'}</th>
-                    <th className="px-3 py-2 text-center font-medium text-gray-600 border-b bg-yellow-50">{lang === 'th' ? 'ผลิต' : 'Prod'}</th>
-                    <th className="px-3 py-2 text-center font-medium text-gray-600 border-b bg-green-50">{lang === 'th' ? 'FG' : 'FG'}</th>
-                    <th className="px-3 py-2 text-center font-medium text-gray-600 border-b bg-blue-50">{lang === 'th' ? 'ส่ง' : 'Sent'}</th>
-                    <th className="px-3 py-2 text-center font-medium text-gray-600 border-b bg-red-50">{lang === 'th' ? 'คงเหลือ' : 'Bal'}</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">{lang === 'th' ? 'กำหนด' : 'Due'}</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">{lang === 'th' ? 'ที่ส่ง' : 'Loc'}</th>
-                    <th className="px-3 py-2 text-center font-medium text-gray-600 border-b">{lang === 'th' ? 'จัดการ' : 'Act'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {salesOrders
-                    .filter(so => filterCustomer === 'all' || so.customerId === filterCustomer)
-                    .filter(so => {
-                      if (filterStatus === 'all') return true
-                      if (filterStatus === 'open') return !so.woId
-                      if (filterStatus === 'in_production') return so.status === 'in_production'
-                      if (filterStatus === 'in_fg') return so.status === 'ready'
-                      if (filterStatus === 'partial') return (so.deliveredQty || 0) > 0 && (so.deliveredQty || 0) < so.items?.reduce((s, i) => s + i.qty, 0)
-                      if (filterStatus === 'completed') return so.status === 'delivered'
-                      return true
-                    })
-                    .flatMap(so => {
-                      const customer = customers?.find(c => c.id === so.customerId)
-                      const wo = workOrders?.find(w => w.soId === so.id || w.id === so.woId)
-                      return (so.items || []).map((item, idx) => {
-                        const inProduction = wo?.status === 'in_progress' ? (item.qty - (item.completedQty || 0)) : 0
-                        const inFG = item.fgQty || 0
-                        const delivered = item.deliveredQty || 0
-                        const balance = item.qty - delivered
-                        const isOverdue = new Date(so.deliveryDate) < new Date() && balance > 0
-                        const isComplete = balance === 0
-                        
-                        return (
-                          <tr 
-                            key={`${so.id}-${idx}`} 
-                            className={`hover:bg-gray-50 ${isComplete ? 'bg-gray-50 opacity-60' : ''} ${isOverdue ? 'bg-red-50' : ''}`}
-                          >
-                            <td className="px-3 py-2">
-                              <div className={`font-mono text-xs ${isComplete ? 'line-through text-gray-400' : 'text-blue-600 font-medium'}`}>
-                                {so.customerPO}
-                              </div>
-                              {so.woId && (
-                                <div className="text-xs text-purple-500">{wo?.woNumber || so.woId}</div>
-                              )}
-                            </td>
-                            <td className="px-3 py-2">
-                              <div className="font-medium text-xs">{customer?.code}</div>
-                            </td>
-                            <td className="px-3 py-2">
-                              <div className="text-xs">{item.productCode || item.description?.substring(0, 20)}</div>
-                            </td>
-                            <td className="px-3 py-2 text-xs text-gray-500">{item.dimensions}</td>
-                            <td className="px-3 py-2 text-center font-medium">{item.qty}</td>
-                            <td className="px-3 py-2 text-center bg-yellow-50">
-                              {inProduction > 0 ? (
-                                <span className="text-yellow-600 font-medium">{inProduction} 🔄</span>
-                              ) : '-'}
-                            </td>
-                            <td className="px-3 py-2 text-center bg-green-50">
-                              {inFG > 0 ? (
-                                <span className="text-green-600 font-medium">{inFG} ✅</span>
-                              ) : '-'}
-                            </td>
-                            <td className="px-3 py-2 text-center bg-blue-50">
-                              {delivered > 0 ? (
-                                <span className="text-blue-600">{delivered}</span>
-                              ) : '-'}
-                            </td>
-                            <td className="px-3 py-2 text-center bg-red-50">
-                              {balance > 0 ? (
-                                <span className={`font-bold ${isOverdue ? 'text-red-600' : 'text-gray-600'}`}>{balance}</span>
-                              ) : (
-                                <span className="text-green-500">✓</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 text-xs">
-                              <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
-                                {formatDate(so.deliveryDate)}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2">
-                              {so.deliveryLocation && (
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                  so.deliveryLocation.includes('CPP') ? 'bg-orange-100 text-orange-700' :
-                                  so.deliveryLocation.includes('FILM') ? 'bg-gray-100 text-gray-700' :
-                                  so.deliveryLocation.includes('LINE') ? 'bg-red-100 text-red-700' :
-                                  'bg-blue-100 text-blue-700'
-                                }`}>
-                                  {so.deliveryLocation}
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2">
-                              <div className="flex gap-1 justify-center">
-                                {!so.woId && (
-                                  <button
-                                    onClick={() => { setSelectedSO(so); setShowWOModal(true) }}
-                                    className="p-1 text-purple-600 hover:bg-purple-50 rounded"
-                                    title="Create WO"
-                                  >
-                                    <Factory className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                                {inFG > 0 && (
-                                  <button
-                                    onClick={() => { setSelectedSO(so); setShowDOModal(true) }}
-                                    className="p-1 text-green-600 hover:bg-green-50 rounded"
-                                    title="Create DO"
-                                  >
-                                    <Truck className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })
-                    })}
-                </tbody>
-              </table>
-            </div>
-            {salesOrders.length === 0 && (
-              <div className="text-center py-12 text-gray-400">
-                <ClipboardList className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>{lang === 'th' ? 'ยังไม่มีรายการ PO' : 'No POs yet'}</p>
-              </div>
-            )}
-          </Card>
-
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <Card className="p-4 border-l-4 border-l-yellow-500">
-              <div className="text-sm text-gray-500">{lang === 'th' ? 'รอสร้าง WO' : 'Pending WO'}</div>
-              <div className="text-2xl font-bold text-yellow-600">{openOrders.length}</div>
-            </Card>
-            <Card className="p-4 border-l-4 border-l-purple-500">
-              <div className="text-sm text-gray-500">{lang === 'th' ? 'กำลังผลิต' : 'In Production'}</div>
-              <div className="text-2xl font-bold text-purple-600">{stats.inProduction}</div>
-            </Card>
-            <Card className="p-4 border-l-4 border-l-green-500">
-              <div className="text-sm text-gray-500">{lang === 'th' ? 'ใน FG พร้อมส่ง' : 'In FG Ready'}</div>
-              <div className="text-2xl font-bold text-green-600">{stats.readyToShip}</div>
-            </Card>
-            <Card className="p-4 border-l-4 border-l-blue-500">
-              <div className="text-sm text-gray-500">{lang === 'th' ? 'ส่งบางส่วน' : 'Partial Delivery'}</div>
-              <div className="text-2xl font-bold text-blue-600">
-                {salesOrders.filter(so => (so.deliveredQty || 0) > 0 && so.status !== 'delivered').length}
-              </div>
-            </Card>
-            <Card className="p-4 border-l-4 border-l-red-500">
-              <div className="text-sm text-gray-500">{lang === 'th' ? 'เกินกำหนด' : 'Overdue'}</div>
-              <div className="text-2xl font-bold text-red-600">
-                {salesOrders.filter(so => new Date(so.deliveryDate) < new Date() && so.status !== 'delivered').length}
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* Customer POs Tab */}
+      {/* Sales Orders */}
       {activeTab === 'orders' && (
-        <div className="space-y-4">
-          {/* Filters */}
-          <div className="flex gap-3 flex-wrap">
-            <select
-              value={filterCustomer}
-              onChange={(e) => setFilterCustomer(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm"
-            >
-              <option value="all">{lang === 'th' ? 'ลูกค้าทั้งหมด' : 'All Customers'}</option>
-              {customers.filter(c => c.isActive !== false).map(c => (
-                <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
-              ))}
-            </select>
-            <select
-              value={filterMonth}
-              onChange={(e) => setFilterMonth(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm"
-            >
-              <option value="all">{lang === 'th' ? 'ทุกเดือน' : 'All Months'}</option>
-              {monthlyData.slice(-6).reverse().map((m, idx) => (
-                <option key={idx} value={`${m.year}-${m.month}`}>{m.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Customer PO</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'กำหนดส่ง' : 'Delivery'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">WO</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {salesOrders
-                    .filter(so => filterCustomer === 'all' || so.customerId === filterCustomer)
-                    .filter(so => {
-                      if (filterMonth === 'all') return true
-                      const [year, month] = filterMonth.split('-')
-                      const d = new Date(so.orderDate || so.createdAt)
-                      return d.getFullYear() === parseInt(year) && d.getMonth() === parseInt(month)
-                    })
-                    .map(so => {
-                      const customer = customers.find(c => c.id === so.customerId)
-                      const wo = workOrders?.find(w => w.soId === so.id || w.id === so.woId)
-                      const isOverdue = new Date(so.deliveryDate) < new Date() && so.status !== 'delivered'
-                      return (
-                        <tr key={so.id} className={`hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''}`}>
-                          <td className="px-4 py-3">
-                            <div className="font-mono text-[#1A5276] font-medium">{so.customerPO}</div>
-                            <div className="text-xs text-gray-400">{so.soNumber || so.id}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="font-medium">{customer?.name}</div>
-                            <div className="text-xs text-gray-400">{customer?.code}</div>
-                          </td>
-                          <td className="px-4 py-3 text-sm">{formatDate(so.poDate || so.orderDate)}</td>
-                          <td className="px-4 py-3 text-sm">
-                            <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
-                              {formatDate(so.deliveryDate)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right font-medium">฿{(so.grandTotal || 0).toLocaleString()}</td>
-                          <td className="px-4 py-3 text-center">
-                            {wo ? (
-                              <span className="font-mono text-xs text-[#1A5276]">{wo.woNumber || wo.id}</span>
-                            ) : (
-                              <button
-                                onClick={() => { setSelectedSO(so); setShowWOModal(true) }}
-                                className="px-2 py-1 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600"
-                              >
-                                + WO
-                              </button>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <Badge variant={
-                              so.status === 'delivered' ? 'success' :
-                              so.status === 'ready' ? 'info' :
-                              so.status === 'in_production' ? 'warning' :
-                              'default'
-                            }>
-                              {so.status}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <div className="flex justify-center gap-1">
-                              {!so.invoiceId && wo && (
-                                <button
-                                  onClick={() => { setSelectedSO(so); setShowInvoiceModal(true) }}
-                                  className="p-1 text-green-600 hover:bg-green-50 rounded"
-                                  title="Create Invoice"
-                                >
-                                  <Receipt className="w-4 h-4" />
-                                </button>
-                              )}
-                              <button className="p-1 text-gray-400 hover:bg-gray-100 rounded" title="View">
-                                <Eye className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Quotations Tab */}
-      {activeTab === 'quotations' && (
         <Card className="overflow-hidden">
-          <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-            <h3 className="font-bold">{lang === 'th' ? 'ใบเสนอราคา' : 'Quotations'}</h3>
-            <Button size="sm" onClick={() => setShowQuotationModal(true)}>+ New</Button>
-          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">QT #</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Customer</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Date</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Valid Until</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Value</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Status</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'SO #'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'PO ลูกค้า' : 'Customer PO'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {(quotations || []).length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="px-4 py-8 text-center text-gray-400">
-                      {lang === 'th' ? 'ยังไม่มีใบเสนอราคา' : 'No quotations yet'}
-                    </td>
-                  </tr>
-                ) : (
-                  quotations.map(qt => {
-                    const customer = customers.find(c => c.id === qt.customerId)
-                    return (
-                      <tr key={qt.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 font-mono text-purple-600">{qt.quotationNumber || qt.id}</td>
-                        <td className="px-4 py-3">{customer?.name}</td>
-                        <td className="px-4 py-3 text-sm">{formatDate(qt.date)}</td>
-                        <td className="px-4 py-3 text-sm">{formatDate(qt.validUntil)}</td>
-                        <td className="px-4 py-3 text-right font-medium">฿{(qt.grandTotal || 0).toLocaleString()}</td>
-                        <td className="px-4 py-3 text-center">
-                          <Badge variant={qt.status === 'accepted' ? 'success' : qt.status === 'expired' ? 'danger' : 'warning'}>
-                            {qt.status}
-                          </Badge>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
+                {salesOrders.map(so => {
+                  const customer = customers.find(c => c.id === so.customerId)
+                  return (
+                    <tr key={so.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono text-[#1A5276]">{so.id}</td>
+                      <td className="px-4 py-3">{customer?.name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{so.customerPO}</td>
+                      <td className="px-4 py-3">{formatDate(so.orderDate)}</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(so.grandTotal)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={
+                          so.status === 'delivered' ? 'success' :
+                          so.status === 'in_production' ? 'info' :
+                          'warning'
+                        }>
+                          {so.status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         </Card>
       )}
 
-      {/* Invoices Tab */}
+      {/* Invoices */}
       {activeTab === 'invoices' && (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Invoice #</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Customer</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Date</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Due</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Total</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Paid</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Balance</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Status</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Actions</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'Invoice #'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดรวม' : 'Total'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ชำระแล้ว' : 'Paid'}</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Balance'}</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {invoices.map(inv => {
                   const customer = customers.find(c => c.id === inv.customerId)
-                  const isOverdue = inv.balance > 0 && new Date(inv.dueDate) < new Date()
                   return (
-                    <tr key={inv.id} className={`hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''}`}>
-                      <td className="px-4 py-3">
-                        <div className="font-mono text-green-600 font-medium">{inv.invoiceNumber || inv.id}</div>
-                        {inv.isExport && <span className="text-xs bg-blue-100 text-blue-600 px-1 rounded">Export</span>}
-                      </td>
+                    <tr key={inv.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono text-[#1A5276]">{inv.id}</td>
                       <td className="px-4 py-3">{customer?.name}</td>
-                      <td className="px-4 py-3 text-sm">{formatDate(inv.invoiceDate)}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
-                          {formatDate(inv.dueDate)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium">฿{(inv.grandTotal || 0).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right text-green-600">฿{(inv.paidAmount || 0).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right text-red-600 font-medium">฿{(inv.balance || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3">{formatDate(inv.invoiceDate)}</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(inv.grandTotal)}</td>
+                      <td className="px-4 py-3 text-right text-green-600">{formatCurrency(inv.paidAmount)}</td>
+                      <td className="px-4 py-3 text-right text-red-600">{formatCurrency(inv.balance)}</td>
                       <td className="px-4 py-3 text-center">
                         <Badge variant={
                           inv.status === 'paid' ? 'success' :
-                          isOverdue ? 'danger' :
                           inv.status === 'partial' ? 'warning' :
                           'info'
                         }>
-                          {isOverdue ? 'OVERDUE' : inv.status}
+                          {inv.status}
                         </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {inv.balance > 0 && (
-                          <button
-                            onClick={() => { setSelectedInvoice(inv); setShowPaymentModal(true) }}
-                            className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
-                          >
-                            + Payment
-                          </button>
-                        )}
                       </td>
                     </tr>
                   )
@@ -12807,425 +6474,52 @@ const SalesModule = ({
         </Card>
       )}
 
-      {/* Payments Tab */}
-      {activeTab === 'payments' && (
+      {/* Dashboard / Payments placeholder */}
+      {(activeTab === 'dashboard' || activeTab === 'payments') && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'สรุปการชำระ' : 'Payment Summary'}</h3>
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ใบแจ้งหนี้ล่าสุด' : 'Recent Invoices'}</h3>
+            <div className="space-y-3">
+              {invoices.slice(0, 5).map(inv => {
+                const customer = customers.find(c => c.id === inv.customerId)
+                return (
+                  <div key={inv.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <div className="font-mono text-[#1A5276] font-medium">{inv.id}</div>
+                      <div className="text-sm text-gray-500">{customer?.name}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">{formatCurrency(inv.grandTotal)}</div>
+                      <Badge variant={inv.balance > 0 ? 'warning' : 'success'}>
+                        {inv.balance > 0 ? (lang === 'th' ? 'ค้างชำระ' : 'Outstanding') : (lang === 'th' ? 'ชำระแล้ว' : 'Paid')}
+                      </Badge>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+          <Card className="p-5">
+            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'สรุปรายได้' : 'Revenue Summary'}</h3>
             <div className="space-y-4">
               <div className="p-4 bg-green-50 rounded-lg">
                 <div className="text-sm text-green-600">{lang === 'th' ? 'รายได้รวม' : 'Total Revenue'}</div>
-                <div className="text-3xl font-bold text-green-700">฿{stats.totalRevenue.toLocaleString()}</div>
+                <div className="text-3xl font-bold text-green-700">{formatCurrency(stats.totalRevenue)}</div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-blue-50 rounded-lg">
                   <div className="text-sm text-blue-600">{lang === 'th' ? 'ได้รับแล้ว' : 'Received'}</div>
-                  <div className="text-xl font-bold text-blue-700">฿{stats.totalReceived.toLocaleString()}</div>
+                  <div className="text-xl font-bold text-blue-700">{formatCurrency(stats.totalReceived)}</div>
                 </div>
                 <div className="p-4 bg-red-50 rounded-lg">
                   <div className="text-sm text-red-600">{lang === 'th' ? 'ค้างชำระ' : 'Outstanding'}</div>
-                  <div className="text-xl font-bold text-red-700">฿{(stats.totalRevenue - stats.totalReceived).toLocaleString()}</div>
+                  <div className="text-xl font-bold text-red-700">{formatCurrency(stats.totalRevenue - stats.totalReceived)}</div>
                 </div>
               </div>
             </div>
           </Card>
-
-          <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ใบแจ้งหนี้เกินกำหนด' : 'Overdue Invoices'}</h3>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {invoices.filter(inv => inv.balance > 0 && new Date(inv.dueDate) < new Date()).length === 0 ? (
-                <p className="text-gray-400 text-center py-4">{lang === 'th' ? 'ไม่มีใบแจ้งหนี้เกินกำหนด' : 'No overdue invoices'}</p>
-              ) : (
-                invoices
-                  .filter(inv => inv.balance > 0 && new Date(inv.dueDate) < new Date())
-                  .map(inv => {
-                    const customer = customers.find(c => c.id === inv.customerId)
-                    const daysOverdue = Math.floor((new Date() - new Date(inv.dueDate)) / (1000 * 60 * 60 * 24))
-                    return (
-                      <div key={inv.id} className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <div className="flex justify-between">
-                          <div>
-                            <div className="font-mono text-sm font-medium">{inv.invoiceNumber || inv.id}</div>
-                            <div className="text-xs text-gray-500">{customer?.name}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-bold text-red-600">฿{inv.balance.toLocaleString()}</div>
-                            <div className="text-xs text-red-500">{daysOverdue} days overdue</div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })
-              )}
-            </div>
-          </Card>
         </div>
       )}
-
-      {/* Reports Tab */}
-      {activeTab === 'reports' && (
-        <div className="space-y-6">
-          {/* Monthly Sales Report */}
-          <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'รายงานยอดขายรายเดือน' : 'Monthly Sales Report'}</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left">Month</th>
-                    <th className="px-4 py-2 text-right">Orders</th>
-                    <th className="px-4 py-2 text-right">Order Value</th>
-                    <th className="px-4 py-2 text-right">Invoices</th>
-                    <th className="px-4 py-2 text-right">Invoice Value</th>
-                    <th className="px-4 py-2 text-right">Received</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {monthlyData.slice(-12).reverse().map((m, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 font-medium">{m.label}</td>
-                      <td className="px-4 py-2 text-right">{m.orders}</td>
-                      <td className="px-4 py-2 text-right">฿{m.orderValue.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right">{m.invoices}</td>
-                      <td className="px-4 py-2 text-right">฿{m.invoiceValue.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right text-green-600">฿{m.received.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="bg-gray-100 font-bold">
-                  <tr>
-                    <td className="px-4 py-2">Total</td>
-                    <td className="px-4 py-2 text-right">{monthlyData.reduce((sum, m) => sum + m.orders, 0)}</td>
-                    <td className="px-4 py-2 text-right">฿{monthlyData.reduce((sum, m) => sum + m.orderValue, 0).toLocaleString()}</td>
-                    <td className="px-4 py-2 text-right">{monthlyData.reduce((sum, m) => sum + m.invoices, 0)}</td>
-                    <td className="px-4 py-2 text-right">฿{monthlyData.reduce((sum, m) => sum + m.invoiceValue, 0).toLocaleString()}</td>
-                    <td className="px-4 py-2 text-right text-green-600">฿{monthlyData.reduce((sum, m) => sum + m.received, 0).toLocaleString()}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </Card>
-
-          {/* Customer-wise Sales Report */}
-          <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'รายงานยอดขายตามลูกค้า' : 'Customer-wise Sales Report'}</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left">Customer</th>
-                    <th className="px-4 py-2 text-right">Orders</th>
-                    <th className="px-4 py-2 text-right">Order Value</th>
-                    <th className="px-4 py-2 text-right">Invoices</th>
-                    <th className="px-4 py-2 text-right">Paid</th>
-                    <th className="px-4 py-2 text-right">Balance</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {customerData.map((cust, idx) => (
-                    <tr key={cust.customerId} className="hover:bg-gray-50">
-                      <td className="px-4 py-2">
-                        <div className="font-medium">{cust.customerCode}</div>
-                        <div className="text-xs text-gray-400">{cust.customerName}</div>
-                      </td>
-                      <td className="px-4 py-2 text-right">{cust.orderCount}</td>
-                      <td className="px-4 py-2 text-right">฿{cust.orderValue.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right">{cust.invoiceCount}</td>
-                      <td className="px-4 py-2 text-right text-green-600">฿{cust.paidAmount.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right text-red-600">฿{cust.balance.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Dispatch Tab - FG → DO → Invoice Flow */}
-      {activeTab === 'dispatch' && (
-        <div className="space-y-6">
-          <Card className="p-4 bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-purple-800 flex items-center gap-2">
-                  <Truck className="w-5 h-5" />
-                  {lang === 'th' ? 'สร้างใบส่งของจาก FG Store' : 'Create Dispatch from FG Store'}
-                </h3>
-                <p className="text-sm text-purple-600 mt-1">
-                  {lang === 'th' ? 'เลือกสินค้าจาก FG → สร้าง DO → พิมพ์ Invoice + Labels' : 'Select items from FG → Create DO → Print Invoice + Labels'}
-                </p>
-              </div>
-              <Button icon={Plus} onClick={() => setShowDOModal(true)}>
-                {lang === 'th' ? 'สร้างใบส่งของ' : 'New Dispatch Order'}
-              </Button>
-            </div>
-          </Card>
-
-          {/* FG Ready Stock by Customer */}
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b bg-green-50">
-              <h3 className="font-bold text-green-800 flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                {lang === 'th' ? 'สินค้าสำเร็จรูปพร้อมส่ง (FG Store)' : 'Finished Goods Ready to Ship'}
-              </h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left">{lang === 'th' ? 'PO ลูกค้า' : 'Customer PO'}</th>
-                    <th className="px-4 py-3 text-left">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
-                    <th className="px-4 py-3 text-left">{lang === 'th' ? 'รายการ' : 'Item'}</th>
-                    <th className="px-4 py-3 text-center">{lang === 'th' ? 'ใน FG' : 'In FG'}</th>
-                    <th className="px-4 py-3 text-center">{lang === 'th' ? 'ส่งแล้ว' : 'Sent'}</th>
-                    <th className="px-4 py-3 text-left">{lang === 'th' ? 'กำหนดส่ง' : 'Due Date'}</th>
-                    <th className="px-4 py-3 text-left">{lang === 'th' ? 'สถานที่' : 'Location'}</th>
-                    <th className="px-4 py-3 text-center">{lang === 'th' ? 'เลือก' : 'Select'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {salesOrders
-                    .filter(so => so.status === 'ready' || so.items?.some(i => (i.fgQty || 0) > 0))
-                    .flatMap(so => {
-                      const customer = customers?.find(c => c.id === so.customerId)
-                      return (so.items || [])
-                        .filter(item => (item.fgQty || 0) > 0)
-                        .map((item, idx) => (
-                          <tr key={`${so.id}-${idx}`} className="hover:bg-green-50">
-                            <td className="px-4 py-3 font-mono text-blue-600">{so.customerPO}</td>
-                            <td className="px-4 py-3">{customer?.code}</td>
-                            <td className="px-4 py-3 text-sm">{item.description}</td>
-                            <td className="px-4 py-3 text-center">
-                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded font-medium">
-                                {item.fgQty || 0}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-center text-gray-500">{item.deliveredQty || 0}</td>
-                            <td className="px-4 py-3 text-sm">{formatDate(so.deliveryDate)}</td>
-                            <td className="px-4 py-3">
-                              <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
-                                {so.deliveryLocation || '-'}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <input
-                                type="checkbox"
-                                checked={selectedFG.includes(`${so.id}-${idx}`)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedFG([...selectedFG, `${so.id}-${idx}`])
-                                  } else {
-                                    setSelectedFG(selectedFG.filter(id => id !== `${so.id}-${idx}`))
-                                  }
-                                }}
-                                className="w-4 h-4 rounded text-purple-600"
-                              />
-                            </td>
-                          </tr>
-                        ))
-                    })}
-                </tbody>
-              </table>
-              {!salesOrders.some(so => so.items?.some(i => (i.fgQty || 0) > 0)) && (
-                <div className="text-center py-8 text-gray-400">
-                  <Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>{lang === 'th' ? 'ไม่มีสินค้าใน FG Store' : 'No items in FG Store'}</p>
-                </div>
-              )}
-            </div>
-            {selectedFG.length > 0 && (
-              <div className="p-4 border-t bg-purple-50 flex justify-between items-center">
-                <span className="text-purple-700 font-medium">
-                  {lang === 'th' ? `เลือก ${selectedFG.length} รายการ` : `${selectedFG.length} items selected`}
-                </span>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setSelectedFG([])}>
-                    {lang === 'th' ? 'ล้าง' : 'Clear'}
-                  </Button>
-                  <Button icon={Truck} onClick={() => setShowDOModal(true)}>
-                    {lang === 'th' ? 'สร้างใบส่งของ' : 'Create DO'}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </Card>
-
-          {/* Recent Dispatch Orders */}
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b">
-              <h3 className="font-bold">{lang === 'th' ? 'ใบส่งของล่าสุด' : 'Recent Dispatch Orders'}</h3>
-            </div>
-            <div className="p-8 text-center text-gray-400">
-              <Truck className="w-12 h-12 mx-auto mb-2 opacity-50" />
-              <p>{lang === 'th' ? 'ยังไม่มีใบส่งของ' : 'No dispatch orders yet'}</p>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Customers Tab - with Delivery Locations */}
-      {activeTab === 'customers' && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-bold">{lang === 'th' ? 'รายชื่อลูกค้า & สถานที่ส่ง' : 'Customers & Delivery Locations'}</h3>
-            <Button icon={Plus} onClick={() => setShowLocationModal(true)}>
-              {lang === 'th' ? 'เพิ่มสถานที่ส่ง' : 'Add Location'}
-            </Button>
-          </div>
-
-          <div className="grid gap-4">
-            {customers?.filter(c => c.isActive !== false).map(customer => (
-              <Card key={customer.id} className="overflow-hidden">
-                <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold">
-                      {customer.code?.substring(0, 2)}
-                    </div>
-                    <div>
-                      <div className="font-bold text-gray-800">{customer.name}</div>
-                      <div className="text-sm text-gray-500">{customer.code} • {customer.paymentTerms || 30} days credit</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {customer.requiresHT && (
-                      <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded">HT Required</span>
-                    )}
-                    {customer.specialLabels && customer.specialLabels !== 'none' && (
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
-                        {customer.specialLabels === 'allianz' ? 'QR Labels' : '4-Col Labels'}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="p-4">
-                  <h4 className="text-sm font-medium text-gray-600 mb-3">{lang === 'th' ? 'สถานที่ส่งสินค้า' : 'Delivery Locations'}</h4>
-                  <div className="space-y-2">
-                    {(customer.deliveryLocations || [{ code: 'MAIN', name: 'Main Address', address: customer.address }]).map((loc, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <MapPin className={`w-5 h-5 ${
-                            loc.code?.includes('CPP') ? 'text-orange-500' :
-                            loc.code?.includes('FILM') ? 'text-gray-500' :
-                            loc.code?.includes('LINE') ? 'text-red-500' :
-                            'text-blue-500'
-                          }`} />
-                          <div>
-                            <div className="font-medium">{loc.code || loc.name}</div>
-                            <div className="text-sm text-gray-500">{loc.address || customer.address}</div>
-                            {loc.contact && <div className="text-xs text-gray-400">Contact: {loc.contact}</div>}
-                          </div>
-                        </div>
-                        {loc.labelColor && (
-                          <div className={`px-2 py-1 rounded text-xs font-medium ${
-                            loc.labelColor === 'peach' ? 'bg-orange-100 text-orange-700' :
-                            loc.labelColor === 'red' ? 'bg-red-100 text-red-700' :
-                            'bg-gray-100 text-gray-700'
-                          }`}>
-                            {loc.labelColor} labels
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Returns Tab - Rejection & Claim */}
-      {activeTab === 'returns' && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-bold">{lang === 'th' ? 'การคืนสินค้า & เคลม' : 'Returns & Claims'}</h3>
-            <div className="flex gap-2">
-              <Button variant="outline" icon={RotateCcw} onClick={() => setShowRejectionModal(true)}>
-                {lang === 'th' ? 'บันทึกการคืน' : 'New Rejection'}
-              </Button>
-              <Button icon={AlertTriangle} onClick={() => setShowClaimModal(true)}>
-                {lang === 'th' ? 'บันทึกเคลม' : 'New Claim'}
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Rejections */}
-            <Card className="overflow-hidden">
-              <div className="p-4 border-b bg-red-50">
-                <h3 className="font-bold text-red-800 flex items-center gap-2">
-                  <RotateCcw className="w-5 h-5" />
-                  {lang === 'th' ? 'การคืนสินค้า (15/30 วัน)' : 'Rejections (15/30 Days)'}
-                </h3>
-                <p className="text-xs text-red-600 mt-1">REJ-YYMM-XXX</p>
-              </div>
-              <div className="p-8 text-center text-gray-400">
-                <RotateCcw className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                <p>{lang === 'th' ? 'ไม่มีรายการคืน' : 'No rejections'}</p>
-              </div>
-            </Card>
-
-            {/* Claims */}
-            <Card className="overflow-hidden">
-              <div className="p-4 border-b bg-orange-50">
-                <h3 className="font-bold text-orange-800 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5" />
-                  {lang === 'th' ? 'เคลมสินค้า' : 'Claims'}
-                </h3>
-                <p className="text-xs text-orange-600 mt-1">CLM-YYMM-XXX</p>
-              </div>
-              <div className="p-8 text-center text-gray-400">
-                <AlertTriangle className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                <p>{lang === 'th' ? 'ไม่มีรายการเคลม' : 'No claims'}</p>
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* Modals */}
-      <CustomerPOEntryModal
-        isOpen={showPOModal}
-        onClose={() => setShowPOModal(false)}
-        customers={customers}
-        products={products}
-        onSave={handleSavePO}
-        lang={lang}
-      />
-
-      <QuotationModal
-        isOpen={showQuotationModal}
-        onClose={() => setShowQuotationModal(false)}
-        customers={customers}
-        products={products}
-        onSave={handleSaveQuotation}
-        lang={lang}
-      />
-
-      <CreateWOModal
-        isOpen={showWOModal}
-        onClose={() => { setShowWOModal(false); setSelectedSO(null) }}
-        salesOrder={selectedSO}
-        onCreateWO={handleCreateWO}
-        lang={lang}
-      />
-
-      <CreateInvoiceModal
-        isOpen={showInvoiceModal}
-        onClose={() => { setShowInvoiceModal(false); setSelectedSO(null) }}
-        salesOrder={selectedSO}
-        onCreateInvoice={handleCreateInvoice}
-        lang={lang}
-      />
-
-      <RecordPaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => { setShowPaymentModal(false); setSelectedInvoice(null) }}
-        invoice={selectedInvoice}
-        onRecordPayment={handleRecordPayment}
-        lang={lang}
-      />
     </div>
   )
 }
@@ -13979,9 +7273,9 @@ const AdminHub = ({ stores, setStores, categories, setCategories, departments, s
 }
 
 // ============================================
-// MAIN APP COMPONENT (Basic Version)
+// MAIN APP COMPONENT
 // ============================================
-function AppBasic() {
+function App() {
   // Authentication
   const [currentUser, setCurrentUser] = useState(null)
   const [lang, setLang] = useState('en')
@@ -14007,7 +7301,6 @@ function AppBasic() {
   const [scheduledDeliveries, setScheduledDeliveries] = useState(INITIAL_SCHEDULED_DELIVERIES)
   const [maintenanceTasks, setMaintenanceTasks] = useState(INITIAL_MAINTENANCE_TASKS)
 
-  const [quotations, setQuotations] = useState([]) // Sales quotations
   // UI State
   const [activeModule, setActiveModule] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -14177,7 +7470,6 @@ function AppBasic() {
                   setInventory={setInventory}
                   stores={stores}
                   categories={categories}
-                  workOrders={workOrders}
                   lang={lang}
                 />
               )}
@@ -14203,24 +7495,18 @@ function AppBasic() {
                   setInventory={setInventory}
                   categories={categories}
                   stores={stores}
-                  salesOrders={salesOrders}
-                  setSalesOrders={setSalesOrders}
                   lang={lang}
                 />
               )}
               {activeModule === 'sales' && (
-                <SalesModule
+                <SalesModuleFull
                   salesOrders={salesOrders}
                   setSalesOrders={setSalesOrders}
                   invoices={invoices}
                   setInvoices={setInvoices}
                   customers={customers}
-                  setCustomers={setCustomers}
                   workOrders={workOrders}
-                  setWorkOrders={setWorkOrders}
                   products={products}
-                  quotations={quotations}
-                  setQuotations={setQuotations}
                   lang={lang}
                 />
               )}
@@ -16381,160 +9667,9 @@ const AppFull = () => {
   const [scheduledDeliveries, setScheduledDeliveries] = useState(INITIAL_SCHEDULED_DELIVERIES)
   const [maintenanceTasks, setMaintenanceTasks] = useState(INITIAL_MAINTENANCE_TASKS)
 
-  const [quotations, setQuotations] = useState([]) // Sales quotations
-  
   // UI State
   const [activeModule, setActiveModule] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  
-  // New Feature States
-  const [showGlobalSearch, setShowGlobalSearch] = useState(false)
-  const [showNotifications, setShowNotifications] = useState(false)
-  const [showQuickActions, setShowQuickActions] = useState(false)
-  const [productionView, setProductionView] = useState('tabs') // 'tabs' or 'kanban'
-
-  // Generate dynamic notifications based on current data
-  const notifications = [
-    // Overdue WOs
-    ...workOrders.filter(wo => {
-      const dueDate = new Date(wo.targetDate)
-      return dueDate < new Date() && wo.status !== 'completed'
-    }).slice(0, 3).map(wo => ({
-      id: `wo-overdue-${wo.id}`,
-      type: 'alert',
-      title: lang === 'th' ? 'WO เลยกำหนด' : 'WO Overdue',
-      message: `${wo.woNumber || wo.id} - ${wo.productName}`,
-      time: formatDate(wo.targetDate),
-      action: lang === 'th' ? 'ดูรายละเอียด' : 'View Details',
-      read: false,
-    })),
-    // WOs at QC (need labels)
-    ...workOrders.filter(wo => wo.currentDept === 'QC' && !wo.labelsPrinted).slice(0, 2).map(wo => ({
-      id: `wo-qc-${wo.id}`,
-      type: 'task',
-      title: lang === 'th' ? 'WO ถึง QC - พิมพ์ฉลาก' : 'WO at QC - Print Labels',
-      message: `${wo.woNumber || wo.id} ${lang === 'th' ? 'รอพิมพ์ฉลาก' : 'needs labels'}`,
-      time: lang === 'th' ? 'เมื่อสักครู่' : 'Just now',
-      action: lang === 'th' ? 'พิมพ์ฉลาก' : 'Print Labels',
-      read: false,
-    })),
-    // Low inventory alerts
-    ...inventory.filter(item => item.quantity <= (item.minQty || 10)).slice(0, 2).map(item => ({
-      id: `inv-low-${item.id}`,
-      type: 'alert',
-      title: lang === 'th' ? 'สต็อกต่ำ' : 'Low Stock Alert',
-      message: `${item.name}: ${item.quantity} ${item.unit} ${lang === 'th' ? 'เหลือ' : 'remaining'}`,
-      time: lang === 'th' ? '1 ชั่วโมงที่แล้ว' : '1 hour ago',
-      action: lang === 'th' ? 'สร้าง PR' : 'Create PR',
-      read: false,
-    })),
-    // Pending PO approvals
-    ...purchaseOrders.filter(po => po.status === 'pending' && (po.totalAmount || 0) > 50000).slice(0, 2).map(po => ({
-      id: `po-approval-${po.id}`,
-      type: 'approval',
-      title: lang === 'th' ? 'รออนุมัติ PO' : 'PO Pending Approval',
-      message: `${po.poNumber} - ฿${(po.totalAmount || 0).toLocaleString()}`,
-      time: formatDate(po.date),
-      action: lang === 'th' ? 'อนุมัติ' : 'Approve',
-      read: false,
-    })),
-    // Maintenance requests
-    { 
-      id: 'maint-1', 
-      type: 'task', 
-      title: lang === 'th' ? 'แจ้งซ่อมใหม่' : 'New Maintenance Request',
-      message: lang === 'th' ? 'C1 - Table Saw เสียง' : 'C1 - Table Saw noise',
-      time: lang === 'th' ? '30 นาทีที่แล้ว' : '30 minutes ago',
-      action: lang === 'th' ? 'ดูคำขอ' : 'View Request',
-      read: false,
-    },
-  ]
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Cmd+K or Ctrl+K for global search
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setShowGlobalSearch(true)
-        setShowNotifications(false)
-        setShowQuickActions(false)
-      }
-      // Q for quick actions (when not in input)
-      if (e.key === 'q' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
-        e.preventDefault()
-        setShowQuickActions(!showQuickActions)
-        setShowNotifications(false)
-      }
-      // Escape to close
-      if (e.key === 'Escape') {
-        setShowGlobalSearch(false)
-        setShowNotifications(false)
-        setShowQuickActions(false)
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [showQuickActions])
-
-  // Handle search navigation
-  const handleSearchNavigate = (type, item) => {
-    switch(type) {
-      case 'customer':
-        setActiveModule('sales')
-        break
-      case 'workOrder':
-        setActiveModule('production')
-        break
-      case 'invoice':
-        setActiveModule('sales')
-        break
-      case 'inventory':
-        setActiveModule('inventory')
-        break
-      case 'purchaseOrder':
-        setActiveModule('purchase')
-        break
-      case 'employee':
-        setActiveModule('hr')
-        break
-    }
-  }
-
-  // Handle quick actions
-  const handleQuickAction = (actionId) => {
-    switch(actionId) {
-      case 'new_wo':
-        setActiveModule('production')
-        break
-      case 'new_so':
-      case 'new_invoice':
-      case 'new_quote':
-        setActiveModule('sales')
-        break
-      case 'new_po':
-        setActiveModule('purchase')
-        break
-      case 'maint_request':
-        setActiveModule('maintenance')
-        break
-    }
-  }
-
-  // Handle notification action
-  const handleNotificationAction = (notif) => {
-    if (notif.id.startsWith('wo-')) {
-      setActiveModule('production')
-    } else if (notif.id.startsWith('inv-')) {
-      setActiveModule('inventory')
-    } else if (notif.id.startsWith('po-')) {
-      setActiveModule('purchase')
-    } else if (notif.id.startsWith('maint-')) {
-      setActiveModule('maintenance')
-    }
-    setShowNotifications(false)
-  }
 
   // Auth handlers
   const handleLogin = (user) => {
@@ -16655,76 +9790,15 @@ const AppFull = () => {
                   </h1>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {/* Global Search Button */}
-                <button 
-                  onClick={() => setShowGlobalSearch(true)}
-                  className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-600 transition-colors"
-                >
-                  <Search className="w-4 h-4" />
-                  <span className="hidden md:inline">{lang === 'th' ? 'ค้นหา...' : 'Search...'}</span>
-                  <kbd className="hidden md:inline px-1.5 py-0.5 text-xs bg-white rounded border shadow-sm">⌘K</kbd>
-                </button>
-
-                {/* Quick Actions Button */}
-                <div className="relative">
-                  <button 
-                    onClick={() => { setShowQuickActions(!showQuickActions); setShowNotifications(false) }}
-                    className="p-2 hover:bg-gray-100 rounded-lg relative"
-                    title={lang === 'th' ? 'ทางลัด (Q)' : 'Quick Actions (Q)'}
-                  >
-                    <Zap className="w-5 h-5 text-yellow-500" />
-                  </button>
-                  <QuickActionsMenu 
-                    isOpen={showQuickActions} 
-                    onClose={() => setShowQuickActions(false)}
-                    context="global"
-                    onAction={handleQuickAction}
-                    lang={lang}
-                  />
-                </div>
-
+              <div className="flex items-center gap-4">
                 <LanguageSwitcher />
                 <Badge variant={currentUser.entity}>{currentUser.entity}</Badge>
-
-                {/* Notifications Bell */}
-                <div className="relative">
-                  <button 
-                    onClick={() => { setShowNotifications(!showNotifications); setShowQuickActions(false) }}
-                    className="p-2 hover:bg-gray-100 rounded-lg relative"
-                  >
-                    <Bell className="w-5 h-5 text-gray-500" />
-                    {notifications.filter(n => !n.read).length > 0 && (
-                      <span className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-                        {notifications.filter(n => !n.read).length}
-                      </span>
-                    )}
-                  </button>
-                  <NotificationCenter 
-                    isOpen={showNotifications} 
-                    onClose={() => setShowNotifications(false)}
-                    notifications={notifications}
-                    onAction={handleNotificationAction}
-                    lang={lang}
-                  />
-                </div>
+                <button className="p-2 hover:bg-gray-100 rounded-lg relative">
+                  <Bell className="w-5 h-5 text-gray-500" />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+                </button>
               </div>
             </header>
-
-            {/* Global Search Modal */}
-            <GlobalSearch 
-              isOpen={showGlobalSearch}
-              onClose={() => setShowGlobalSearch(false)}
-              customers={customers}
-              workOrders={workOrders}
-              salesOrders={salesOrders}
-              invoices={invoices}
-              inventory={inventory}
-              purchaseOrders={purchaseOrders}
-              employees={employees}
-              onNavigate={handleSearchNavigate}
-              lang={lang}
-            />
 
             {/* Content Area - All Modules */}
             <div className="flex-1 overflow-auto">
@@ -16760,7 +9834,6 @@ const AppFull = () => {
                   setInventory={setInventory}
                   stores={stores}
                   categories={categories}
-                  workOrders={workOrders}
                   lang={lang}
                 />
               )}
@@ -16777,75 +9850,27 @@ const AppFull = () => {
                 />
               )}
               {activeModule === 'production' && (
-                <div className="flex-1 flex flex-col overflow-hidden">
-                  {/* View Toggle */}
-                  <div className="px-6 pt-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setProductionView('tabs')}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          productionView === 'tabs' 
-                            ? 'bg-[#1A5276] text-white' 
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        <ClipboardList className="w-4 h-4" />
-                        {lang === 'th' ? 'แท็บ' : 'Tabs'}
-                      </button>
-                      <button
-                        onClick={() => setProductionView('kanban')}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          productionView === 'kanban' 
-                            ? 'bg-[#1A5276] text-white' 
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        <Layers className="w-4 h-4" />
-                        {lang === 'th' ? 'Kanban' : 'Kanban'}
-                      </button>
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {workOrders.filter(wo => wo.status !== 'completed').length} {lang === 'th' ? 'งานกำลังดำเนินการ' : 'active work orders'}
-                    </div>
-                  </div>
-                  {/* Content based on view */}
-                  {productionView === 'kanban' ? (
-                    <KanbanBoard
-                      workOrders={workOrders}
-                      setWorkOrders={setWorkOrders}
-                      departments={departments}
-                      customers={customers}
-                      lang={lang}
-                    />
-                  ) : (
-                    <ProductionModule
-                      workOrders={workOrders}
-                      setWorkOrders={setWorkOrders}
-                      departments={departments}
-                      customers={customers}
-                      inventory={inventory}
-                      setInventory={setInventory}
-                      categories={categories}
-                      stores={stores}
-                      salesOrders={salesOrders}
-                      setSalesOrders={setSalesOrders}
-                      lang={lang}
-                    />
-                  )}
-                </div>
+                <ProductionModule
+                  workOrders={workOrders}
+                  setWorkOrders={setWorkOrders}
+                  departments={departments}
+                  customers={customers}
+                  inventory={inventory}
+                  setInventory={setInventory}
+                  categories={categories}
+                  stores={stores}
+                  lang={lang}
+                />
               )}
               {activeModule === 'sales' && (
-                <SalesModule
+                <SalesModuleFull
                   salesOrders={salesOrders}
                   setSalesOrders={setSalesOrders}
                   invoices={invoices}
                   setInvoices={setInvoices}
                   customers={customers}
                   workOrders={workOrders}
-                  setWorkOrders={setWorkOrders}
                   products={products}
-                  quotations={quotations}
-                  setQuotations={setQuotations}
                   lang={lang}
                 />
               )}
@@ -16908,7 +9933,8 @@ const AppFull = () => {
 }
 
 // Use the full version as the default export
-// See end of file for actual export statement
+// Uncomment the line below to switch to full version
+// export default AppFull
 
 // ============================================
 // PURCHASE DASHBOARD COMPONENT
@@ -18273,63 +11299,15 @@ const VersionInfo = ({ lang }) => {
   )
 }
 
-// End of IND ERP v7.5 - Full Module Enhancement
+// End of IND ERP v7.0 - Full Build with Enhanced Purchase Module
 // Total Features: 9 Modules, 6 Stores, 12 Categories, 13 Import Cost Types
-// 
-// v7.5 ENHANCEMENTS:
-// PRODUCTION MODULE:
-//   - Dashboard with Daily Tasks & Alerts
-//   - My Department View (each dept sees only their WOs)
-//   - Department Schedule (Calendar view by dept: C1/C2/P1/P2/P3/ASM1/ASM2/OVN/QC)
-//   - WO Flow tracking through departments
-//   - Floor View (All depts at a glance)
-//   - Labels Tab (Sales prints → QC pastes: Polyplex 4-col, Allianz QR)
-//   - BOM Integration (materials required per WO, templates)
-//   - QC Tab (Pass/Fail with CONFIGURABLE checklist per product)
-//   - HT Certificates (TH-0950, ISPM15, cert# YYMMDD+seq)
-//
-// TRANSPORT MODULE:
-//   - Fleet: 4 trucks, Drivers: Mayo, W, T, C
-//   - Trip Allowance: 100% furthest + 50% additional stops
-//   - Bonuses: 45+ trips=฿500, after 7PM=฿50, holiday=฿50
-//   - Fleet Card fuel tracking (no cash)
-//   - Mileage-based maintenance alerts
-//   - Monthly driver allowance summary for payroll
-//
-// MAINTENANCE MODULE:
-//   - MWO Format: MWO-YYMMDD-XXX
-//   - Add Equipment form (machines, tools, building assets)
-//   - Maintenance Request form (other depts can submit requests)
-//   - Categories: Equipment, Vehicle, Building/Facility, Electrical, Plumbing
-//   - Building work: Painting, Repair, Electrical, Plumbing, Carpentry
-//   - Request tracking: Pending → Converted to MWO
-//   - Spare parts store with low stock alerts and stock value
-//   - PM Schedule calendar with service due tracking
-//   - Equipment registry with service intervals
-//   - Diesel tracking (~8L/week for forklifts)
-//   - Vehicle maintenance linked to Transport
-//
-// SALES MODULE:
-//   - Dashboard with weekly calendar
-//   - Operations (Production Plan view)
-//   - Dispatch (FG→DO→Invoice)
-//   - Customer delivery locations
-//   - Document formats: IVT-YYYYMMXXX, BN-YYYYMMXXX, RE-YYYYMMXXX, QO-YYYYMMXXX
-//
+// NEW in v7: Split Lots, Reject/Add Items GRN, Approval Hierarchy, Import/LC Tracking
 // Languages: EN, TH, MY, KH, ZH, JP
 // Roles: Admin, Sales, Production, Warehouse, HR, Accounting, Transport, Maintenance
-//
-// v7.6 NEW FEATURES (Inspired by Odoo, ClickUp, ERPNext):
-// 1. GLOBAL SEARCH (Cmd+K) - Search all records: customers, WOs, invoices, inventory, POs, employees
-// 2. NOTIFICATION CENTER - Overdue WOs, Low stock, Pending approvals, Maintenance requests
-// 3. QUICK ACTIONS (Q) - Context-aware shortcuts: New WO, SO, PO, Invoice, Quote, Maintenance
-// 4. KANBAN BOARD - Drag-drop WOs between departments (C1→P1→ASM→OVN→QC→FG)
-// 5. DOCUMENT FLOW - Visual: SO → WO → DN → Invoice → Payment
-// 6. ACTIVITY LOG - Timeline of actions on records with comments
 
 // ============================================
-// DEFAULT EXPORT - MUST BE AT END OF FILE
+// DEFAULT EXPORT
 // ============================================
 const App = AppFull
-export { AppFull, App }
+export { App, AppFull }
 export default App
