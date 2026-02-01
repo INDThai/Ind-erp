@@ -812,6 +812,52 @@ const INITIAL_MAINTENANCE_TASKS = [
 ]
 
 // ============================================
+// MAINTENANCE STORE (STORE5) INVENTORY
+// Parts, Supplies, Consumables for Maintenance Department
+// ============================================
+const INITIAL_MAINTENANCE_STORE = [
+  // Lubricants
+  { id: 'MS-001', sku: 'LUB-OIL-15W40', name: 'Motor Oil 15W-40', nameTh: 'น้ำมันเครื่อง 15W-40', category: 'Lubricants', storeId: 'STORE5', qty: 24, unit: 'L', minQty: 10, maxQty: 50, unitCost: 180, location: 'Shelf A1', supplier: 'Shell Thailand', lastRestock: '2026-01-15' },
+  { id: 'MS-002', sku: 'LUB-HYD-46', name: 'Hydraulic Fluid ISO 46', nameTh: 'น้ำมันไฮดรอลิค ISO 46', category: 'Lubricants', storeId: 'STORE5', qty: 15, unit: 'L', minQty: 5, maxQty: 30, unitCost: 250, location: 'Shelf A2', supplier: 'PTT Lubricants', lastRestock: '2026-01-10' },
+  { id: 'MS-003', sku: 'LUB-GREASE', name: 'Multi-Purpose Grease', nameTh: 'จาระบีอเนกประสงค์', category: 'Lubricants', storeId: 'STORE5', qty: 12, unit: 'kg', minQty: 5, maxQty: 20, unitCost: 120, location: 'Shelf A3', supplier: 'Shell Thailand', lastRestock: '2026-01-20' },
+  // Belts & Bearings
+  { id: 'MS-004', sku: 'BLT-V-A68', name: 'V-Belt A68', nameTh: 'สายพาน V A68', category: 'Belts', storeId: 'STORE5', qty: 4, unit: 'pcs', minQty: 2, maxQty: 10, unitCost: 450, location: 'Shelf B1', supplier: 'Mitsuboshi', lastRestock: '2026-01-05' },
+  { id: 'MS-005', sku: 'BLT-V-B65', name: 'V-Belt B65', nameTh: 'สายพาน V B65', category: 'Belts', storeId: 'STORE5', qty: 3, unit: 'pcs', minQty: 2, maxQty: 10, unitCost: 520, location: 'Shelf B1', supplier: 'Mitsuboshi', lastRestock: '2026-01-05' },
+  { id: 'MS-006', sku: 'BRG-6205', name: 'Bearing 6205 2RS', nameTh: 'ตลับลูกปืน 6205 2RS', category: 'Bearings', storeId: 'STORE5', qty: 8, unit: 'pcs', minQty: 4, maxQty: 20, unitCost: 180, location: 'Shelf B2', supplier: 'SKF Thailand', lastRestock: '2026-01-12' },
+  { id: 'MS-007', sku: 'BRG-6208', name: 'Bearing 6208 2RS', nameTh: 'ตลับลูกปืน 6208 2RS', category: 'Bearings', storeId: 'STORE5', qty: 6, unit: 'pcs', minQty: 3, maxQty: 15, unitCost: 280, location: 'Shelf B2', supplier: 'SKF Thailand', lastRestock: '2026-01-12' },
+  // Fuel
+  { id: 'MS-008', sku: 'FUEL-DIESEL', name: 'Diesel B7', nameTh: 'น้ำมันดีเซล B7', category: 'Fuel', storeId: 'STORE5', qty: 200, unit: 'L', minQty: 50, maxQty: 500, unitCost: 32, location: 'Tank-1', supplier: 'PTT Station', lastRestock: '2026-01-25' },
+  { id: 'MS-009', sku: 'FUEL-GASOLINE', name: 'Gasoline 95', nameTh: 'น้ำมันเบนซิน 95', category: 'Fuel', storeId: 'STORE5', qty: 50, unit: 'L', minQty: 20, maxQty: 100, unitCost: 38, location: 'Tank-2', supplier: 'PTT Station', lastRestock: '2026-01-25' },
+  // Consumables
+  { id: 'MS-010', sku: 'CON-WELD-26', name: 'Welding Rod 2.6mm', nameTh: 'ลวดเชื่อม 2.6mm', category: 'Consumables', storeId: 'STORE5', qty: 100, unit: 'pcs', minQty: 50, maxQty: 500, unitCost: 5, location: 'Shelf C1', supplier: 'Kobe', lastRestock: '2026-01-18' },
+  { id: 'MS-011', sku: 'CON-WELD-32', name: 'Welding Rod 3.2mm', nameTh: 'ลวดเชื่อม 3.2mm', category: 'Consumables', storeId: 'STORE5', qty: 80, unit: 'pcs', minQty: 40, maxQty: 400, unitCost: 6, location: 'Shelf C1', supplier: 'Kobe', lastRestock: '2026-01-18' },
+  { id: 'MS-012', sku: 'CON-DISC-CUT', name: 'Cutting Disc 4"', nameTh: 'ใบตัด 4 นิ้ว', category: 'Consumables', storeId: 'STORE5', qty: 25, unit: 'pcs', minQty: 10, maxQty: 100, unitCost: 35, location: 'Shelf C2', supplier: 'Makita', lastRestock: '2026-01-20' },
+  { id: 'MS-013', sku: 'CON-DISC-GRIND', name: 'Grinding Disc 4"', nameTh: 'ใบเจียร์ 4 นิ้ว', category: 'Consumables', storeId: 'STORE5', qty: 20, unit: 'pcs', minQty: 10, maxQty: 100, unitCost: 45, location: 'Shelf C2', supplier: 'Makita', lastRestock: '2026-01-20' },
+  // Paint
+  { id: 'MS-014', sku: 'PNT-WHITE', name: 'Paint - White', nameTh: 'สีขาว', category: 'Paint', storeId: 'STORE5', qty: 20, unit: 'L', minQty: 10, maxQty: 50, unitCost: 350, location: 'Shelf D1', supplier: 'TOA Paint', lastRestock: '2026-01-08' },
+  { id: 'MS-015', sku: 'PNT-BLUE-IND', name: 'Paint - Blue (IND Brand)', nameTh: 'สีน้ำเงิน IND', category: 'Paint', storeId: 'STORE5', qty: 10, unit: 'L', minQty: 5, maxQty: 30, unitCost: 380, location: 'Shelf D1', supplier: 'TOA Paint', lastRestock: '2026-01-08' },
+  { id: 'MS-016', sku: 'PNT-GREEN-IND', name: 'Paint - Green (IND Brand)', nameTh: 'สีเขียว IND', category: 'Paint', storeId: 'STORE5', qty: 8, unit: 'L', minQty: 5, maxQty: 30, unitCost: 380, location: 'Shelf D1', supplier: 'TOA Paint', lastRestock: '2026-01-08' },
+  { id: 'MS-017', sku: 'PNT-THINNER', name: 'Paint Thinner', nameTh: 'ทินเนอร์', category: 'Paint', storeId: 'STORE5', qty: 15, unit: 'L', minQty: 5, maxQty: 40, unitCost: 120, location: 'Shelf D2', supplier: 'TOA Paint', lastRestock: '2026-01-08' },
+  // Blades
+  { id: 'MS-018', sku: 'BLD-SAW-10', name: 'Saw Blade 10"', nameTh: 'ใบเลื่อยวงเดือน 10 นิ้ว', category: 'Blades', storeId: 'STORE5', qty: 3, unit: 'pcs', minQty: 2, maxQty: 10, unitCost: 850, location: 'Shelf B3', supplier: 'Makita', lastRestock: '2026-01-15' },
+  { id: 'MS-019', sku: 'BLD-SAW-14', name: 'Saw Blade 14"', nameTh: 'ใบเลื่อยวงเดือน 14 นิ้ว', category: 'Blades', storeId: 'STORE5', qty: 2, unit: 'pcs', minQty: 1, maxQty: 5, unitCost: 1200, location: 'Shelf B3', supplier: 'Makita', lastRestock: '2026-01-15' },
+  { id: 'MS-020', sku: 'BLD-BAND-24', name: 'Band Saw Blade 24"', nameTh: 'ใบเลื่อยสายพาน 24 นิ้ว', category: 'Blades', storeId: 'STORE5', qty: 4, unit: 'pcs', minQty: 2, maxQty: 8, unitCost: 1500, location: 'Shelf B3', supplier: 'Starrett', lastRestock: '2026-01-15' },
+  // Electrical
+  { id: 'MS-021', sku: 'ELC-WIRE-25', name: 'Electrical Wire 2.5mm²', nameTh: 'สายไฟ 2.5 ตร.มม.', category: 'Electrical', storeId: 'STORE5', qty: 100, unit: 'm', minQty: 50, maxQty: 300, unitCost: 15, location: 'Shelf E1', supplier: 'Thai Yazaki', lastRestock: '2026-01-10' },
+  { id: 'MS-022', sku: 'ELC-WIRE-40', name: 'Electrical Wire 4.0mm²', nameTh: 'สายไฟ 4.0 ตร.มม.', category: 'Electrical', storeId: 'STORE5', qty: 80, unit: 'm', minQty: 30, maxQty: 200, unitCost: 25, location: 'Shelf E1', supplier: 'Thai Yazaki', lastRestock: '2026-01-10' },
+  { id: 'MS-023', sku: 'ELC-BREAKER-20', name: 'Circuit Breaker 20A', nameTh: 'เบรกเกอร์ 20A', category: 'Electrical', storeId: 'STORE5', qty: 5, unit: 'pcs', minQty: 2, maxQty: 10, unitCost: 180, location: 'Shelf E2', supplier: 'Schneider', lastRestock: '2026-01-12' },
+  { id: 'MS-024', sku: 'ELC-BREAKER-32', name: 'Circuit Breaker 32A', nameTh: 'เบรกเกอร์ 32A', category: 'Electrical', storeId: 'STORE5', qty: 4, unit: 'pcs', minQty: 2, maxQty: 10, unitCost: 250, location: 'Shelf E2', supplier: 'Schneider', lastRestock: '2026-01-12' },
+  // Plumbing
+  { id: 'MS-025', sku: 'PLB-PIPE-1', name: 'PVC Pipe 1"', nameTh: 'ท่อ PVC 1 นิ้ว', category: 'Plumbing', storeId: 'STORE5', qty: 20, unit: 'pcs', minQty: 10, maxQty: 50, unitCost: 85, location: 'Shelf F1', supplier: 'SCG', lastRestock: '2026-01-05' },
+  { id: 'MS-026', sku: 'PLB-PIPE-2', name: 'PVC Pipe 2"', nameTh: 'ท่อ PVC 2 นิ้ว', category: 'Plumbing', storeId: 'STORE5', qty: 15, unit: 'pcs', minQty: 5, maxQty: 30, unitCost: 120, location: 'Shelf F1', supplier: 'SCG', lastRestock: '2026-01-05' },
+  { id: 'MS-027', sku: 'PLB-VALVE-1', name: 'Ball Valve 1"', nameTh: 'วาล์วบอล 1 นิ้ว', category: 'Plumbing', storeId: 'STORE5', qty: 8, unit: 'pcs', minQty: 4, maxQty: 20, unitCost: 150, location: 'Shelf F2', supplier: 'SCG', lastRestock: '2026-01-05' },
+  // Filters
+  { id: 'MS-028', sku: 'FLT-AIR-COMP', name: 'Air Compressor Filter', nameTh: 'ไส้กรองปั๊มลม', category: 'Filters', storeId: 'STORE5', qty: 6, unit: 'pcs', minQty: 2, maxQty: 12, unitCost: 350, location: 'Shelf G1', supplier: 'Atlas Copco', lastRestock: '2026-01-18' },
+  { id: 'MS-029', sku: 'FLT-OIL-HYD', name: 'Hydraulic Oil Filter', nameTh: 'ไส้กรองน้ำมันไฮดรอลิค', category: 'Filters', storeId: 'STORE5', qty: 5, unit: 'pcs', minQty: 2, maxQty: 10, unitCost: 280, location: 'Shelf G1', supplier: 'Parker', lastRestock: '2026-01-18' },
+  { id: 'MS-030', sku: 'FLT-FUEL-DIESEL', name: 'Diesel Fuel Filter', nameTh: 'ไส้กรองน้ำมันดีเซล', category: 'Filters', storeId: 'STORE5', qty: 8, unit: 'pcs', minQty: 4, maxQty: 20, unitCost: 180, location: 'Shelf G2', supplier: 'Toyota', lastRestock: '2026-01-18' },
+]
+
+// ============================================
 // EQUIPMENT LIST
 // ============================================
 const INITIAL_EQUIPMENT = [
@@ -1815,6 +1861,15 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
   const [showRequestModal, setShowRequestModal] = useState(false)
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterCategory, setFilterCategory] = useState('all')
+  
+  // Scan & Issue states
+  const [showScanIssueModal, setShowScanIssueModal] = useState(false)
+  const [scanQuery, setScanQuery] = useState('')
+  const [scannedItem, setScannedItem] = useState(null)
+  const [issueQty, setIssueQty] = useState(1)
+  const [issueMWO, setIssueMWO] = useState('')
+  const [issueNotes, setIssueNotes] = useState('')
+  const [issueHistory, setIssueHistory] = useState([])
 
   // New equipment form state
   const [newEquipment, setNewEquipment] = useState({
@@ -1904,19 +1959,8 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
     { id: 'REQ-003', date: '2026-01-30', department: 'housing', requestedBy: 'Worker', category: 'plumbing', subject: 'Toilet leak Room 5', description: 'Water leaking from toilet', priority: 'high', status: 'in_progress' },
   ])
 
-  // Maintenance store items
-  const storeItems = maintenanceStore || [
-    { id: 'MS-001', name: 'Motor Oil 15W-40', category: 'Lubricants', qty: 24, unit: 'L', minQty: 10, unitCost: 180, location: 'Shelf A1' },
-    { id: 'MS-002', name: 'Hydraulic Fluid', category: 'Lubricants', qty: 15, unit: 'L', minQty: 5, unitCost: 250, location: 'Shelf A2' },
-    { id: 'MS-003', name: 'V-Belt A68', category: 'Belts', qty: 4, unit: 'pcs', minQty: 2, unitCost: 450, location: 'Shelf B1' },
-    { id: 'MS-004', name: 'Bearing 6205', category: 'Bearings', qty: 8, unit: 'pcs', minQty: 4, unitCost: 180, location: 'Shelf B2' },
-    { id: 'MS-005', name: 'Diesel', category: 'Fuel', qty: 50, unit: 'L', minQty: 20, unitCost: 32, location: 'Tank' },
-    { id: 'MS-006', name: 'Welding Rod 2.6mm', category: 'Consumables', qty: 100, unit: 'pcs', minQty: 50, unitCost: 5, location: 'Shelf C1' },
-    { id: 'MS-007', name: 'Paint - White', category: 'Paint', qty: 20, unit: 'L', minQty: 10, unitCost: 350, location: 'Shelf D1' },
-    { id: 'MS-008', name: 'Paint - Blue (IND)', category: 'Paint', qty: 10, unit: 'L', minQty: 5, unitCost: 380, location: 'Shelf D1' },
-    { id: 'MS-009', name: 'Saw Blade 10"', category: 'Blades', qty: 3, unit: 'pcs', minQty: 2, unitCost: 850, location: 'Shelf B3' },
-    { id: 'MS-010', name: 'Electrical Wire 2.5mm', category: 'Electrical', qty: 100, unit: 'm', minQty: 50, unitCost: 15, location: 'Shelf E1' },
-  ]
+  // Maintenance store items (STORE5)
+  const storeItems = maintenanceStore || []
 
   // MWO list (tasks)
   const tasksList = tasks || []
@@ -1941,6 +1985,56 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
     needsService: equipmentList.filter(e => e.nextService && new Date(e.nextService) <= new Date(Date.now() + 30*24*60*60*1000)).length,
     lowStock: storeItems.filter(i => i.qty <= i.minQty).length,
     storeValue: storeItems.reduce((sum, i) => sum + (i.qty * (i.unitCost || 0)), 0),
+  }
+
+  // Scan/Search for item in store
+  const handleScanLookup = (query) => {
+    if (!query.trim()) { setScannedItem(null); return }
+    const q = query.toLowerCase().trim()
+    const found = storeItems.find(item => 
+      item.id?.toLowerCase() === q || 
+      item.sku?.toLowerCase() === q || 
+      item.name?.toLowerCase().includes(q)
+    )
+    setScannedItem(found || null)
+    if (found) setIssueQty(1)
+  }
+
+  // Issue item from store
+  const handleIssueItem = () => {
+    if (!scannedItem || issueQty <= 0 || issueQty > scannedItem.qty) return
+    
+    // Create issue record
+    const issueRecord = {
+      id: `ISS-${Date.now()}`,
+      itemId: scannedItem.id,
+      itemName: scannedItem.name,
+      sku: scannedItem.sku,
+      qty: issueQty,
+      unit: scannedItem.unit,
+      mwoNumber: issueMWO || null,
+      issuedBy: 'Current User', // Would come from auth
+      issuedAt: new Date().toISOString(),
+      notes: issueNotes,
+    }
+    setIssueHistory([issueRecord, ...issueHistory])
+    
+    // Update store inventory
+    if (setMaintenanceStore) {
+      setMaintenanceStore(storeItems.map(item => 
+        item.id === scannedItem.id 
+          ? { ...item, qty: item.qty - issueQty, lastIssued: new Date().toISOString() }
+          : item
+      ))
+    }
+    
+    // Reset form
+    setScanQuery('')
+    setScannedItem(null)
+    setIssueQty(1)
+    setIssueMWO('')
+    setIssueNotes('')
+    setShowScanIssueModal(false)
   }
 
   // Convert request to MWO
@@ -2344,12 +2438,35 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
         <div className="space-y-4">
           <Card className="overflow-hidden">
             <div className="p-4 border-b bg-emerald-50 flex items-center justify-between">
-              <h3 className="font-bold text-emerald-800 flex items-center gap-2"><Package className="w-5 h-5" />{lang === 'th' ? 'คลังอะไหล่และวัสดุซ่อมบำรุง' : 'Maintenance Parts Store'}</h3>
-              <div className="text-right">
-                <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่ารวม' : 'Total Value'}</div>
-                <div className="text-lg font-bold text-emerald-600">฿{stats.storeValue.toLocaleString()}</div>
+              <h3 className="font-bold text-emerald-800 flex items-center gap-2"><Package className="w-5 h-5" />{lang === 'th' ? 'คลังอะไหล่และวัสดุซ่อมบำรุง (STORE5)' : 'Maintenance Parts Store (STORE5)'}</h3>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setShowScanIssueModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
+                >
+                  <Scan className="w-4 h-4" />
+                  {lang === 'th' ? 'สแกน / เบิกของ' : 'Scan & Issue'}
+                </button>
+                <div className="text-right">
+                  <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่ารวม' : 'Total Value'}</div>
+                  <div className="text-lg font-bold text-emerald-600">฿{stats.storeValue.toLocaleString()}</div>
+                </div>
               </div>
             </div>
+            
+            {/* Issue History Summary */}
+            {issueHistory.length > 0 && (
+              <div className="p-3 bg-blue-50 border-b flex items-center justify-between">
+                <div className="flex items-center gap-2 text-blue-700">
+                  <Activity className="w-4 h-4" />
+                  <span className="text-sm font-medium">{lang === 'th' ? 'เบิกล่าสุด' : 'Recent Issues'}: {issueHistory.length} {lang === 'th' ? 'รายการ' : 'items'}</span>
+                </div>
+                <div className="text-sm text-blue-600">
+                  {lang === 'th' ? 'ล่าสุด' : 'Last'}: {issueHistory[0]?.itemName} x{issueHistory[0]?.qty}
+                </div>
+              </div>
+            )}
+            
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
@@ -2405,6 +2522,168 @@ const MaintenanceModule = ({ tasks, setTasks, equipment, setEquipment, maintenan
                 </div>
               </Card>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Scan & Issue Modal */}
+      {showScanIssueModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowScanIssueModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Scan className="w-6 h-6 text-white" />
+                <h2 className="text-lg font-bold text-white">{lang === 'th' ? 'สแกน / เบิกอะไหล่' : 'Scan & Issue Parts'}</h2>
+              </div>
+              <button onClick={() => setShowScanIssueModal(false)} className="text-white/80 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+            
+            {/* Scan Input */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {lang === 'th' ? 'สแกนบาร์โค้ด / ค้นหารหัส SKU' : 'Scan Barcode / Search SKU'}
+                </label>
+                <div className="relative">
+                  <Scan className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={scanQuery}
+                    onChange={(e) => { setScanQuery(e.target.value); handleScanLookup(e.target.value) }}
+                    placeholder={lang === 'th' ? 'สแกนหรือพิมพ์รหัส เช่น MS-001, LUB-OIL-15W40' : 'Scan or type code e.g. MS-001, LUB-OIL-15W40'}
+                    className="w-full pl-10 pr-4 py-3 border-2 border-emerald-300 rounded-xl text-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              {/* Scanned Item Display */}
+              {scannedItem ? (
+                <div className="p-4 bg-emerald-50 border-2 border-emerald-200 rounded-xl space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="text-xs font-medium text-emerald-600 mb-1">{scannedItem.sku || scannedItem.id}</div>
+                      <div className="text-lg font-bold text-gray-800">{scannedItem.name}</div>
+                      <div className="text-sm text-gray-500">{scannedItem.nameTh}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-2xl font-bold ${scannedItem.qty <= scannedItem.minQty ? 'text-red-600' : 'text-emerald-600'}`}>
+                        {scannedItem.qty}
+                      </div>
+                      <div className="text-xs text-gray-500">{scannedItem.unit} {lang === 'th' ? 'คงเหลือ' : 'available'}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div className="p-2 bg-white rounded-lg">
+                      <div className="text-gray-500">{lang === 'th' ? 'หมวด' : 'Category'}</div>
+                      <div className="font-medium">{scannedItem.category}</div>
+                    </div>
+                    <div className="p-2 bg-white rounded-lg">
+                      <div className="text-gray-500">{lang === 'th' ? 'ที่เก็บ' : 'Location'}</div>
+                      <div className="font-medium">{scannedItem.location}</div>
+                    </div>
+                    <div className="p-2 bg-white rounded-lg">
+                      <div className="text-gray-500">{lang === 'th' ? 'ราคา/หน่วย' : 'Unit Cost'}</div>
+                      <div className="font-medium">฿{scannedItem.unitCost}</div>
+                    </div>
+                  </div>
+
+                  {/* Issue Form */}
+                  <div className="pt-4 border-t border-emerald-200 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'จำนวนเบิก' : 'Issue Qty'}</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max={scannedItem.qty}
+                          value={issueQty}
+                          onChange={(e) => setIssueQty(Math.min(parseInt(e.target.value) || 1, scannedItem.qty))}
+                          className="w-full px-3 py-2 border rounded-lg text-center text-lg font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เลขที่ใบงาน (ถ้ามี)' : 'MWO# (optional)'}</label>
+                        <select
+                          value={issueMWO}
+                          onChange={(e) => setIssueMWO(e.target.value)}
+                          className="w-full px-3 py-2 border rounded-lg"
+                        >
+                          <option value="">{lang === 'th' ? '-- เบิกทั่วไป --' : '-- General Issue --'}</option>
+                          {tasksList.filter(t => t.status !== 'completed').map(t => (
+                            <option key={t.id} value={t.mwoNumber}>{t.mwoNumber} - {t.equipment}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'หมายเหตุ' : 'Notes'}</label>
+                      <input
+                        type="text"
+                        value={issueNotes}
+                        onChange={(e) => setIssueNotes(e.target.value)}
+                        placeholder={lang === 'th' ? 'ใช้กับงานอะไร...' : 'Purpose of issue...'}
+                        className="w-full px-3 py-2 border rounded-lg"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : scanQuery && (
+                <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-center">
+                  <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-2" />
+                  <div className="text-red-700 font-medium">{lang === 'th' ? 'ไม่พบรายการ' : 'Item not found'}</div>
+                  <div className="text-sm text-red-500">{lang === 'th' ? 'ตรวจสอบรหัสอีกครั้ง' : 'Please check the code'}</div>
+                </div>
+              )}
+
+              {/* Quick Pick List */}
+              {!scannedItem && !scanQuery && (
+                <div>
+                  <div className="text-sm font-medium text-gray-500 mb-2">{lang === 'th' ? 'รายการที่ใช้บ่อย' : 'Frequently Used'}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {storeItems.slice(0, 6).map(item => (
+                      <button
+                        key={item.id}
+                        onClick={() => { setScanQuery(item.id); handleScanLookup(item.id) }}
+                        className="p-2 text-left bg-gray-50 hover:bg-emerald-50 rounded-lg border hover:border-emerald-300 transition-colors"
+                      >
+                        <div className="text-xs text-gray-500">{item.sku || item.id}</div>
+                        <div className="text-sm font-medium truncate">{item.name}</div>
+                        <div className="text-xs text-emerald-600">{item.qty} {item.unit}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 flex justify-between items-center">
+              <button
+                onClick={() => { setScanQuery(''); setScannedItem(null) }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                {lang === 'th' ? 'ล้าง' : 'Clear'}
+              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowScanIssueModal(false)}
+                  className="px-4 py-2 border rounded-lg hover:bg-gray-100"
+                >
+                  {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+                </button>
+                <button
+                  onClick={handleIssueItem}
+                  disabled={!scannedItem || issueQty <= 0}
+                  className="px-6 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  {lang === 'th' ? 'เบิกของ' : 'Issue Item'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -10704,6 +10983,7 @@ const AppFull = () => {
   const [deliveryOrders, setDeliveryOrders] = useState(INITIAL_DELIVERY_ORDERS)
   const [scheduledDeliveries, setScheduledDeliveries] = useState(INITIAL_SCHEDULED_DELIVERIES)
   const [maintenanceTasks, setMaintenanceTasks] = useState(INITIAL_MAINTENANCE_TASKS)
+  const [maintenanceStore, setMaintenanceStore] = useState(INITIAL_MAINTENANCE_STORE)
 
   // UI State
   const [activeModule, setActiveModule] = useState('dashboard')
@@ -11163,6 +11443,8 @@ const AppFull = () => {
                   employees={employees}
                   maintenanceRequests={maintenanceRequests}
                   setMaintenanceRequests={setMaintenanceRequests}
+                  maintenanceStore={maintenanceStore}
+                  setMaintenanceStore={setMaintenanceStore}
                   lang={lang}
                 />
               )}
