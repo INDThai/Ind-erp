@@ -19,10 +19,15 @@ import {
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '7.6'
+const VERSION = '7.7'
 const VERSION_DATE = '2026-02-01'
 
-// v7.6 NEW FEATURES (Inspired by Odoo, ClickUp, ERPNext, SAP):
+// v7.7 NEW FEATURES:
+// 1. STORE5 LINKAGE - Inventory Module now shows STORE5 (Maintenance) items
+// 2. UNIFIED DATA - Maintenance Store synced between Inventory & Maintenance modules
+// 3. ENHANCED STORE5 VIEW - Special table layout for maintenance parts (SKU, Unit, Min/Max, Location)
+//
+// v7.6 FEATURES (Inspired by Odoo, ClickUp, ERPNext, SAP):
 // 1. GLOBAL SEARCH (⌘K / Ctrl+K) - Search all: customers, WOs, invoices, inventory, POs, employees
 // 2. NOTIFICATION CENTER - Overdue WOs, Low stock alerts, Pending PO approvals, QC labels pending
 // 3. QUICK ACTIONS (Q key) - New WO, SO, PO, Invoice, Maintenance Request shortcuts
@@ -3819,7 +3824,7 @@ const EditLotModal = ({ isOpen, onClose, lot, categories, stores, onSave, onPrin
 // ============================================
 // INVENTORY MODULE (Full with CBM tracking)
 // ============================================
-const InventoryModule = ({ inventory, setInventory, stores, categories, lang }) => {
+const InventoryModule = ({ inventory, setInventory, stores, categories, maintenanceStore, setMaintenanceStore, lang }) => {
   const [selectedStore, setSelectedStore] = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [search, setSearch] = useState('')
@@ -3828,6 +3833,28 @@ const InventoryModule = ({ inventory, setInventory, stores, categories, lang }) 
   const [selectedLot, setSelectedLot] = useState(null)
   const [lotsForLabels, setLotsForLabels] = useState([])
   const [expandedCodes, setExpandedCodes] = useState({})
+  
+  // Convert maintenance store items to inventory format for unified display
+  const maintenanceItems = (maintenanceStore || []).map(item => ({
+    id: item.id,
+    lotNo: item.sku,
+    category: 'MAINT',
+    code: item.name,
+    store: 'STORE5',
+    qty: item.qty,
+    cbm: 0,
+    cost: item.qty * item.unitCost,
+    costPerCbm: 0,
+    status: item.qty <= item.minQty ? 'low' : 'available',
+    dateIn: item.lastRestock,
+    vendor: item.supplier,
+    // Keep original maintenance fields for display
+    _isMaintenance: true,
+    _original: item
+  }))
+  
+  // Combined inventory: regular inventory + maintenance store items
+  const combinedInventory = [...inventory, ...maintenanceItems]
 
   const handlePrintLabel = (lot) => {
     setLotsForLabels([lot])
@@ -3845,8 +3872,8 @@ const InventoryModule = ({ inventory, setInventory, stores, categories, lang }) 
     setShowLabelModal(true)
   }
 
-  // Filter inventory
-  const filteredInventory = inventory.filter(item => {
+  // Filter inventory (using combined inventory that includes STORE5/maintenance items)
+  const filteredInventory = combinedInventory.filter(item => {
     const matchStore = selectedStore === 'all' || item.store === selectedStore
     const matchCat = selectedCategory === 'all' || item.category === selectedCategory
     const matchSearch = !search || 
@@ -3899,23 +3926,25 @@ const InventoryModule = ({ inventory, setInventory, stores, categories, lang }) 
       {/* Store Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {stores.map(store => {
-          const storeItems = inventory.filter(i => i.store === store.id)
+          const storeItems = combinedInventory.filter(i => i.store === store.id)
           const storeValue = storeItems.reduce((sum, i) => sum + (i.cost || 0), 0)
           const isSelected = selectedStore === store.id
+          const isMaintenance = store.id === 'STORE5'
           return (
             <Card 
               key={store.id} 
               onClick={() => setSelectedStore(isSelected ? 'all' : store.id)}
-              className={`p-4 cursor-pointer transition-all ${isSelected ? 'ring-2 ring-[#1A5276] bg-blue-50' : 'hover:bg-gray-50'}`}
+              className={`p-4 cursor-pointer transition-all ${isSelected ? 'ring-2 ring-[#1A5276] bg-blue-50' : 'hover:bg-gray-50'} ${isMaintenance ? 'border-orange-200' : ''}`}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="text-sm font-medium text-gray-600">{store.code}</div>
-                <Badge variant={store.type === 'raw_material' ? 'success' : store.type === 'finished_goods' ? 'info' : 'default'}>
+                <Badge variant={store.type === 'raw_material' ? 'success' : store.type === 'finished_goods' ? 'info' : store.type === 'maintenance' ? 'orange' : 'default'}>
                   {storeItems.length}
                 </Badge>
               </div>
               <div className="text-xs text-gray-500 truncate">{lang === 'th' ? store.nameTh : store.nameEn}</div>
               <div className="font-bold text-[#2ECC40] mt-2">{formatCurrency(storeValue)}</div>
+              {isMaintenance && <div className="text-xs text-orange-500 mt-1">🔧 Linked to Maintenance</div>}
             </Card>
           )
         })}
@@ -3994,65 +4023,127 @@ const InventoryModule = ({ inventory, setInventory, stores, categories, lang }) 
       </div>
 
       {/* Inventory Table */}
-      <Card className="overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัสวัสดุ' : 'Material Code'}</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'หมวดหมู่' : 'Category'}</th>
-              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ล็อต' : 'Lots'}</th>
-              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
-              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">CBM</th>
-              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {Object.values(groupedInventory).map(group => {
-              const cat = categories.find(c => c.id === group.category)
-              const isExpanded = expandedCodes[group.code]
-              return (
-                <React.Fragment key={group.code}>
-                  <tr 
-                    className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => setExpandedCodes(prev => ({ ...prev, [group.code]: !prev[group.code] }))}
-                  >
+      {selectedStore === 'STORE5' ? (
+        /* Maintenance Store (STORE5) - Special Table */
+        <Card className="overflow-hidden">
+          <div className="bg-orange-50 px-4 py-3 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wrench className="w-5 h-5 text-orange-600" />
+              <span className="font-medium text-orange-800">{lang === 'th' ? 'คลังอะไหล่ซ่อมบำรุง (STORE5)' : 'Maintenance Parts Store (STORE5)'}</span>
+            </div>
+            <Badge variant="orange">{filteredInventory.length} {lang === 'th' ? 'รายการ' : 'items'}</Badge>
+          </div>
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส SKU' : 'SKU'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ชื่อรายการ' : 'Item Name'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'หมวดหมู่' : 'Category'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Stock'}</th>
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'หน่วย' : 'Unit'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'Min/Max' : 'Min/Max'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ที่เก็บ' : 'Location'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ต้นทุน/หน่วย' : 'Unit Cost'}</th>
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {filteredInventory.map(item => {
+                const orig = item._original || {}
+                const isLow = item.qty <= (orig.minQty || 0)
+                return (
+                  <tr key={item.id} className={`hover:bg-gray-50 ${isLow ? 'bg-red-50' : ''}`}>
+                    <td className="px-4 py-3 font-mono text-[#1A5276] text-sm">{item.lotNo}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                        <span className="font-mono text-[#1A5276]">{group.code}</span>
-                      </div>
+                      <div className="font-medium">{orig.name || item.code}</div>
+                      {orig.nameTh && <div className="text-xs text-gray-500">{orig.nameTh}</div>}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: cat?.color }} />
-                        <span>{group.category}</span>
-                      </div>
+                      <Badge variant="default">{orig.category || item.category}</Badge>
                     </td>
-                    <td className="px-4 py-3 text-right">{group.lots.length}</td>
-                    <td className="px-4 py-3 text-right font-medium">{formatNumber(group.totalQty)}</td>
-                    <td className="px-4 py-3 text-right">{group.totalCbm.toFixed(3)}</td>
-                    <td className="px-4 py-3 text-right font-medium text-[#2ECC40]">{formatCurrency(group.totalCost)}</td>
+                    <td className="px-4 py-3 text-right font-bold">{item.qty}</td>
+                    <td className="px-4 py-3 text-center text-sm text-gray-500">{orig.unit || '-'}</td>
+                    <td className="px-4 py-3 text-right text-sm text-gray-500">{orig.minQty || 0}/{orig.maxQty || '-'}</td>
+                    <td className="px-4 py-3 text-sm">{orig.location || '-'}</td>
+                    <td className="px-4 py-3 text-right font-medium text-[#2ECC40]">{formatCurrency(orig.unitCost || 0)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <Badge variant={isLow ? 'danger' : 'success'}>{isLow ? (lang === 'th' ? 'ต่ำ' : 'LOW') : (lang === 'th' ? 'ปกติ' : 'OK')}</Badge>
+                    </td>
                   </tr>
-                  {isExpanded && group.lots.map(lot => (
-                    <tr key={lot.id} className="bg-gray-50/50 hover:bg-gray-100">
-                      <td className="px-4 py-2 pl-12">
-                        <span className="text-sm font-mono text-gray-600">{lot.lotNo}</span>
+                )
+              })}
+              {filteredInventory.length === 0 && (
+                <tr>
+                  <td colSpan="9" className="px-4 py-8 text-center text-gray-500">
+                    {lang === 'th' ? 'ไม่พบรายการ' : 'No items found'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </Card>
+      ) : (
+        /* Regular Inventory Table */
+        <Card className="overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัสวัสดุ' : 'Material Code'}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'หมวดหมู่' : 'Category'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ล็อต' : 'Lots'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">CBM</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {Object.values(groupedInventory).map(group => {
+                const cat = categories.find(c => c.id === group.category)
+                const isExpanded = expandedCodes[group.code]
+                return (
+                  <React.Fragment key={group.code}>
+                    <tr 
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => setExpandedCodes(prev => ({ ...prev, [group.code]: !prev[group.code] }))}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                          <span className="font-mono text-[#1A5276]">{group.code}</span>
+                        </div>
                       </td>
-                      <td className="px-4 py-2 text-sm text-gray-500">{lot.vendor || '-'}</td>
-                      <td className="px-4 py-2 text-right text-sm">
-                        <Badge variant={lot.status === 'low' ? 'warning' : 'success'}>{lot.status}</Badge>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: cat?.color }} />
+                          <span>{group.category}</span>
+                        </div>
                       </td>
-                      <td className="px-4 py-2 text-right text-sm">{lot.qty}</td>
-                      <td className="px-4 py-2 text-right text-sm">{(lot.cbm || 0).toFixed(3)}</td>
-                      <td className="px-4 py-2 text-right text-sm text-[#2ECC40]">{formatCurrency(lot.cost)}</td>
+                      <td className="px-4 py-3 text-right">{group.lots.length}</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatNumber(group.totalQty)}</td>
+                      <td className="px-4 py-3 text-right">{group.totalCbm.toFixed(3)}</td>
+                      <td className="px-4 py-3 text-right font-medium text-[#2ECC40]">{formatCurrency(group.totalCost)}</td>
                     </tr>
-                  ))}
-                </React.Fragment>
-              )
-            })}
-          </tbody>
-        </table>
-      </Card>
+                    {isExpanded && group.lots.map(lot => (
+                      <tr key={lot.id} className="bg-gray-50/50 hover:bg-gray-100">
+                        <td className="px-4 py-2 pl-12">
+                          <span className="text-sm font-mono text-gray-600">{lot.lotNo}</span>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-500">{lot.vendor || '-'}</td>
+                        <td className="px-4 py-2 text-right text-sm">
+                          <Badge variant={lot.status === 'low' ? 'warning' : 'success'}>{lot.status}</Badge>
+                        </td>
+                        <td className="px-4 py-2 text-right text-sm">{lot.qty}</td>
+                        <td className="px-4 py-2 text-right text-sm">{(lot.cbm || 0).toFixed(3)}</td>
+                        <td className="px-4 py-2 text-right text-sm text-[#2ECC40]">{formatCurrency(lot.cost)}</td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                )
+              })}
+            </tbody>
+          </table>
+        </Card>
+      )}
 
       {/* Modals */}
       <EditLotModal
@@ -8747,6 +8838,8 @@ function AppBasic() {
                   setInventory={setInventory}
                   stores={stores}
                   categories={categories}
+                  maintenanceStore={maintenanceStore}
+                  setMaintenanceStore={setMaintenanceStore}
                   lang={lang}
                 />
               )}
@@ -11330,6 +11423,8 @@ const AppFull = () => {
                   setInventory={setInventory}
                   stores={stores}
                   categories={categories}
+                  maintenanceStore={maintenanceStore}
+                  setMaintenanceStore={setMaintenanceStore}
                   lang={lang}
                 />
               )}
