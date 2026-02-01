@@ -2732,6 +2732,67 @@ const QuickActionsMenu = ({ isOpen, onClose, onAction, lang }) => {
 // v7.6 FEATURES - KANBAN BOARD for Production
 // ============================================
 const KanbanBoard = ({ workOrders, setWorkOrders, customers, lang }) => {
+  const [draggedWO, setDraggedWO] = useState(null)
+  const DEPT_FLOW = ['C1', 'C2', 'P1', 'P2', 'P3', 'ASM1', 'ASM2', 'OVN', 'QC', 'FG']
+  const DEPT_COLORS = {
+    C1: { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-700', header: 'bg-red-100' },
+    C2: { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-700', header: 'bg-orange-100' },
+    P1: { bg: 'bg-yellow-50', border: 'border-yellow-300', text: 'text-yellow-700', header: 'bg-yellow-100' },
+    P2: { bg: 'bg-lime-50', border: 'border-lime-300', text: 'text-lime-700', header: 'bg-lime-100' },
+    P3: { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700', header: 'bg-green-100' },
+    ASM1: { bg: 'bg-teal-50', border: 'border-teal-300', text: 'text-teal-700', header: 'bg-teal-100' },
+    ASM2: { bg: 'bg-cyan-50', border: 'border-cyan-300', text: 'text-cyan-700', header: 'bg-cyan-100' },
+    OVN: { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700', header: 'bg-blue-100' },
+    QC: { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700', header: 'bg-purple-100' },
+    FG: { bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-700', header: 'bg-emerald-100' },
+  }
+  const getWOsForDept = (deptCode) => workOrders.filter(wo => (wo.currentDept || wo.department || 'C1') === deptCode && wo.status !== 'completed')
+  const handleDragStart = (e, wo) => { setDraggedWO(wo); e.dataTransfer.effectAllowed = 'move' }
+  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }
+  const handleDrop = (e, targetDept) => {
+    e.preventDefault()
+    if (!draggedWO) return
+    setWorkOrders(workOrders.map(wo => wo.id === draggedWO.id ? { ...wo, currentDept: targetDept, status: targetDept === 'FG' ? 'completed' : 'in_progress' } : wo))
+    setDraggedWO(null)
+  }
+  return (
+    <div className="h-full overflow-x-auto p-4">
+      <div className="flex gap-3 min-w-max">
+        {DEPT_FLOW.map(deptCode => {
+          const wos = getWOsForDept(deptCode)
+          const colors = DEPT_COLORS[deptCode]
+          return (
+            <div key={deptCode} className={`w-56 flex-shrink-0 rounded-xl border-2 ${colors.border} ${colors.bg} overflow-hidden`} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, deptCode)}>
+              <div className={`p-3 ${colors.header} border-b ${colors.border}`}>
+                <div className="flex items-center justify-between">
+                  <div className={`font-bold ${colors.text}`}>{deptCode}</div>
+                  <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>{wos.length}</div>
+                </div>
+              </div>
+              <div className="p-2 space-y-2 min-h-64 max-h-96 overflow-y-auto">
+                {wos.map(wo => {
+                  const customer = customers?.find(c => c.id === wo.customerId)
+                  return (
+                    <div key={wo.id} draggable onDragStart={(e) => handleDragStart(e, wo)} className="bg-white rounded-lg shadow-sm border p-3 cursor-move hover:shadow-md">
+                      <div className="font-mono text-sm font-bold text-[#1A5276]">{wo.woNumber || wo.id}</div>
+                      <div className="text-sm mt-1 truncate">{wo.productName}</div>
+                      <div className="text-xs text-gray-500 mt-1">{customer?.name}</div>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-xs font-medium">{wo.quantity} pcs</span>
+                        {wo.targetDate && <span className={`text-xs ${new Date(wo.targetDate) < new Date() ? 'text-red-600 font-medium' : 'text-gray-400'}`}>{formatDate(wo.targetDate)}</span>}
+                      </div>
+                    </div>
+                  )
+                })}
+                {wos.length === 0 && <div className={`p-4 text-center ${colors.text} opacity-50 text-sm`}>{lang === 'th' ? 'ว่าง' : 'Empty'}</div>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 // ============================================
 // GLOBAL MAINTENANCE REQUEST MODAL
@@ -2878,67 +2939,6 @@ const GlobalMaintenanceRequestModal = ({ isOpen, onClose, onSubmit, currentUser,
             </button>
           </div>
         </form>
-      </div>
-    </div>
-  )
-}
-  const [draggedWO, setDraggedWO] = useState(null)
-  const DEPT_FLOW = ['C1', 'C2', 'P1', 'P2', 'P3', 'ASM1', 'ASM2', 'OVN', 'QC', 'FG']
-  const DEPT_COLORS = {
-    C1: { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-700', header: 'bg-red-100' },
-    C2: { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-700', header: 'bg-orange-100' },
-    P1: { bg: 'bg-yellow-50', border: 'border-yellow-300', text: 'text-yellow-700', header: 'bg-yellow-100' },
-    P2: { bg: 'bg-lime-50', border: 'border-lime-300', text: 'text-lime-700', header: 'bg-lime-100' },
-    P3: { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700', header: 'bg-green-100' },
-    ASM1: { bg: 'bg-teal-50', border: 'border-teal-300', text: 'text-teal-700', header: 'bg-teal-100' },
-    ASM2: { bg: 'bg-cyan-50', border: 'border-cyan-300', text: 'text-cyan-700', header: 'bg-cyan-100' },
-    OVN: { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700', header: 'bg-blue-100' },
-    QC: { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700', header: 'bg-purple-100' },
-    FG: { bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-700', header: 'bg-emerald-100' },
-  }
-  const getWOsForDept = (deptCode) => workOrders.filter(wo => (wo.currentDept || wo.department || 'C1') === deptCode && wo.status !== 'completed')
-  const handleDragStart = (e, wo) => { setDraggedWO(wo); e.dataTransfer.effectAllowed = 'move' }
-  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }
-  const handleDrop = (e, targetDept) => {
-    e.preventDefault()
-    if (!draggedWO) return
-    setWorkOrders(workOrders.map(wo => wo.id === draggedWO.id ? { ...wo, currentDept: targetDept, status: targetDept === 'FG' ? 'completed' : 'in_progress' } : wo))
-    setDraggedWO(null)
-  }
-  return (
-    <div className="h-full overflow-x-auto p-4">
-      <div className="flex gap-3 min-w-max">
-        {DEPT_FLOW.map(deptCode => {
-          const wos = getWOsForDept(deptCode)
-          const colors = DEPT_COLORS[deptCode]
-          return (
-            <div key={deptCode} className={`w-56 flex-shrink-0 rounded-xl border-2 ${colors.border} ${colors.bg} overflow-hidden`} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, deptCode)}>
-              <div className={`p-3 ${colors.header} border-b ${colors.border}`}>
-                <div className="flex items-center justify-between">
-                  <div className={`font-bold ${colors.text}`}>{deptCode}</div>
-                  <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>{wos.length}</div>
-                </div>
-              </div>
-              <div className="p-2 space-y-2 min-h-64 max-h-96 overflow-y-auto">
-                {wos.map(wo => {
-                  const customer = customers?.find(c => c.id === wo.customerId)
-                  return (
-                    <div key={wo.id} draggable onDragStart={(e) => handleDragStart(e, wo)} className="bg-white rounded-lg shadow-sm border p-3 cursor-move hover:shadow-md">
-                      <div className="font-mono text-sm font-bold text-[#1A5276]">{wo.woNumber || wo.id}</div>
-                      <div className="text-sm mt-1 truncate">{wo.productName}</div>
-                      <div className="text-xs text-gray-500 mt-1">{customer?.name}</div>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-xs font-medium">{wo.quantity} pcs</span>
-                        {wo.targetDate && <span className={`text-xs ${new Date(wo.targetDate) < new Date() ? 'text-red-600 font-medium' : 'text-gray-400'}`}>{formatDate(wo.targetDate)}</span>}
-                      </div>
-                    </div>
-                  )
-                })}
-                {wos.length === 0 && <div className={`p-4 text-center ${colors.text} opacity-50 text-sm`}>{lang === 'th' ? 'ว่าง' : 'Empty'}</div>}
-              </div>
-            </div>
-          )
-        })}
       </div>
     </div>
   )
