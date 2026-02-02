@@ -20,8 +20,30 @@ import {
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '10.0'
+const VERSION = '10.2'
 const VERSION_DATE = '2026-02-02'
+
+// v10.2 QUOTATION STATUS & UI FIXES:
+// 1. QUOTATION STATUS WORKFLOW:
+//    - Draft → [Send] → Sent
+//    - Sent → [Accept ✓] → Accepted
+//    - Sent → [Reject ✗] → Rejected (with reason)
+//    - Accepted → [→ SO] → Convert to Sales Order
+// 2. SALES REPORT TAB - Visible in Sales module tabs
+// 3. HISTORY TAB - Visible in Sales module tabs
+// 4. OCR PO UPLOAD - In Order Tracker → Click order → "Update / Upload PO"
+
+// v10.1 SALES REPORT & HISTORY:
+// 1. SALES REPORT TAB - Monthly consolidated with expandable structure
+//    - Year summary: active customers, invoices, amount, VAT, total
+//    - PO status: received, completed, partial, awaiting
+//    - Click month → expand to customer breakdown
+//    - Click customer → expand to invoice details
+// 2. HISTORY TAB - Combined order and price history
+//    - Order History sub-tab with year/month/customer filters
+//    - Price History sub-tab with log functionality
+//    - Expandable order rows showing line items
+// 3. FILTERS - Year, month, customer filters on all views
 
 // v10.0 SALES COMPLETE + PRODUCTION ENHANCED:
 // 1. SALES MODULE FINALIZED - All 13 tabs working with forms
@@ -8456,6 +8478,560 @@ const QCInspectionForm = ({ wo, lang, onSave, onCancel }) => {
 }
 
 // ============================================
+// SALES REPORT - MONTHLY CONSOLIDATED
+// ============================================
+const SalesReportConsolidated = ({ invoices, salesOrders, customers, lang }) => {
+  const [expandedMonths, setExpandedMonths] = useState({})
+  const [expandedCustomers, setExpandedCustomers] = useState({})
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear())
+  const [filterCustomer, setFilterCustomer] = useState('all')
+
+  // Generate available years from data
+  const availableYears = [...new Set([
+    ...(invoices || []).map(inv => new Date(inv.date || inv.createdAt).getFullYear()),
+    new Date().getFullYear()
+  ])].sort((a, b) => b - a)
+
+  // Calculate monthly data
+  const monthlyData = useMemo(() => {
+    const months = []
+    for (let m = 0; m < 12; m++) {
+      const monthStart = new Date(filterYear, m, 1)
+      const monthEnd = new Date(filterYear, m + 1, 0)
+      const monthName = monthStart.toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US', { month: 'long', year: 'numeric' })
+      
+      // Filter invoices for this month
+      const monthInvoices = (invoices || []).filter(inv => {
+        const invDate = new Date(inv.date || inv.createdAt)
+        return invDate >= monthStart && invDate <= monthEnd &&
+          (filterCustomer === 'all' || inv.customerId === filterCustomer)
+      })
+
+      // Filter sales orders for this month
+      const monthOrders = (salesOrders || []).filter(so => {
+        const soDate = new Date(so.orderDate || so.createdAt)
+        return soDate >= monthStart && soDate <= monthEnd &&
+          (filterCustomer === 'all' || so.customerId === filterCustomer)
+      })
+
+      // Calculate totals
+      const totalAmount = monthInvoices.reduce((sum, inv) => sum + ((inv.grandTotal || 0) / 1.07), 0) // Before VAT
+      const totalVAT = monthInvoices.reduce((sum, inv) => sum + ((inv.grandTotal || 0) - (inv.grandTotal || 0) / 1.07), 0)
+      const totalWithVAT = monthInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0)
+      
+      // Active customers (customers with invoices this month)
+      const activeCustomerIds = [...new Set(monthInvoices.map(inv => inv.customerId))]
+      
+      // PO Status
+      const poReceived = monthOrders.length
+      const poCompleted = monthOrders.filter(so => so.status === 'delivered' || so.status === 'completed').length
+      const poPartial = monthOrders.filter(so => so.status === 'partial').length
+      const poAwaiting = monthOrders.filter(so => so.status === 'confirmed' || so.status === 'in_production').length
+
+      // Customer breakdown
+      const customerBreakdown = activeCustomerIds.map(custId => {
+        const customer = customers.find(c => c.id === custId)
+        const custInvoices = monthInvoices.filter(inv => inv.customerId === custId)
+        return {
+          id: custId,
+          name: customer?.name || 'Unknown',
+          code: customer?.code || '',
+          invoiceCount: custInvoices.length,
+          totalAmount: custInvoices.reduce((sum, inv) => sum + ((inv.grandTotal || 0) / 1.07), 0),
+          totalVAT: custInvoices.reduce((sum, inv) => sum + ((inv.grandTotal || 0) - (inv.grandTotal || 0) / 1.07), 0),
+          totalWithVAT: custInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0),
+          invoices: custInvoices,
+        }
+      }).sort((a, b) => b.totalWithVAT - a.totalWithVAT)
+
+      months.push({
+        month: m,
+        monthName,
+        monthKey: `${filterYear}-${String(m + 1).padStart(2, '0')}`,
+        invoiceCount: monthInvoices.length,
+        activeCustomers: activeCustomerIds.length,
+        totalAmount,
+        totalVAT,
+        totalWithVAT,
+        poReceived,
+        poCompleted,
+        poPartial,
+        poAwaiting,
+        customerBreakdown,
+        invoices: monthInvoices,
+      })
+    }
+    return months.reverse() // Most recent first
+  }, [invoices, salesOrders, customers, filterYear, filterCustomer, lang])
+
+  // Year totals
+  const yearTotals = useMemo(() => ({
+    invoiceCount: monthlyData.reduce((sum, m) => sum + m.invoiceCount, 0),
+    activeCustomers: [...new Set(monthlyData.flatMap(m => m.customerBreakdown.map(c => c.id)))].length,
+    totalAmount: monthlyData.reduce((sum, m) => sum + m.totalAmount, 0),
+    totalVAT: monthlyData.reduce((sum, m) => sum + m.totalVAT, 0),
+    totalWithVAT: monthlyData.reduce((sum, m) => sum + m.totalWithVAT, 0),
+    poReceived: monthlyData.reduce((sum, m) => sum + m.poReceived, 0),
+    poCompleted: monthlyData.reduce((sum, m) => sum + m.poCompleted, 0),
+    poPartial: monthlyData.reduce((sum, m) => sum + m.poPartial, 0),
+    poAwaiting: monthlyData.reduce((sum, m) => sum + m.poAwaiting, 0),
+  }), [monthlyData])
+
+  const toggleMonth = (key) => setExpandedMonths(prev => ({ ...prev, [key]: !prev[key] }))
+  const toggleCustomer = (key) => setExpandedCustomers(prev => ({ ...prev, [key]: !prev[key] }))
+
+  return (
+    <div className="space-y-6">
+      {/* Filters */}
+      <Card className="p-4">
+        <div className="flex flex-wrap gap-4 items-end">
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">{lang === 'th' ? 'ปี' : 'Year'}</label>
+            <select value={filterYear} onChange={(e) => setFilterYear(parseInt(e.target.value))} className="px-3 py-2 border rounded-lg">
+              {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+          <div className="min-w-[200px]">
+            <label className="block text-sm font-medium text-gray-600 mb-1">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</label>
+            <select value={filterCustomer} onChange={(e) => setFilterCustomer(e.target.value)} className="w-full px-3 py-2 border rounded-lg">
+              <option value="all">{lang === 'th' ? 'ทุกลูกค้า' : 'All Customers'}</option>
+              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <Button variant="outline" icon={Printer} onClick={() => window.print()}>
+            {lang === 'th' ? 'พิมพ์รายงาน' : 'Print Report'}
+          </Button>
+        </div>
+      </Card>
+
+      {/* Year Summary */}
+      <Card className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <h3 className="font-bold text-lg text-blue-800 mb-4">{lang === 'th' ? `สรุปยอดขายปี ${filterYear}` : `${filterYear} Sales Summary`}</h3>
+        <div className="grid grid-cols-5 gap-4">
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'ลูกค้าที่ซื้อ' : 'Active Customers'}</div>
+            <div className="text-2xl font-bold text-blue-600">{yearTotals.activeCustomers}</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'จำนวนใบแจ้งหนี้' : 'Total Invoices'}</div>
+            <div className="text-2xl font-bold text-green-600">{yearTotals.invoiceCount}</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'ยอดก่อน VAT' : 'Amount (ex VAT)'}</div>
+            <div className="text-xl font-bold text-gray-800">{formatCurrency(yearTotals.totalAmount)}</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'VAT 7%' : 'VAT 7%'}</div>
+            <div className="text-xl font-bold text-orange-600">{formatCurrency(yearTotals.totalVAT)}</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <div className="text-sm text-gray-500">{lang === 'th' ? 'ยอดรวม VAT' : 'Total (inc VAT)'}</div>
+            <div className="text-xl font-bold text-indigo-600">{formatCurrency(yearTotals.totalWithVAT)}</div>
+          </div>
+        </div>
+        <div className="grid grid-cols-4 gap-4 mt-4">
+          <div className="bg-white p-3 rounded-lg text-center">
+            <div className="text-xs text-gray-500">{lang === 'th' ? 'PO รับ' : 'PO Received'}</div>
+            <div className="text-lg font-bold text-purple-600">{yearTotals.poReceived}</div>
+          </div>
+          <div className="bg-white p-3 rounded-lg text-center">
+            <div className="text-xs text-gray-500">{lang === 'th' ? 'ส่งครบ' : 'Completed'}</div>
+            <div className="text-lg font-bold text-green-600">{yearTotals.poCompleted}</div>
+          </div>
+          <div className="bg-white p-3 rounded-lg text-center">
+            <div className="text-xs text-gray-500">{lang === 'th' ? 'ส่งบางส่วน' : 'Partial'}</div>
+            <div className="text-lg font-bold text-yellow-600">{yearTotals.poPartial}</div>
+          </div>
+          <div className="bg-white p-3 rounded-lg text-center">
+            <div className="text-xs text-gray-500">{lang === 'th' ? 'รอผลิต' : 'Awaiting'}</div>
+            <div className="text-lg font-bold text-orange-600">{yearTotals.poAwaiting}</div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Monthly Breakdown - Expandable */}
+      <Card className="overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-b">
+          <h4 className="font-bold text-gray-700">{lang === 'th' ? 'รายงานรายเดือน (คลิกเพื่อขยาย)' : 'Monthly Report (Click to Expand)'}</h4>
+        </div>
+        <div className="divide-y">
+          {monthlyData.map(month => (
+            <div key={month.monthKey}>
+              {/* Month Row - Level 1 */}
+              <div 
+                className={`px-4 py-3 cursor-pointer hover:bg-gray-50 ${expandedMonths[month.monthKey] ? 'bg-blue-50' : ''}`}
+                onClick={() => toggleMonth(month.monthKey)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${expandedMonths[month.monthKey] ? 'rotate-90' : ''}`} />
+                    <div className="font-bold text-gray-800">{month.monthName}</div>
+                    <Badge variant="info">{month.activeCustomers} {lang === 'th' ? 'ลูกค้า' : 'customers'}</Badge>
+                    <Badge variant="default">{month.invoiceCount} {lang === 'th' ? 'ใบ' : 'invoices'}</Badge>
+                  </div>
+                  <div className="flex items-center gap-6 text-sm">
+                    <div><span className="text-gray-500">{lang === 'th' ? 'ก่อน VAT:' : 'Ex VAT:'}</span> <span className="font-medium">{formatCurrency(month.totalAmount)}</span></div>
+                    <div><span className="text-gray-500">VAT:</span> <span className="font-medium text-orange-600">{formatCurrency(month.totalVAT)}</span></div>
+                    <div><span className="text-gray-500">{lang === 'th' ? 'รวม:' : 'Total:'}</span> <span className="font-bold text-blue-600">{formatCurrency(month.totalWithVAT)}</span></div>
+                  </div>
+                </div>
+                <div className="flex gap-4 mt-2 text-xs text-gray-500 ml-8">
+                  <span>PO: {month.poReceived}</span>
+                  <span className="text-green-600">✓ {month.poCompleted}</span>
+                  <span className="text-yellow-600">◐ {month.poPartial}</span>
+                  <span className="text-orange-600">⏳ {month.poAwaiting}</span>
+                </div>
+              </div>
+
+              {/* Customer Breakdown - Level 2 */}
+              {expandedMonths[month.monthKey] && (
+                <div className="bg-gray-50 border-t">
+                  {month.customerBreakdown.length === 0 ? (
+                    <div className="px-8 py-4 text-gray-400 text-sm">{lang === 'th' ? 'ไม่มีข้อมูล' : 'No data'}</div>
+                  ) : (
+                    month.customerBreakdown.map(cust => (
+                      <div key={`${month.monthKey}-${cust.id}`}>
+                        {/* Customer Row */}
+                        <div 
+                          className={`px-8 py-2 cursor-pointer hover:bg-gray-100 border-b border-gray-200 ${expandedCustomers[`${month.monthKey}-${cust.id}`] ? 'bg-blue-100' : ''}`}
+                          onClick={() => toggleCustomer(`${month.monthKey}-${cust.id}`)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedCustomers[`${month.monthKey}-${cust.id}`] ? 'rotate-90' : ''}`} />
+                              <div className="font-medium">{cust.name}</div>
+                              <span className="text-xs text-gray-400 font-mono">{cust.code}</span>
+                              <Badge variant="default" className="text-xs">{cust.invoiceCount} inv</Badge>
+                            </div>
+                            <div className="flex items-center gap-4 text-sm">
+                              <span className="text-gray-600">{formatCurrency(cust.totalAmount)}</span>
+                              <span className="text-orange-600">{formatCurrency(cust.totalVAT)}</span>
+                              <span className="font-bold text-blue-600">{formatCurrency(cust.totalWithVAT)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Invoice Details - Level 3 */}
+                        {expandedCustomers[`${month.monthKey}-${cust.id}`] && (
+                          <div className="bg-white border-b">
+                            <table className="w-full text-sm">
+                              <thead className="bg-gray-100">
+                                <tr>
+                                  <th className="px-10 py-2 text-left text-xs font-medium text-gray-500">{lang === 'th' ? 'เลขที่ใบแจ้งหนี้' : 'Invoice #'}</th>
+                                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">{lang === 'th' ? 'PO ลูกค้า' : 'Customer PO'}</th>
+                                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">{lang === 'th' ? 'ก่อน VAT' : 'Ex VAT'}</th>
+                                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">VAT</th>
+                                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">{lang === 'th' ? 'รวม' : 'Total'}</th>
+                                  <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y">
+                                {cust.invoices.map(inv => {
+                                  const beforeVAT = (inv.grandTotal || 0) / 1.07
+                                  const vat = (inv.grandTotal || 0) - beforeVAT
+                                  return (
+                                    <tr key={inv.id} className="hover:bg-gray-50">
+                                      <td className="px-10 py-2 font-mono text-blue-600">{inv.id}</td>
+                                      <td className="px-3 py-2">{formatDate(inv.date || inv.createdAt)}</td>
+                                      <td className="px-3 py-2 text-gray-600">{inv.customerPO || '-'}</td>
+                                      <td className="px-3 py-2 text-right">{formatCurrency(beforeVAT)}</td>
+                                      <td className="px-3 py-2 text-right text-orange-600">{formatCurrency(vat)}</td>
+                                      <td className="px-3 py-2 text-right font-medium">{formatCurrency(inv.grandTotal || 0)}</td>
+                                      <td className="px-3 py-2 text-center">
+                                        <Badge variant={inv.status === 'paid' ? 'success' : inv.balance > 0 ? 'warning' : 'info'}>
+                                          {inv.status}
+                                        </Badge>
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+// ============================================
+// SALES HISTORY TAB - Orders & Price History Combined
+// ============================================
+const SalesHistoryTab = ({ invoices, salesOrders, customers, priceHistory, setPriceHistory, products, setShowPriceChangeModal, setSelectedItem, lang }) => {
+  const [activeSubTab, setActiveSubTab] = useState('orders')
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear())
+  const [filterMonth, setFilterMonth] = useState('all')
+  const [filterCustomer, setFilterCustomer] = useState('all')
+  const [expandedOrders, setExpandedOrders] = useState({})
+
+  const subTabs = [
+    { id: 'orders', label: lang === 'th' ? 'ประวัติออเดอร์' : 'Order History', icon: ClipboardList },
+    { id: 'prices', label: lang === 'th' ? 'ประวัติราคา' : 'Price History', icon: TrendingUp },
+  ]
+
+  // Filter orders
+  const filteredOrders = useMemo(() => {
+    return (salesOrders || []).filter(so => {
+      const soDate = new Date(so.orderDate || so.createdAt)
+      const matchYear = soDate.getFullYear() === filterYear
+      const matchMonth = filterMonth === 'all' || soDate.getMonth() === parseInt(filterMonth)
+      const matchCustomer = filterCustomer === 'all' || so.customerId === filterCustomer
+      return matchYear && matchMonth && matchCustomer
+    }).sort((a, b) => new Date(b.orderDate || b.createdAt) - new Date(a.orderDate || a.createdAt))
+  }, [salesOrders, filterYear, filterMonth, filterCustomer])
+
+  // Order summary
+  const orderSummary = useMemo(() => ({
+    total: filteredOrders.length,
+    completed: filteredOrders.filter(so => so.status === 'delivered' || so.status === 'completed').length,
+    partial: filteredOrders.filter(so => so.status === 'partial').length,
+    inProgress: filteredOrders.filter(so => so.status === 'in_production' || so.status === 'confirmed').length,
+    totalQty: filteredOrders.reduce((sum, so) => sum + (so.items?.reduce((s, i) => s + (i.qty || 0), 0) || 0), 0),
+    totalValue: filteredOrders.reduce((sum, so) => sum + (so.grandTotal || 0), 0),
+  }), [filteredOrders])
+
+  const toggleOrder = (id) => setExpandedOrders(prev => ({ ...prev, [id]: !prev[id] }))
+
+  return (
+    <div className="space-y-6">
+      {/* Sub-tabs */}
+      <div className="flex gap-2 border-b pb-2">
+        {subTabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveSubTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium transition-colors ${
+              activeSubTab === tab.id
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Order History Sub-tab */}
+      {activeSubTab === 'orders' && (
+        <div className="space-y-4">
+          {/* Filters */}
+          <Card className="p-4">
+            <div className="flex flex-wrap gap-4 items-end">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">{lang === 'th' ? 'ปี' : 'Year'}</label>
+                <select value={filterYear} onChange={(e) => setFilterYear(parseInt(e.target.value))} className="px-3 py-2 border rounded-lg">
+                  {[2026, 2025, 2024].map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">{lang === 'th' ? 'เดือน' : 'Month'}</label>
+                <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="px-3 py-2 border rounded-lg">
+                  <option value="all">{lang === 'th' ? 'ทั้งปี' : 'All Months'}</option>
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i} value={i}>{new Date(2000, i, 1).toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US', { month: 'long' })}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="min-w-[200px]">
+                <label className="block text-sm font-medium text-gray-600 mb-1">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</label>
+                <select value={filterCustomer} onChange={(e) => setFilterCustomer(e.target.value)} className="w-full px-3 py-2 border rounded-lg">
+                  <option value="all">{lang === 'th' ? 'ทุกลูกค้า' : 'All Customers'}</option>
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            </div>
+          </Card>
+
+          {/* Summary */}
+          <div className="grid grid-cols-6 gap-4">
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ออเดอร์ทั้งหมด' : 'Total Orders'}</div>
+              <div className="text-2xl font-bold text-blue-600">{orderSummary.total}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-green-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ส่งครบ' : 'Completed'}</div>
+              <div className="text-2xl font-bold text-green-600">{orderSummary.completed}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-yellow-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ส่งบางส่วน' : 'Partial'}</div>
+              <div className="text-2xl font-bold text-yellow-600">{orderSummary.partial}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-orange-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'กำลังดำเนินการ' : 'In Progress'}</div>
+              <div className="text-2xl font-bold text-orange-600">{orderSummary.inProgress}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-purple-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'จำนวนรวม' : 'Total Qty'}</div>
+              <div className="text-2xl font-bold text-purple-600">{orderSummary.totalQty.toLocaleString()}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-teal-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่ารวม' : 'Total Value'}</div>
+              <div className="text-xl font-bold text-teal-600">{formatCurrency(orderSummary.totalValue)}</div>
+            </Card>
+          </div>
+
+          {/* Order List - Expandable */}
+          <Card className="overflow-hidden">
+            <div className="divide-y">
+              {filteredOrders.map(so => {
+                const customer = customers.find(c => c.id === so.customerId)
+                return (
+                  <div key={so.id}>
+                    <div 
+                      className={`px-4 py-3 cursor-pointer hover:bg-gray-50 ${expandedOrders[so.id] ? 'bg-blue-50' : ''}`}
+                      onClick={() => toggleOrder(so.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedOrders[so.id] ? 'rotate-90' : ''}`} />
+                          <div className="font-mono text-blue-600 font-bold">{so.customerPO || so.id}</div>
+                          <div className="font-medium">{customer?.name}</div>
+                          <Badge variant={
+                            so.status === 'delivered' ? 'success' :
+                            so.status === 'partial' ? 'warning' :
+                            'info'
+                          }>{so.status}</Badge>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="text-gray-500">{formatDate(so.orderDate || so.createdAt)}</span>
+                          <span className="font-medium">{so.items?.reduce((s, i) => s + (i.qty || 0), 0)} pcs</span>
+                          <span className="font-bold text-green-600">{formatCurrency(so.grandTotal || 0)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {expandedOrders[so.id] && (
+                      <div className="bg-gray-50 px-8 py-3 border-t">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th className="px-3 py-2 text-left">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
+                              <th className="px-3 py-2 text-right">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+                              <th className="px-3 py-2 text-right">{lang === 'th' ? 'ราคา/หน่วย' : 'Unit Price'}</th>
+                              <th className="px-3 py-2 text-right">{lang === 'th' ? 'รวม' : 'Total'}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {so.items?.map((item, idx) => (
+                              <tr key={idx} className="border-t">
+                                <td className="px-3 py-2">{item.productName || item.name}</td>
+                                <td className="px-3 py-2 text-right">{item.qty?.toLocaleString()}</td>
+                                <td className="px-3 py-2 text-right">{formatCurrency(item.price || 0)}</td>
+                                <td className="px-3 py-2 text-right font-medium">{formatCurrency((item.qty || 0) * (item.price || 0))}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+              {filteredOrders.length === 0 && (
+                <div className="px-4 py-8 text-center text-gray-400">
+                  <ClipboardList className="w-8 h-8 mx-auto mb-2" />
+                  {lang === 'th' ? 'ไม่พบข้อมูลออเดอร์' : 'No orders found'}
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Price History Sub-tab */}
+      {activeSubTab === 'prices' && (
+        <div className="space-y-4">
+          {/* Price Stats */}
+          <div className="grid grid-cols-4 gap-4">
+            <Card className="p-4 border-l-4 border-l-red-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ขึ้นราคา' : 'Price Increases'}</div>
+              <div className="text-2xl font-bold text-red-600">{priceHistory.filter(p => p.newPrice > p.oldPrice).length}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-green-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ลดราคา' : 'Price Decreases'}</div>
+              <div className="text-2xl font-bold text-green-600">{priceHistory.filter(p => p.newPrice < p.oldPrice).length}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'เดือนนี้' : 'This Month'}</div>
+              <div className="text-2xl font-bold text-blue-600">
+                {priceHistory.filter(p => {
+                  const d = new Date(p.effectiveDate)
+                  const now = new Date()
+                  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+                }).length}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-purple-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รายการทั้งหมด' : 'Total Changes'}</div>
+              <div className="text-2xl font-bold text-purple-600">{priceHistory.length}</div>
+            </Card>
+          </div>
+
+          <Card className="p-5">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="font-bold">{lang === 'th' ? 'ประวัติการเปลี่ยนแปลงราคา' : 'Price Change History'}</h3>
+                <p className="text-sm text-gray-500">{lang === 'th' ? 'ตามนโยบาย: ต้องแจ้งลูกค้าทางอีเมลพร้อมเหตุผล' : 'Per policy: Email notification with reason required'}</p>
+              </div>
+              <Button size="sm" icon={Plus} onClick={() => { setSelectedItem(null); setShowPriceChangeModal(true) }}>
+                {lang === 'th' ? 'บันทึกการเปลี่ยนราคา' : 'Log Price Change'}
+              </Button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ราคาเดิม' : 'Old'}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ราคาใหม่' : 'New'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'เปลี่ยน' : 'Change'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เหตุผล' : 'Reason'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อนุมัติ' : 'Approved'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {priceHistory.map((record, idx) => {
+                    const change = ((record.newPrice - record.oldPrice) / record.oldPrice * 100).toFixed(1)
+                    const isIncrease = record.newPrice > record.oldPrice
+                    return (
+                      <tr key={idx} className={`hover:bg-gray-50 ${isIncrease ? 'bg-red-50/30' : 'bg-green-50/30'}`}>
+                        <td className="px-4 py-3 font-medium">{formatDate(record.effectiveDate)}</td>
+                        <td className="px-4 py-3">{record.productName}</td>
+                        <td className="px-4 py-3 text-right text-gray-500">{formatCurrency(record.oldPrice)}</td>
+                        <td className="px-4 py-3 text-right font-bold">{formatCurrency(record.newPrice)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`font-bold ${isIncrease ? 'text-red-600' : 'text-green-600'}`}>
+                            {isIncrease ? '↑' : '↓'} {Math.abs(change)}%
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant={isIncrease ? 'danger' : 'success'} className="text-xs">{record.reason}</Badge>
+                        </td>
+                        <td className="px-4 py-3 text-sm">{record.approvedBy}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
 // PRODUCTION COSTING (Customer Profitability & WO Analysis)
 // ============================================
 const ProductionCosting = ({ workOrders, customers, lang }) => {
@@ -13464,6 +14040,33 @@ const OrderTrackerComponent = ({
         </Card>
       </div>
 
+      {/* Feature Guide Banner */}
+      <Card className="p-3 bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200">
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-amber-100 rounded-full"><FileText className="w-5 h-5 text-amber-600" /></div>
+          <div className="flex-1 text-sm">
+            <div className="font-bold text-amber-800 mb-1">💡 {lang === 'th' ? 'คู่มือการใช้งาน' : 'Quick Guide'}</div>
+            <div className="grid grid-cols-3 gap-4 text-amber-700">
+              <div>
+                <span className="font-medium">📄 OCR:</span> {lang === 'th' 
+                  ? 'คลิกออเดอร์ → "แก้ไข / อัพโหลด PO" → อัพโหลดภาพ PO' 
+                  : 'Click order row → "Update / Upload PO" → Upload PO image'}
+              </div>
+              <div>
+                <span className="font-medium">✍️ {lang === 'th' ? 'ลายเซ็น' : 'Signature'}:</span> {lang === 'th'
+                  ? 'ขยาย 3 ระดับ (ออเดอร์ → สินค้า → แผนส่ง) → คลิก ✓'
+                  : 'Expand 3 levels (order → item → schedule) → Click ✓'}
+              </div>
+              <div>
+                <span className="font-medium">📅 {lang === 'th' ? 'แก้แผนส่ง' : 'Edit Schedule'}:</span> {lang === 'th'
+                  ? 'ขยายสินค้า → คลิก "+ เพิ่มแผนส่ง"'
+                  : 'Expand item → Click "+ Add Schedule"'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
       {/* TRACKER VIEW */}
       {activeView === 'tracker' && (
         <Card className="overflow-hidden">
@@ -14457,8 +15060,9 @@ const SalesModuleFull = ({
     { id: 'invoices', label: lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices', icon: Receipt },
     { id: 'payments', label: lang === 'th' ? 'การชำระ' : 'Payments', icon: CreditCard },
     { id: 'aging', label: lang === 'th' ? 'อายุหนี้' : 'AR Aging', icon: Calendar },
+    { id: 'reports', label: lang === 'th' ? 'รายงานขาย' : 'Sales Report', icon: PieChart },
+    { id: 'history', label: lang === 'th' ? 'ประวัติ' : 'History', icon: History },
     { id: 'customers', label: lang === 'th' ? 'ลูกค้า' : 'Customers', icon: Building2 },
-    { id: 'pricing', label: lang === 'th' ? 'ประวัติราคา' : 'Price History', icon: TrendingUp },
     { id: 'rejections', label: lang === 'th' ? 'การคืนสินค้า' : 'Returns', icon: RotateCcw },
     { id: 'claims', label: lang === 'th' ? 'เคลม' : 'Claims', icon: AlertCircle },
     { id: 'meetings', label: lang === 'th' ? 'บันทึกพบลูกค้า' : 'Meetings', icon: Users },
@@ -15206,22 +15810,41 @@ const SalesModuleFull = ({
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
                           {qt.status === 'draft' && (
-                            <Button size="sm" variant="outline" onClick={() => setQuotations(quotations.map(q => q.id === qt.id ? {...q, status: 'sent'} : q))}>
+                            <Button size="sm" variant="outline" onClick={() => setQuotations(quotations.map(q => q.id === qt.id ? {...q, status: 'sent', sentDate: new Date().toISOString().split('T')[0]} : q))} title={lang === 'th' ? 'ส่งใบเสนอราคา' : 'Send Quotation'}>
                               <Send className="w-3 h-3" />
                             </Button>
                           )}
-                          {(qt.status === 'sent' || qt.status === 'draft') && !qt.convertedToSO && (
-                            <Button size="sm" variant="success" onClick={() => handleConvertToSO(qt)}>
+                          {qt.status === 'sent' && !qt.convertedToSO && (
+                            <>
+                              <Button size="sm" variant="success" onClick={() => {
+                                if (confirm(lang === 'th' ? 'ยืนยันว่าลูกค้าตอบรับใบเสนอราคานี้?' : 'Confirm customer accepted this quotation?')) {
+                                  setQuotations(quotations.map(q => q.id === qt.id ? {...q, status: 'accepted', acceptedDate: new Date().toISOString().split('T')[0]} : q))
+                                }
+                              }} title={lang === 'th' ? 'ลูกค้าตอบรับ' : 'Customer Accepted'}>
+                                <CheckCircle className="w-3 h-3" />
+                              </Button>
+                              <Button size="sm" variant="danger" onClick={() => {
+                                const reason = prompt(lang === 'th' ? 'เหตุผลที่ลูกค้าปฏิเสธ:' : 'Reason for rejection:')
+                                if (reason) {
+                                  setQuotations(quotations.map(q => q.id === qt.id ? {...q, status: 'rejected', rejectedDate: new Date().toISOString().split('T')[0], rejectionReason: reason} : q))
+                                }
+                              }} title={lang === 'th' ? 'ลูกค้าปฏิเสธ' : 'Customer Rejected'}>
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </>
+                          )}
+                          {(qt.status === 'accepted') && !qt.convertedToSO && (
+                            <Button size="sm" variant="success" onClick={() => handleConvertToSO(qt)} title={lang === 'th' ? 'แปลงเป็นใบสั่งขาย' : 'Convert to Sales Order'}>
                               {lang === 'th' ? '→ SO' : '→ SO'}
                             </Button>
                           )}
                           {qt.convertedToSO && (
-                            <span className="text-xs text-green-600">{qt.convertedToSO}</span>
+                            <span className="text-xs text-green-600 font-mono">{qt.convertedToSO}</span>
                           )}
-                          <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(qt); setEditMode(true); setShowQuotationModal(true) }}>
+                          <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(qt); setEditMode(true); setShowQuotationModal(true) }} title={lang === 'th' ? 'แก้ไข' : 'Edit'}>
                             <Edit3 className="w-3 h-3" />
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(qt); setShowPrintQuotation(true) }} title="Print">
+                          <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(qt); setShowPrintQuotation(true) }} title={lang === 'th' ? 'พิมพ์' : 'Print'}>
                             <Printer className="w-3 h-3" />
                           </Button>
                         </div>
@@ -16245,6 +16868,31 @@ const SalesModuleFull = ({
         </div>
       )}
 
+      {/* ========== SALES REPORT TAB - Monthly Consolidated ========== */}
+      {activeTab === 'reports' && (
+        <SalesReportConsolidated 
+          invoices={invoices}
+          salesOrders={salesOrders}
+          customers={customers}
+          lang={lang}
+        />
+      )}
+
+      {/* ========== HISTORY TAB - Orders & Price History ========== */}
+      {activeTab === 'history' && (
+        <SalesHistoryTab
+          invoices={invoices}
+          salesOrders={salesOrders}
+          customers={customers}
+          priceHistory={priceHistory}
+          setPriceHistory={setPriceHistory}
+          products={products}
+          setShowPriceChangeModal={setShowPriceChangeModal}
+          setSelectedItem={setSelectedItem}
+          lang={lang}
+        />
+      )}
+
       {/* ========== CUSTOMERS TAB ========== */}
       {activeTab === 'customers' && (
         <div className="space-y-6">
@@ -16473,152 +17121,6 @@ const SalesModuleFull = ({
                 </ul>
               </div>
             </div>
-          </Card>
-        </div>
-      )}
-
-      {/* ========== PRICE HISTORY TAB ========== */}
-      {activeTab === 'pricing' && (
-        <div className="space-y-6">
-          {/* Price Stats */}
-          <div className="grid grid-cols-4 gap-4">
-            <Card className="p-4 border-l-4 border-l-red-500">
-              <div className="text-sm text-gray-500">{lang === 'th' ? 'ขึ้นราคา' : 'Price Increases'}</div>
-              <div className="text-2xl font-bold text-red-600">
-                {priceHistory.filter(p => p.newPrice > p.oldPrice).length}
-              </div>
-            </Card>
-            <Card className="p-4 border-l-4 border-l-green-500">
-              <div className="text-sm text-gray-500">{lang === 'th' ? 'ลดราคา' : 'Price Decreases'}</div>
-              <div className="text-2xl font-bold text-green-600">
-                {priceHistory.filter(p => p.newPrice < p.oldPrice).length}
-              </div>
-            </Card>
-            <Card className="p-4 border-l-4 border-l-blue-500">
-              <div className="text-sm text-gray-500">{lang === 'th' ? 'เดือนนี้' : 'This Month'}</div>
-              <div className="text-2xl font-bold text-blue-600">
-                {priceHistory.filter(p => {
-                  const d = new Date(p.effectiveDate)
-                  const now = new Date()
-                  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-                }).length}
-              </div>
-            </Card>
-            <Card className="p-4 border-l-4 border-l-purple-500">
-              <div className="text-sm text-gray-500">{lang === 'th' ? 'รายการทั้งหมด' : 'Total Changes'}</div>
-              <div className="text-2xl font-bold text-purple-600">{priceHistory.length}</div>
-            </Card>
-          </div>
-
-          <Card className="p-5">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h3 className="font-bold">{lang === 'th' ? 'ประวัติการเปลี่ยนแปลงราคา' : 'Price Change History'}</h3>
-                <p className="text-sm text-gray-500">{lang === 'th' ? 'ตามนโยบาย: ต้องแจ้งลูกค้าทางอีเมลพร้อมเหตุผลเมื่อมีการเปลี่ยนราคา' : 'Per policy: Email notification with reason required for all price changes'}</p>
-              </div>
-              <Button size="sm" icon={Plus} onClick={() => setShowPriceChangeModal(true)}>
-                {lang === 'th' ? 'บันทึกการเปลี่ยนราคา' : 'Log Price Change'}
-              </Button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่มีผล' : 'Effective Date'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ราคาเดิม' : 'Old Price'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ราคาใหม่' : 'New Price'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'เปลี่ยนแปลง' : 'Change'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เหตุผล' : 'Reason'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อีเมล' : 'Email Sent'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อนุมัติ' : 'Approved'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {priceHistory.map((record, idx) => {
-                    const change = ((record.newPrice - record.oldPrice) / record.oldPrice * 100).toFixed(1)
-                    const isIncrease = record.newPrice > record.oldPrice
-                    const customer = customers.find(c => c.id === record.customerId)
-                    const getReasonLabel = (reason) => {
-                      switch(reason) {
-                        case 'material_cost_increase': return lang === 'th' ? 'ต้นทุนวัตถุดิบเพิ่ม' : 'Material Cost ↑'
-                        case 'material_cost_decrease': return lang === 'th' ? 'ต้นทุนวัตถุดิบลด' : 'Material Cost ↓'
-                        case 'customer_negotiation': return lang === 'th' ? 'เจรจากับลูกค้า' : 'Customer Negotiation'
-                        case 'volume_discount': return lang === 'th' ? 'ส่วนลดปริมาณ' : 'Volume Discount'
-                        case 'market_adjustment': return lang === 'th' ? 'ปรับตามตลาด' : 'Market Adjustment'
-                        case 'annual_review': return lang === 'th' ? 'ทบทวนประจำปี' : 'Annual Review'
-                        default: return reason
-                      }
-                    }
-                    return (
-                      <tr key={idx} className={`hover:bg-gray-50 ${isIncrease ? 'bg-red-50/30' : 'bg-green-50/30'}`}>
-                        <td className="px-4 py-3 font-medium">{formatDate(record.effectiveDate)}</td>
-                        <td className="px-4 py-3">
-                          <div className="font-medium">{record.productName}</div>
-                          <div className="text-xs text-gray-400 font-mono">{record.productId}</div>
-                        </td>
-                        <td className="px-4 py-3 text-sm">{customer?.name || record.customerId || 'All'}</td>
-                        <td className="px-4 py-3 text-right text-gray-500">{formatCurrency(record.oldPrice)}</td>
-                        <td className="px-4 py-3 text-right font-bold">{formatCurrency(record.newPrice)}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`font-bold ${isIncrease ? 'text-red-600' : 'text-green-600'}`}>
-                            {isIncrease ? '↑' : '↓'} {Math.abs(change)}%
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant={isIncrease ? 'danger' : 'success'} className="text-xs">
-                            {getReasonLabel(record.reason)}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          {record.emailSent ? (
-                            <span className="text-green-600 text-xs">✓ {record.emailRef}</span>
-                          ) : (
-                            <span className="text-red-500 text-xs">✗ Pending</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm">{record.approvedBy}</td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex justify-center gap-1">
-                            <Button size="sm" variant="ghost" onClick={() => {
-                              alert(`${lang === 'th' ? 'รายละเอียด' : 'Details'}:\n\n${lang === 'th' ? 'สินค้า' : 'Product'}: ${record.productName}\n${lang === 'th' ? 'ราคาเดิม' : 'Old'}: ${formatCurrency(record.oldPrice)}\n${lang === 'th' ? 'ราคาใหม่' : 'New'}: ${formatCurrency(record.newPrice)}\n${lang === 'th' ? 'เปลี่ยนแปลง' : 'Change'}: ${change}%\n${lang === 'th' ? 'เหตุผล' : 'Reason'}: ${getReasonLabel(record.reason)}\n${lang === 'th' ? 'หมายเหตุ' : 'Notes'}: ${record.notes || '-'}`)
-                            }} title={lang === 'th' ? 'ดูรายละเอียด' : 'View'}>
-                              <Eye className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => {
-                              setSelectedItem(record)
-                              setShowPriceChangeModal(true)
-                            }} title={lang === 'th' ? 'แก้ไข' : 'Edit'}>
-                              <Edit3 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  {priceHistory.length === 0 && (
-                    <tr><td colSpan="10" className="px-4 py-8 text-center text-gray-400">
-                      <TrendingUp className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                      {lang === 'th' ? 'ไม่มีประวัติการเปลี่ยนราคา' : 'No price change history'}
-                    </td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-
-          {/* Price Change Policy */}
-          <Card className="p-4 bg-yellow-50 border-yellow-200">
-            <h4 className="font-bold text-yellow-800 mb-2">📋 {lang === 'th' ? 'นโยบายการเปลี่ยนราคา' : 'Price Change Policy'}</h4>
-            <ul className="text-sm text-yellow-700 space-y-1">
-              <li>• {lang === 'th' ? 'ต้องแจ้งลูกค้าทางอีเมลอย่างเป็นทางการก่อนมีผล' : 'Customer must be notified via official email before effective date'}</li>
-              <li>• {lang === 'th' ? 'ต้องระบุเหตุผลการเปลี่ยนราคาในอีเมล' : 'Reason for price change must be included in email'}</li>
-              <li>• {lang === 'th' ? 'ส่วนลดทุกกรณีต้องได้รับการอนุมัติจาก CEO' : 'ALL discounts require CEO approval - no exceptions'}</li>
-              <li>• {lang === 'th' ? 'เก็บประวัติการเปลี่ยนราคาทั้งหมดเพื่อการตรวจสอบ' : 'All price changes must be logged for audit trail'}</li>
-            </ul>
           </Card>
         </div>
       )}
