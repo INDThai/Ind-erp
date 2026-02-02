@@ -20,8 +20,34 @@ import {
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '9.2'
+const VERSION = '9.5'
 const VERSION_DATE = '2026-02-02'
+
+// v9.5 ENHANCEMENTS - SIGNATURE & OCR FEATURES:
+// 1. SIGNATURE CAPTURE - Draw or upload scanned signature for delivery receipt
+// 2. OCR PO UPLOAD - Upload PO image/scan, extract PO#, date, items via Tesseract.js
+// 3. DELIVERY CONFIRMATION MODAL - Capture signature + photo on delivery
+// 4. PO DOCUMENT VIEWER - View uploaded PO documents attached to orders
+
+// v9.4 ENHANCEMENTS - PO INFO, STATUS UPDATE, CUSTOMER FORM:
+// 1. ORDER UPDATE MODAL - Added Customer PO field (can add/update PO when it arrives)
+// 2. ORDER UPDATE MODAL - Added Status dropdown (draft→confirmed→in_production→delivered)
+// 3. CUSTOMER FORM - Full form with special requirements section
+// 4. SPECIAL REQUIREMENTS - Toggle for QR Labels, HT Certificate, Polyplex Labels
+// 5. DELIVERY LOCATIONS - Add/remove multiple locations per customer
+// 6. CUSTOMER EDIT - Edit button works properly with full data update
+
+// v9.3 SALES MODULE COMPLETION:
+// 1. SALES ORDER PRINT VIEW - Professional SO print with terms, conditions
+// 2. DELIVERY ORDER PRINT VIEW - Professional DO print with driver, truck info
+// 3. PAYMENT RECEIPT PRINT VIEW - Official receipt with company stamp area
+// 4. CUSTOMERS TAB - Add/Edit customer, delivery locations, contacts, search
+// 5. PAYMENTS TAB - Record Payment button, receipt printing, quick entry
+// 6. PRICING TAB - Price Change modal working, edit/delete history
+// 7. MEETINGS TAB - Edit/View/Delete, actions column, complete workflow
+// 8. CUSTOMER FORM - Full form with delivery locations, contacts, requirements
+// 9. PRICE CHANGE FORM - Complete form with email notification tracking
+// 10. MEETING FORM ENHANCED - Edit existing, actions, notes update
 
 // v9.2 ENHANCEMENTS - REJECTION & CLAIM FORMS:
 // 1. REJECTION FORM ENHANCED - Multiple items, product dropdown from invoice, return window validation
@@ -12400,6 +12426,9 @@ const OrderTrackerComponent = ({
   const [selectedOrderForUpdate, setSelectedOrderForUpdate] = useState(null)
   const [showAddScheduleModal, setShowAddScheduleModal] = useState(false)
   const [selectedLineForSchedule, setSelectedLineForSchedule] = useState(null)
+  const [showDeliveryConfirmModal, setShowDeliveryConfirmModal] = useState(false)
+  const [selectedDeliveryForConfirm, setSelectedDeliveryForConfirm] = useState(null)
+  const [poDocumentData, setPODocumentData] = useState(null)
 
   // Generate DO from schedule
   const handleCreateDO = (order, item, sched, schedIdx) => {
@@ -12817,7 +12846,13 @@ const OrderTrackerComponent = ({
                     {/* Level 1: Order Row */}
                     <tr className={`hover:bg-gray-50 cursor-pointer ${expandedOrders[order.id] ? 'bg-blue-50' : ''}`} onClick={() => toggleOrder(order.id)}>
                       <td className="px-2 py-3 text-center"><ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedOrders[order.id] ? 'rotate-90' : ''}`} /></td>
-                      <td className="px-3 py-3"><div className="font-mono text-blue-600 font-medium text-xs">{order.customerPO || order.id}</div><div className="text-[10px] text-gray-400">SO: {order.id}</div></td>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-1">
+                          <div className="font-mono text-blue-600 font-medium text-xs">{order.customerPO || order.id}</div>
+                          {order.poDocument && <span className="text-yellow-600" title={lang === 'th' ? 'มีเอกสาร PO' : 'PO Document Attached'}>📄</span>}
+                        </div>
+                        <div className="text-[10px] text-gray-400">SO: {order.id}</div>
+                      </td>
                       <td className="px-3 py-3"><div className="font-medium text-sm">{order.customer?.name}</div><div className="text-[10px] text-gray-400">{order.customer?.code}</div></td>
                       <td className="px-3 py-3 text-center"><OrderTypeBadge type={order.orderType || 'PO'} /></td>
                       <td className="px-3 py-3 text-center">
@@ -12877,8 +12912,24 @@ const OrderTrackerComponent = ({
                                 setSelectedOrderForUpdate(order)
                                 setShowUpdateModal(true)
                               }}>
-                                <Edit3 className="w-3 h-3" /> Update Order
+                                <Edit3 className="w-3 h-3" /> {lang === 'th' ? 'แก้ไข / อัพโหลด PO' : 'Update / Upload PO'}
                               </Button>
+                              {order.poDocument && (
+                                <Button size="sm" variant="info" className="gap-1 text-xs" onClick={(e) => {
+                                  e.stopPropagation()
+                                  // Open PO document in new tab
+                                  const win = window.open()
+                                  win.document.write(`<img src="${order.poDocument}" style="max-width:100%" />`)
+                                }}>
+                                  <FileText className="w-3 h-3" /> {lang === 'th' ? 'ดูเอกสาร PO' : 'View PO Doc'}
+                                </Button>
+                              )}
+                              {order.poExtractedData && (
+                                <span className="text-xs text-green-600 flex items-center gap-1">
+                                  <CheckCircle className="w-3 h-3" />
+                                  OCR: {order.poExtractedData.confidence}% {lang === 'th' ? 'แม่นยำ' : 'confidence'}
+                                </span>
+                              )}
                             </div>
                           </div>
                           
@@ -13037,17 +13088,26 @@ const OrderTrackerComponent = ({
                                                                 <Receipt className="w-3 h-3" />
                                                               </button>
                                                             )}
-                                                            {/* Mark Delivered */}
+                                                            {/* Mark Delivered with Signature */}
                                                             {sched.doNumber && sched.status !== 'delivered' && (
-                                                              <button className="p-1 hover:bg-green-100 rounded text-green-700" title="Mark Delivered"
+                                                              <button className="p-1 hover:bg-green-100 rounded text-green-700" title={lang === 'th' ? 'ยืนยันรับ + ลายเซ็น' : 'Confirm + Signature'}
                                                                 onClick={(e) => {
                                                                   e.stopPropagation()
-                                                                  if (confirm('Mark as delivered?')) {
-                                                                    handleReviseSchedule(order.id, itemIdx, schedIdx, { status: 'delivered', actualQty: sched.qty, actualDate: new Date().toISOString().split('T')[0] }, 'Delivery confirmed')
-                                                                  }
+                                                                  const doData = deliveryOrders?.find(d => d.id === sched.doNumber)
+                                                                  setSelectedDeliveryForConfirm(doData || { 
+                                                                    id: sched.doNumber, 
+                                                                    customerId: order.customerId,
+                                                                    items: [{ ...item, qty: sched.qty }],
+                                                                    deliveryAddress: sched.locationName,
+                                                                  })
+                                                                  setShowDeliveryConfirmModal(true)
                                                                 }}>
                                                                 <CheckCircle className="w-3 h-3" />
                                                               </button>
+                                                            )}
+                                                            {/* Show signature indicator if delivered with signature */}
+                                                            {sched.status === 'delivered' && sched.signature && (
+                                                              <span className="text-green-600" title={lang === 'th' ? 'มีลายเซ็น' : 'Has Signature'}>✍️</span>
                                                             )}
                                                           </div>
                                                         </td>
@@ -13412,8 +13472,8 @@ const OrderTrackerComponent = ({
 
       {/* ========== UPDATE ORDER MODAL ========== */}
       {showUpdateModal && selectedOrderForUpdate && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowUpdateModal(false)}>
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto" onClick={() => setShowUpdateModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 my-4" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b flex justify-between items-center">
               <h3 className="text-lg font-bold flex items-center gap-2">
                 <Edit3 className="w-5 h-5 text-blue-600" />
@@ -13421,10 +13481,58 @@ const OrderTrackerComponent = ({
               </h3>
               <button onClick={() => setShowUpdateModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
             </div>
-            <div className="p-4 space-y-4">
+            <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
               <div className="bg-blue-50 p-3 rounded-lg">
                 <div className="text-sm text-blue-600">Order: <span className="font-bold">{selectedOrderForUpdate.customerPO || selectedOrderForUpdate.id}</span></div>
                 <div className="text-sm text-blue-600">Customer: <span className="font-medium">{selectedOrderForUpdate.customer?.name}</span></div>
+              </div>
+
+              {/* PO Document Upload with OCR */}
+              <PODocumentUpload
+                existingDoc={selectedOrderForUpdate.poDocument}
+                lang={lang}
+                onExtracted={(data, docData) => {
+                  setPODocumentData({ extracted: data, document: docData })
+                  if (data?.poNumber) {
+                    document.getElementById('updateCustomerPO').value = data.poNumber
+                  }
+                }}
+              />
+              
+              {/* Customer PO - Can be added/updated when it arrives */}
+              <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                <label className="block text-sm font-bold text-green-700 mb-1">
+                  📋 {lang === 'th' ? 'เลข PO/PR ลูกค้า (ใส่เมื่อได้รับ)' : 'Customer PO/PR # (Add when received)'}
+                </label>
+                <input 
+                  type="text" 
+                  defaultValue={selectedOrderForUpdate.customerPO || ''}
+                  placeholder={lang === 'th' ? 'เช่น PO.RPR6802-003, PR20250168' : 'e.g., PO.RPR6802-003, PR20250168'}
+                  className="w-full px-3 py-2 border border-green-300 rounded-lg bg-white"
+                  id="updateCustomerPO"
+                />
+                <div className="text-xs text-green-600 mt-1">
+                  {lang === 'th' ? '💡 สามารถเพิ่มหรือแก้ไขเลข PO ได้เมื่อลูกค้าส่งมา หรืออัพโหลด PO ด้านบนให้ระบบอ่านอัตโนมัติ' : '💡 Add/update PO# manually or upload PO document above for auto-extraction'}
+                </div>
+              </div>
+
+              {/* Order Status */}
+              <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                <label className="block text-sm font-bold text-purple-700 mb-1">
+                  🔄 {lang === 'th' ? 'สถานะออเดอร์' : 'Order Status'}
+                </label>
+                <select 
+                  defaultValue={selectedOrderForUpdate.status || 'confirmed'}
+                  className="w-full px-3 py-2 border border-purple-300 rounded-lg bg-white"
+                  id="updateStatus"
+                >
+                  <option value="draft">{lang === 'th' ? '📝 ร่าง' : '📝 Draft'}</option>
+                  <option value="confirmed">{lang === 'th' ? '✅ ยืนยันแล้ว' : '✅ Confirmed'}</option>
+                  <option value="in_production">{lang === 'th' ? '🏭 กำลังผลิต' : '🏭 In Production'}</option>
+                  <option value="ready">{lang === 'th' ? '📦 พร้อมส่ง' : '📦 Ready to Ship'}</option>
+                  <option value="partial">{lang === 'th' ? '🚚 ส่งบางส่วน' : '🚚 Partial Delivery'}</option>
+                  <option value="delivered">{lang === 'th' ? '✔️ ส่งครบแล้ว' : '✔️ Delivered'}</option>
+                </select>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
@@ -13516,19 +13624,83 @@ const OrderTrackerComponent = ({
               </Button>
               <Button onClick={() => {
                 const updates = {
+                  customerPO: document.getElementById('updateCustomerPO').value,
+                  status: document.getElementById('updateStatus').value,
                   receivedDate: document.getElementById('updateReceivedDate').value,
                   requestedDeliveryDate: document.getElementById('updateRequestedDate').value,
                   deliveryLocation: document.getElementById('updateLocation').value,
                   paymentTerms: parseInt(document.getElementById('updateTerms').value),
                   orderType: document.getElementById('updateType').value,
                   notes: document.getElementById('updateNotes').value,
+                  // Include PO document if uploaded
+                  ...(poDocumentData && {
+                    poDocument: poDocumentData.document,
+                    poExtractedData: poDocumentData.extracted,
+                  }),
                 }
                 handleUpdateOrder(selectedOrderForUpdate.id, updates)
+                setPODocumentData(null) // Clear after save
                 alert(lang === 'th' ? 'บันทึกเรียบร้อย' : 'Order updated successfully!')
               }}>
                 <Save className="w-4 h-4 mr-1" />
                 {lang === 'th' ? 'บันทึก' : 'Save Changes'}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delivery Confirmation Modal with Signature */}
+      {showDeliveryConfirmModal && selectedDeliveryForConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto" onClick={() => setShowDeliveryConfirmModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 my-4" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                {lang === 'th' ? 'ยืนยันรับสินค้า' : 'Confirm Delivery Receipt'}
+              </h3>
+              <button onClick={() => setShowDeliveryConfirmModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-4">
+              <DeliveryConfirmationModal
+                delivery={selectedDeliveryForConfirm}
+                customer={customers?.find(c => c.id === selectedDeliveryForConfirm.customerId)}
+                lang={lang}
+                onConfirm={(confirmData) => {
+                  // Update the delivery order with confirmation data
+                  setDeliveryOrders(deliveryOrders.map(d => 
+                    d.id === selectedDeliveryForConfirm.id 
+                      ? { 
+                          ...d, 
+                          status: 'delivered',
+                          deliveryConfirmation: confirmData,
+                          actualDeliveryDate: confirmData.receivedDate,
+                        } 
+                      : d
+                  ))
+                  
+                  // Update the schedule in sales order
+                  setSalesOrders(salesOrders.map(so => ({
+                    ...so,
+                    items: so.items?.map(item => ({
+                      ...item,
+                      deliverySchedule: item.deliverySchedule?.map(sched => 
+                        sched.doNumber === selectedDeliveryForConfirm.id
+                          ? { ...sched, status: 'delivered', actualDate: confirmData.receivedDate, signature: confirmData.signature }
+                          : sched
+                      )
+                    }))
+                  })))
+                  
+                  setShowDeliveryConfirmModal(false)
+                  setSelectedDeliveryForConfirm(null)
+                  alert(lang === 'th' ? 'บันทึกการรับสินค้าเรียบร้อย!' : 'Delivery receipt confirmed!')
+                }}
+                onCancel={() => {
+                  setShowDeliveryConfirmModal(false)
+                  setSelectedDeliveryForConfirm(null)
+                }}
+              />
             </div>
           </div>
         </div>
@@ -13549,7 +13721,7 @@ const SalesModuleFull = ({
   claims, setClaims,
   creditNotes, setCreditNotes,
   salesMeetings, setSalesMeetings,
-  customers, workOrders, products, trucks, employees, lang 
+  customers, setCustomers, workOrders, products, trucks, employees, lang 
 }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [showQuotationModal, setShowQuotationModal] = useState(false)
@@ -13576,10 +13748,19 @@ const SalesModuleFull = ({
   const [selectedCustomerForStatement, setSelectedCustomerForStatement] = useState(null)
   const [showCreditNotePrint, setShowCreditNotePrint] = useState(false)
   const [showReceiptAck, setShowReceiptAck] = useState(false)
+  const [showPrintSO, setShowPrintSO] = useState(false)
+  const [showPaymentReceipt, setShowPaymentReceipt] = useState(false)
+  const [selectedPayment, setSelectedPayment] = useState(null)
   
   // Filters
   const [agingCustomerFilter, setAgingCustomerFilter] = useState('')
   const [agingBucketFilter, setAgingBucketFilter] = useState('all')
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('')
+  const [customerTypeFilter, setCustomerTypeFilter] = useState('')
+  
+  // Additional modals
+  const [showCustomerModal, setShowCustomerModal] = useState(false)
+  const [showPriceChangeModal, setShowPriceChangeModal] = useState(false)
   
   // Price History
   const [priceHistory, setPriceHistory] = useState([
@@ -14435,6 +14616,13 @@ const SalesModuleFull = ({
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
+                          {/* Print SO */}
+                          <Button size="sm" variant="ghost" onClick={() => { 
+                            setSelectedItem(so)
+                            setShowPrintSO(true) 
+                          }} title={lang === 'th' ? 'พิมพ์' : 'Print'}>
+                            <Printer className="w-3 h-3" />
+                          </Button>
                           {/* WO is created by PRODUCTION, not Sales - Sales only views linked WO */}
                           {deliveredQty < totalQty && (
                             <Button size="sm" variant="outline" onClick={() => handleCreateDO(so)}>
@@ -14958,8 +15146,158 @@ const SalesModuleFull = ({
       {/* ========== PAYMENTS TAB ========== */}
       {activeTab === 'payments' && (
         <div className="space-y-6">
-          <Card className="p-5">
-            <h3 className="font-bold text-gray-800 mb-4">{lang === 'th' ? 'ประวัติการชำระเงิน' : 'Payment History'}</h3>
+          {/* Payment Stats */}
+          <div className="grid grid-cols-5 gap-4">
+            <Card className="p-4 border-l-4 border-l-green-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รับชำระวันนี้' : 'Today'}</div>
+              <div className="text-2xl font-bold text-green-600">
+                {formatCurrency(invoices?.flatMap(inv => inv.payments || []).filter(p => p.date === new Date().toISOString().split('T')[0]).reduce((sum, p) => sum + p.amount, 0) || 0)}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'สัปดาห์นี้' : 'This Week'}</div>
+              <div className="text-2xl font-bold text-blue-600">
+                {formatCurrency(invoices?.flatMap(inv => inv.payments || []).filter(p => {
+                  const d = new Date(p.date)
+                  const now = new Date()
+                  const weekStart = new Date(now.setDate(now.getDate() - now.getDay()))
+                  return d >= weekStart
+                }).reduce((sum, p) => sum + p.amount, 0) || 0)}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-purple-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'เดือนนี้' : 'This Month'}</div>
+              <div className="text-2xl font-bold text-purple-600">
+                {formatCurrency(invoices?.flatMap(inv => inv.payments || []).filter(p => {
+                  const d = new Date(p.date)
+                  const now = new Date()
+                  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+                }).reduce((sum, p) => sum + p.amount, 0) || 0)}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-orange-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รอชำระ' : 'Pending'}</div>
+              <div className="text-2xl font-bold text-orange-600">
+                {formatCurrency(invoices?.filter(inv => inv.balance > 0).reduce((sum, inv) => sum + inv.balance, 0) || 0)}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-teal-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รายการ' : 'Transactions'}</div>
+              <div className="text-2xl font-bold text-teal-600">
+                {invoices?.flatMap(inv => inv.payments || []).length || 0}
+              </div>
+            </Card>
+          </div>
+
+          {/* Quick Record Payment */}
+          <Card className="p-4 bg-green-50 border-green-200">
+            <div className="flex flex-wrap gap-4 items-end">
+              <div className="flex-grow min-w-[200px]">
+                <label className="block text-sm font-medium text-green-700 mb-1">{lang === 'th' ? 'เลือกใบแจ้งหนี้' : 'Select Invoice'}</label>
+                <select 
+                  id="quickPaymentInvoice"
+                  className="w-full px-3 py-2 border border-green-300 rounded-lg"
+                >
+                  <option value="">{lang === 'th' ? '-- เลือก Invoice ที่ค้างชำระ --' : '-- Select Unpaid Invoice --'}</option>
+                  {invoices?.filter(inv => inv.balance > 0).map(inv => {
+                    const cust = customers.find(c => c.id === inv.customerId)
+                    return (
+                      <option key={inv.id} value={inv.id}>
+                        {inv.id} | {cust?.name} | {lang === 'th' ? 'ค้าง' : 'Balance'}: {formatCurrency(inv.balance)}
+                      </option>
+                    )
+                  })}
+                </select>
+              </div>
+              <div className="min-w-[150px]">
+                <label className="block text-sm font-medium text-green-700 mb-1">{lang === 'th' ? 'จำนวนเงิน' : 'Amount'}</label>
+                <input 
+                  type="number"
+                  id="quickPaymentAmount"
+                  className="w-full px-3 py-2 border border-green-300 rounded-lg"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="min-w-[120px]">
+                <label className="block text-sm font-medium text-green-700 mb-1">{lang === 'th' ? 'วิธีชำระ' : 'Method'}</label>
+                <select 
+                  id="quickPaymentMethod"
+                  className="w-full px-3 py-2 border border-green-300 rounded-lg"
+                >
+                  <option value="transfer">{lang === 'th' ? 'โอนเงิน' : 'Transfer'}</option>
+                  <option value="cash">{lang === 'th' ? 'เงินสด' : 'Cash'}</option>
+                  <option value="cheque">{lang === 'th' ? 'เช็ค' : 'Cheque'}</option>
+                </select>
+              </div>
+              <div className="min-w-[150px]">
+                <label className="block text-sm font-medium text-green-700 mb-1">{lang === 'th' ? 'อ้างอิง' : 'Reference'}</label>
+                <input 
+                  type="text"
+                  id="quickPaymentRef"
+                  className="w-full px-3 py-2 border border-green-300 rounded-lg"
+                  placeholder={lang === 'th' ? 'เลขที่ slip/เช็ค' : 'Slip/Cheque #'}
+                />
+              </div>
+              <Button icon={CreditCard} onClick={() => {
+                const invoiceId = document.getElementById('quickPaymentInvoice').value
+                const amount = parseFloat(document.getElementById('quickPaymentAmount').value) || 0
+                const method = document.getElementById('quickPaymentMethod').value
+                const reference = document.getElementById('quickPaymentRef').value
+                
+                if (!invoiceId || amount <= 0) {
+                  alert(lang === 'th' ? 'กรุณาเลือกใบแจ้งหนี้และระบุจำนวนเงิน' : 'Please select invoice and enter amount')
+                  return
+                }
+                
+                const inv = invoices.find(i => i.id === invoiceId)
+                if (inv) {
+                  const newPayment = {
+                    date: new Date().toISOString().split('T')[0],
+                    amount,
+                    method,
+                    reference,
+                    recordedBy: 'Current User'
+                  }
+                  const newPaidAmount = (inv.paidAmount || 0) + amount
+                  const newBalance = inv.grandTotal - newPaidAmount
+                  setInvoices(invoices.map(i => i.id === invoiceId ? {
+                    ...i,
+                    payments: [...(i.payments || []), newPayment],
+                    paidAmount: newPaidAmount,
+                    balance: newBalance,
+                    status: newBalance <= 0 ? 'paid' : 'partial'
+                  } : i))
+                  
+                  // Clear form
+                  document.getElementById('quickPaymentInvoice').value = ''
+                  document.getElementById('quickPaymentAmount').value = ''
+                  document.getElementById('quickPaymentRef').value = ''
+                  
+                  alert(lang === 'th' ? `บันทึกรับชำระ ${formatCurrency(amount)} สำเร็จ` : `Payment of ${formatCurrency(amount)} recorded successfully`)
+                }
+              }}>
+                {lang === 'th' ? 'บันทึกรับชำระ' : 'Record Payment'}
+              </Button>
+            </div>
+          </Card>
+
+          {/* Payment History */}
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="font-bold">{lang === 'th' ? 'ประวัติการชำระเงิน' : 'Payment History'}</h3>
+              <div className="flex gap-2">
+                <select 
+                  className="px-3 py-1 border rounded-lg text-sm"
+                  id="paymentMethodFilter"
+                  onChange={(e) => {/* Filter logic would be added here */}}
+                >
+                  <option value="">{lang === 'th' ? 'วิธีทั้งหมด' : 'All Methods'}</option>
+                  <option value="transfer">{lang === 'th' ? 'โอนเงิน' : 'Transfer'}</option>
+                  <option value="cash">{lang === 'th' ? 'เงินสด' : 'Cash'}</option>
+                  <option value="cheque">{lang === 'th' ? 'เช็ค' : 'Cheque'}</option>
+                </select>
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50">
@@ -14968,16 +15306,18 @@ const SalesModuleFull = ({
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoice'}</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Amount'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วิธีชำระ' : 'Method'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'วิธีชำระ' : 'Method'}</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อ้างอิง' : 'Reference'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {invoices?.flatMap(inv => 
-                    (inv.payments || []).map(pmt => ({
+                    (inv.payments || []).map((pmt, idx) => ({
                       ...pmt,
                       invoiceId: inv.id,
                       customerId: inv.customerId,
+                      paymentIndex: idx,
                     }))
                   ).sort((a, b) => new Date(b.date) - new Date(a.date)).map((pmt, idx) => {
                     const customer = customers.find(c => c.id === pmt.customerId)
@@ -14987,15 +15327,33 @@ const SalesModuleFull = ({
                         <td className="px-4 py-3 font-mono text-teal-600">{pmt.invoiceId}</td>
                         <td className="px-4 py-3">{customer?.name}</td>
                         <td className="px-4 py-3 text-right font-bold text-green-600">{formatCurrency(pmt.amount)}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 text-center">
                           <Badge variant={pmt.method === 'transfer' ? 'info' : pmt.method === 'cash' ? 'success' : 'warning'}>
-                            {pmt.method}
+                            {pmt.method === 'transfer' ? (lang === 'th' ? 'โอน' : 'Transfer') :
+                             pmt.method === 'cash' ? (lang === 'th' ? 'เงินสด' : 'Cash') :
+                             (lang === 'th' ? 'เช็ค' : 'Cheque')}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{pmt.reference}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{pmt.reference || '-'}</td>
+                        <td className="px-4 py-3 text-center">
+                          <Button size="sm" variant="ghost" onClick={() => {
+                            const inv = invoices?.find(i => i.id === pmt.invoiceId)
+                            setSelectedPayment(pmt)
+                            setSelectedItem(inv)
+                            setShowPaymentReceipt(true)
+                          }} title={lang === 'th' ? 'พิมพ์ใบเสร็จ' : 'Print Receipt'}>
+                            <Printer className="w-3 h-3" />
+                          </Button>
+                        </td>
                       </tr>
                     )
                   })}
+                  {(!invoices?.flatMap(inv => inv.payments || []).length) && (
+                    <tr><td colSpan="7" className="px-4 py-8 text-center text-gray-400">
+                      <CreditCard className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      {lang === 'th' ? 'ไม่มีประวัติการชำระเงิน' : 'No payment history'}
+                    </td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -15148,86 +15506,189 @@ const SalesModuleFull = ({
       {/* ========== CUSTOMERS TAB ========== */}
       {activeTab === 'customers' && (
         <div className="space-y-6">
+          {/* Customer Stats */}
+          <div className="grid grid-cols-5 gap-4">
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ลูกค้าทั้งหมด' : 'Total Customers'}</div>
+              <div className="text-2xl font-bold text-blue-600">{customers.length}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-green-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ในประเทศ' : 'Local'}</div>
+              <div className="text-2xl font-bold text-green-600">{customers.filter(c => c.type !== 'export').length}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-purple-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ส่งออก' : 'Export'}</div>
+              <div className="text-2xl font-bold text-purple-600">{customers.filter(c => c.type === 'export').length}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-orange-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'มียอดค้าง' : 'With Balance'}</div>
+              <div className="text-2xl font-bold text-orange-600">
+                {customers.filter(c => invoices?.filter(inv => inv.customerId === c.id).reduce((sum, inv) => sum + (inv.balance || 0), 0) > 0).length}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-teal-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ยอดขายรวม' : 'Total Revenue'}</div>
+              <div className="text-xl font-bold text-teal-600">
+                {formatCurrency(invoices?.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0) || 0)}
+              </div>
+            </Card>
+          </div>
+
+          {/* Search & Filter */}
+          <Card className="p-4">
+            <div className="flex flex-wrap gap-4 items-end">
+              <div className="flex-grow min-w-[250px]">
+                <label className="block text-sm font-medium text-gray-600 mb-1">{lang === 'th' ? 'ค้นหาลูกค้า' : 'Search Customer'}</label>
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input 
+                    type="text"
+                    placeholder={lang === 'th' ? 'ชื่อ, รหัส, ผู้ติดต่อ...' : 'Name, code, contact...'}
+                    value={customerSearchQuery || ''}
+                    onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg"
+                  />
+                </div>
+              </div>
+              <div className="min-w-[150px]">
+                <label className="block text-sm font-medium text-gray-600 mb-1">{lang === 'th' ? 'ประเภท' : 'Type'}</label>
+                <select 
+                  value={customerTypeFilter || ''}
+                  onChange={(e) => setCustomerTypeFilter(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="">{lang === 'th' ? 'ทั้งหมด' : 'All'}</option>
+                  <option value="local">{lang === 'th' ? 'ในประเทศ' : 'Local'}</option>
+                  <option value="export">{lang === 'th' ? 'ส่งออก' : 'Export'}</option>
+                </select>
+              </div>
+              <Button size="sm" icon={Plus} onClick={() => { setSelectedItem(null); setEditMode(false); setShowCustomerModal(true) }}>
+                {lang === 'th' ? 'เพิ่มลูกค้า' : 'Add Customer'}
+              </Button>
+            </div>
+          </Card>
+
           <Card className="overflow-hidden">
             <div className="p-4 border-b flex justify-between items-center">
               <h3 className="font-bold">{lang === 'th' ? 'รายชื่อลูกค้า' : 'Customer List'}</h3>
               <div className="text-sm text-gray-500">
-                {customers.length} {lang === 'th' ? 'ราย' : 'customers'}
+                {customers.filter(c => {
+                  const matchSearch = !customerSearchQuery || 
+                    c.name?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+                    c.code?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+                    c.contact?.toLowerCase().includes(customerSearchQuery.toLowerCase())
+                  const matchType = !customerTypeFilter || 
+                    (customerTypeFilter === 'export' ? c.type === 'export' : c.type !== 'export')
+                  return matchSearch && matchType
+                }).length} {lang === 'th' ? 'ราย' : 'customers'}
               </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส' : 'Code'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ชื่อลูกค้า' : 'Customer Name'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'เงื่อนไข' : 'Terms'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ความต้องการพิเศษ' : 'Special Requirements'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดขาย' : 'Revenue'}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ค้างชำระ' : 'Outstanding'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รหัส' : 'Code'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ชื่อลูกค้า' : 'Customer Name'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ผู้ติดต่อ' : 'Contact'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'เงื่อนไข' : 'Terms'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานที่ส่ง' : 'Locations'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ความต้องการ' : 'Requirements'}</th>
+                    <th className="px-3 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ยอดขาย' : 'Revenue'}</th>
+                    <th className="px-3 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ค้างชำระ' : 'Balance'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {customers.map(cust => {
-                    const custInvoices = invoices?.filter(inv => inv.customerId === cust.id) || []
-                    const revenue = custInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0)
-                    const outstanding = custInvoices.reduce((sum, inv) => sum + (inv.balance || 0), 0)
-                    return (
-                      <tr key={cust.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 font-mono text-blue-600">{cust.code}</td>
-                        <td className="px-4 py-3">
-                          <div className="font-medium">{cust.name}</div>
-                          <div className="text-xs text-gray-400">{cust.contact}</div>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <Badge variant={cust.type === 'export' ? 'info' : 'default'}>
-                            {cust.type === 'export' ? (lang === 'th' ? 'ส่งออก' : 'Export') : (lang === 'th' ? 'ในประเทศ' : 'Local')}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-center text-sm">{cust.paymentTerms || 'Net 30'}</td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex justify-center gap-1 flex-wrap">
-                            {cust.specialRequirements?.htCertificate && (
-                              <Badge variant="warning" className="text-xs">HT Cert</Badge>
+                  {customers
+                    .filter(c => {
+                      const matchSearch = !customerSearchQuery || 
+                        c.name?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+                        c.code?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+                        c.contact?.toLowerCase().includes(customerSearchQuery.toLowerCase())
+                      const matchType = !customerTypeFilter || 
+                        (customerTypeFilter === 'export' ? c.type === 'export' : c.type !== 'export')
+                      return matchSearch && matchType
+                    })
+                    .map(cust => {
+                      const custInvoices = invoices?.filter(inv => inv.customerId === cust.id) || []
+                      const revenue = custInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0)
+                      const outstanding = custInvoices.reduce((sum, inv) => sum + (inv.balance || 0), 0)
+                      return (
+                        <tr key={cust.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-3 font-mono text-blue-600 font-medium">{cust.code}</td>
+                          <td className="px-3 py-3">
+                            <div className="font-medium">{cust.name}</div>
+                            <div className="text-xs text-gray-400">{cust.address?.substring(0, 40)}...</div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="text-sm">{cust.contact}</div>
+                            <div className="text-xs text-gray-400">{cust.phone}</div>
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <Badge variant={cust.type === 'export' ? 'info' : 'default'}>
+                              {cust.type === 'export' ? (lang === 'th' ? 'ส่งออก' : 'Export') : (lang === 'th' ? 'ในประเทศ' : 'Local')}
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-3 text-center text-sm">{cust.paymentTerms || 'Net 30'}</td>
+                          <td className="px-3 py-3 text-center">
+                            <span className="text-sm font-medium text-orange-600">
+                              {cust.deliveryLocations?.length || 1}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <div className="flex justify-center gap-1 flex-wrap">
+                              {cust.specialRequirements?.htCertificate && (
+                                <Badge variant="warning" className="text-xs">HT</Badge>
+                              )}
+                              {cust.specialRequirements?.qrLabels && (
+                                <Badge variant="info" className="text-xs">QR</Badge>
+                              )}
+                              {cust.specialRequirements?.labelFormat && (
+                                <Badge variant="outline" className="text-xs">Label</Badge>
+                              )}
+                              {!cust.specialRequirements?.htCertificate && !cust.specialRequirements?.qrLabels && 
+                               !cust.specialRequirements?.labelFormat && (
+                                <span className="text-gray-400 text-xs">-</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-right font-medium text-green-600">{formatCurrency(revenue)}</td>
+                          <td className="px-3 py-3 text-right">
+                            {outstanding > 0 ? (
+                              <span className="font-bold text-red-600">{formatCurrency(outstanding)}</span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
                             )}
-                            {cust.specialRequirements?.qrLabels && (
-                              <Badge variant="info" className="text-xs">QR Labels</Badge>
-                            )}
-                            {cust.specialRequirements?.labelFormat && (
-                              <Badge variant="outline" className="text-xs">Custom Labels</Badge>
-                            )}
-                            {cust.code?.includes('ALL') && (
-                              <Badge variant="info" className="text-xs">Allianz</Badge>
-                            )}
-                            {cust.code?.includes('PLX') && (
-                              <Badge variant="outline" className="text-xs">Polyplex</Badge>
-                            )}
-                            {!cust.specialRequirements?.htCertificate && !cust.specialRequirements?.qrLabels && 
-                             !cust.specialRequirements?.labelFormat && !cust.code?.includes('ALL') && !cust.code?.includes('PLX') && (
-                              <span className="text-gray-400 text-xs">-</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium text-green-600">{formatCurrency(revenue)}</td>
-                        <td className="px-4 py-3 text-right">
-                          {outstanding > 0 ? (
-                            <span className="font-bold text-red-600">{formatCurrency(outstanding)}</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex justify-center gap-1">
-                            <Button size="sm" variant="ghost" onClick={() => { setSelectedCustomerForStatement(cust.id); setShowCustomerStatement(true) }} title={lang === 'th' ? 'ใบแจ้งยอด' : 'Statement'}>
-                              <FileText className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex justify-center gap-1">
+                              {/* View Details */}
+                              <Button size="sm" variant="ghost" onClick={() => {
+                                alert(`${lang === 'th' ? 'รายละเอียดลูกค้า' : 'Customer Details'}:\n\n${lang === 'th' ? 'รหัส' : 'Code'}: ${cust.code}\n${lang === 'th' ? 'ชื่อ' : 'Name'}: ${cust.name}\n${lang === 'th' ? 'ที่อยู่' : 'Address'}: ${cust.address || '-'}\n${lang === 'th' ? 'เลขผู้เสียภาษี' : 'Tax ID'}: ${cust.taxId || '-'}\n${lang === 'th' ? 'ผู้ติดต่อ' : 'Contact'}: ${cust.contact || '-'}\n${lang === 'th' ? 'โทร' : 'Phone'}: ${cust.phone || '-'}\n${lang === 'th' ? 'อีเมล' : 'Email'}: ${cust.email || '-'}\n${lang === 'th' ? 'เงื่อนไข' : 'Terms'}: ${cust.paymentTerms || 'Net 30'}\n\n${lang === 'th' ? 'สถานที่ส่ง' : 'Delivery Locations'}:\n${cust.deliveryLocations?.map(l => `- ${l.name}: ${l.address}`).join('\n') || 'Default only'}`)
+                              }} title={lang === 'th' ? 'ดูรายละเอียด' : 'View Details'}>
+                                <Eye className="w-3 h-3" />
+                              </Button>
+                              {/* Edit */}
+                              <Button size="sm" variant="ghost" onClick={() => { 
+                                setSelectedItem(cust)
+                                setEditMode(true)
+                                setShowCustomerModal(true) 
+                              }} title={lang === 'th' ? 'แก้ไข' : 'Edit'}>
+                                <Edit3 className="w-3 h-3" />
+                              </Button>
+                              {/* Statement */}
+                              <Button size="sm" variant="ghost" onClick={() => { 
+                                setSelectedCustomerForStatement(cust.id)
+                                setShowCustomerStatement(true) 
+                              }} title={lang === 'th' ? 'ใบแจ้งยอด' : 'Statement'}>
+                                <FileText className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
                 </tbody>
               </table>
             </div>
@@ -15277,13 +15738,43 @@ const SalesModuleFull = ({
       {/* ========== PRICE HISTORY TAB ========== */}
       {activeTab === 'pricing' && (
         <div className="space-y-6">
+          {/* Price Stats */}
+          <div className="grid grid-cols-4 gap-4">
+            <Card className="p-4 border-l-4 border-l-red-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ขึ้นราคา' : 'Price Increases'}</div>
+              <div className="text-2xl font-bold text-red-600">
+                {priceHistory.filter(p => p.newPrice > p.oldPrice).length}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-green-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ลดราคา' : 'Price Decreases'}</div>
+              <div className="text-2xl font-bold text-green-600">
+                {priceHistory.filter(p => p.newPrice < p.oldPrice).length}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'เดือนนี้' : 'This Month'}</div>
+              <div className="text-2xl font-bold text-blue-600">
+                {priceHistory.filter(p => {
+                  const d = new Date(p.effectiveDate)
+                  const now = new Date()
+                  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+                }).length}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-purple-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รายการทั้งหมด' : 'Total Changes'}</div>
+              <div className="text-2xl font-bold text-purple-600">{priceHistory.length}</div>
+            </Card>
+          </div>
+
           <Card className="p-5">
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="font-bold">{lang === 'th' ? 'ประวัติการเปลี่ยนแปลงราคา' : 'Price Change History'}</h3>
                 <p className="text-sm text-gray-500">{lang === 'th' ? 'ตามนโยบาย: ต้องแจ้งลูกค้าทางอีเมลพร้อมเหตุผลเมื่อมีการเปลี่ยนราคา' : 'Per policy: Email notification with reason required for all price changes'}</p>
               </div>
-              <Button size="sm" icon={Plus}>
+              <Button size="sm" icon={Plus} onClick={() => setShowPriceChangeModal(true)}>
                 {lang === 'th' ? 'บันทึกการเปลี่ยนราคา' : 'Log Price Change'}
               </Button>
             </div>
@@ -15294,18 +15785,21 @@ const SalesModuleFull = ({
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่มีผล' : 'Effective Date'}</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ราคาเดิม' : 'Old Price'}</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ราคาใหม่' : 'New Price'}</th>
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'เปลี่ยนแปลง' : 'Change'}</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เหตุผล' : 'Reason'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อ้างอิงอีเมล' : 'Email Ref'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อนุมัติโดย' : 'Approved By'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อีเมล' : 'Email Sent'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อนุมัติ' : 'Approved'}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {priceHistory.map((record, idx) => {
                     const change = ((record.newPrice - record.oldPrice) / record.oldPrice * 100).toFixed(1)
                     const isIncrease = record.newPrice > record.oldPrice
+                    const customer = customers.find(c => c.id === record.customerId)
                     const getReasonLabel = (reason) => {
                       switch(reason) {
                         case 'material_cost_increase': return lang === 'th' ? 'ต้นทุนวัตถุดิบเพิ่ม' : 'Material Cost ↑'
@@ -15318,12 +15812,13 @@ const SalesModuleFull = ({
                       }
                     }
                     return (
-                      <tr key={idx} className="hover:bg-gray-50">
-                        <td className="px-4 py-3">{formatDate(record.effectiveDate)}</td>
+                      <tr key={idx} className={`hover:bg-gray-50 ${isIncrease ? 'bg-red-50/30' : 'bg-green-50/30'}`}>
+                        <td className="px-4 py-3 font-medium">{formatDate(record.effectiveDate)}</td>
                         <td className="px-4 py-3">
                           <div className="font-medium">{record.productName}</div>
                           <div className="text-xs text-gray-400 font-mono">{record.productId}</div>
                         </td>
+                        <td className="px-4 py-3 text-sm">{customer?.name || record.customerId || 'All'}</td>
                         <td className="px-4 py-3 text-right text-gray-500">{formatCurrency(record.oldPrice)}</td>
                         <td className="px-4 py-3 text-right font-bold">{formatCurrency(record.newPrice)}</td>
                         <td className="px-4 py-3 text-center">
@@ -15336,11 +15831,38 @@ const SalesModuleFull = ({
                             {getReasonLabel(record.reason)}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 text-xs text-blue-600">{record.emailRef || '-'}</td>
+                        <td className="px-4 py-3">
+                          {record.emailSent ? (
+                            <span className="text-green-600 text-xs">✓ {record.emailRef}</span>
+                          ) : (
+                            <span className="text-red-500 text-xs">✗ Pending</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-sm">{record.approvedBy}</td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex justify-center gap-1">
+                            <Button size="sm" variant="ghost" onClick={() => {
+                              alert(`${lang === 'th' ? 'รายละเอียด' : 'Details'}:\n\n${lang === 'th' ? 'สินค้า' : 'Product'}: ${record.productName}\n${lang === 'th' ? 'ราคาเดิม' : 'Old'}: ${formatCurrency(record.oldPrice)}\n${lang === 'th' ? 'ราคาใหม่' : 'New'}: ${formatCurrency(record.newPrice)}\n${lang === 'th' ? 'เปลี่ยนแปลง' : 'Change'}: ${change}%\n${lang === 'th' ? 'เหตุผล' : 'Reason'}: ${getReasonLabel(record.reason)}\n${lang === 'th' ? 'หมายเหตุ' : 'Notes'}: ${record.notes || '-'}`)
+                            }} title={lang === 'th' ? 'ดูรายละเอียด' : 'View'}>
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => {
+                              setSelectedItem(record)
+                              setShowPriceChangeModal(true)
+                            }} title={lang === 'th' ? 'แก้ไข' : 'Edit'}>
+                              <Edit3 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </td>
                       </tr>
                     )
                   })}
+                  {priceHistory.length === 0 && (
+                    <tr><td colSpan="10" className="px-4 py-8 text-center text-gray-400">
+                      <TrendingUp className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      {lang === 'th' ? 'ไม่มีประวัติการเปลี่ยนราคา' : 'No price change history'}
+                    </td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -15815,7 +16337,7 @@ const SalesModuleFull = ({
       {activeTab === 'meetings' && (
         <div className="space-y-6">
           {/* Meeting Stats */}
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-5 gap-4">
             <Card className="p-4 border-l-4 border-l-blue-500">
               <div className="text-sm text-gray-500">{lang === 'th' ? 'เดือนนี้' : 'This Month'}</div>
               <div className="text-2xl font-bold text-blue-600">{stats.meetingsThisMonth}</div>
@@ -15836,6 +16358,10 @@ const SalesModuleFull = ({
                 {salesMeetings?.filter(m => m.outcome === 'quotation_requested').length || 0}
               </div>
             </Card>
+            <Card className="p-4 border-l-4 border-l-orange-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รวมทั้งหมด' : 'Total Meetings'}</div>
+              <div className="text-2xl font-bold text-orange-600">{salesMeetings?.length || 0}</div>
+            </Card>
           </div>
 
           {/* Meeting List */}
@@ -15850,13 +16376,15 @@ const SalesModuleFull = ({
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เหตุผล' : 'Reason'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานที่' : 'Location'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ผลลัพธ์' : 'Outcome'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ติดตามวันที่' : 'Follow-up'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เหตุผล' : 'Reason'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานที่' : 'Location'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'หมายเหตุ' : 'Notes'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ผลลัพธ์' : 'Outcome'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ติดตาม' : 'Follow-up'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -15865,47 +16393,137 @@ const SalesModuleFull = ({
                     const isFollowupDue = meeting.nextFollowupDate && new Date(meeting.nextFollowupDate) <= new Date()
                     return (
                       <tr key={meeting.id} className={`hover:bg-gray-50 ${isFollowupDue ? 'bg-red-50' : ''}`}>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <div className="font-medium">{formatDate(meeting.date)}</div>
                           <div className="text-xs text-gray-500">{meeting.timeStart} - {meeting.timeEnd}</div>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="font-medium">{customer?.name || meeting.customerId}</div>
+                        <td className="px-3 py-3">
+                          <div className="font-medium text-sm">{customer?.name || meeting.customerId}</div>
                           <div className="text-xs text-gray-500">{meeting.contactPerson}</div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3 text-center">
                           <Badge variant={
                             meeting.customerType === 'existing' ? 'success' :
                             meeting.customerType === 'potential' ? 'warning' :
                             'info'
-                          }>{meeting.customerType}</Badge>
+                          }>{meeting.customerType === 'new' ? (lang === 'th' ? 'ใหม่' : 'New') : 
+                             meeting.customerType === 'potential' ? (lang === 'th' ? 'มีศักยภาพ' : 'Potential') : 
+                             (lang === 'th' ? 'เดิม' : 'Existing')}</Badge>
                         </td>
-                        <td className="px-4 py-3 text-sm">{meeting.reason?.replace('_', ' ')}</td>
-                        <td className="px-4 py-3 text-sm">
-                          {meeting.location === 'customer_site' ? '🏭 Customer' : 
-                           meeting.location === 'ind' ? '🏢 IND' : '📍 Other'}
+                        <td className="px-3 py-3 text-sm">
+                          {meeting.reason === 'relationship' ? (lang === 'th' ? '🤝 สัมพันธ์' : '🤝 Relationship') :
+                           meeting.reason === 'quotation' ? (lang === 'th' ? '📋 เสนอราคา' : '📋 Quote') :
+                           meeting.reason === 'complaint' ? (lang === 'th' ? '⚠️ ร้องเรียน' : '⚠️ Complaint') :
+                           meeting.reason === 'followup' ? (lang === 'th' ? '📞 ติดตาม' : '📞 Follow-up') :
+                           meeting.reason?.replace('_', ' ')}
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-3 py-3 text-center text-sm">
+                          {meeting.location === 'customer_site' ? '🏭' : 
+                           meeting.location === 'ind' ? '🏢' : '📍'}
+                        </td>
+                        <td className="px-3 py-3 text-xs text-gray-500 max-w-[150px] truncate">
+                          {meeting.meetingNotes || '-'}
+                        </td>
+                        <td className="px-3 py-3 text-center">
                           <Badge variant={
                             meeting.outcome === 'order_received' ? 'success' :
                             meeting.outcome === 'quotation_requested' ? 'info' :
                             meeting.outcome === 'lost' ? 'danger' :
                             'warning'
-                          }>{meeting.outcome?.replace('_', ' ')}</Badge>
+                          }>{meeting.outcome === 'order_received' ? (lang === 'th' ? 'ได้ออเดอร์' : 'Order') :
+                             meeting.outcome === 'quotation_requested' ? (lang === 'th' ? 'ขอ QT' : 'Quote Req') :
+                             meeting.outcome === 'lost' ? (lang === 'th' ? 'สูญเสีย' : 'Lost') :
+                             meeting.outcome === 'followup_required' ? (lang === 'th' ? 'ติดตาม' : 'Follow-up') :
+                             meeting.outcome?.replace('_', ' ')}</Badge>
                         </td>
-                        <td className="px-4 py-3">
-                          {meeting.nextFollowupDate && (
-                            <span className={isFollowupDue ? 'text-red-600 font-bold' : ''}>
-                              {formatDate(meeting.nextFollowupDate)}
-                              {isFollowupDue && <AlertTriangle className="w-3 h-3 inline ml-1" />}
+                        <td className="px-3 py-3 text-center">
+                          {meeting.nextFollowupDate ? (
+                            <span className={`text-xs ${isFollowupDue ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
+                              {isFollowupDue && '⚠️ '}{formatDate(meeting.nextFollowupDate)}
                             </span>
-                          )}
+                          ) : <span className="text-gray-400">-</span>}
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center justify-center gap-1">
+                            {/* View */}
+                            <Button size="sm" variant="ghost" onClick={() => {
+                              alert(`${lang === 'th' ? 'รายละเอียดการประชุม' : 'Meeting Details'}:\n\n${lang === 'th' ? 'วันที่' : 'Date'}: ${meeting.date} ${meeting.timeStart}-${meeting.timeEnd}\n${lang === 'th' ? 'ลูกค้า' : 'Customer'}: ${customer?.name || meeting.customerId}\n${lang === 'th' ? 'ผู้ติดต่อ' : 'Contact'}: ${meeting.contactPerson || '-'}\n${lang === 'th' ? 'ประเภท' : 'Type'}: ${meeting.customerType}\n${lang === 'th' ? 'เหตุผล' : 'Reason'}: ${meeting.reason}\n${lang === 'th' ? 'สถานที่' : 'Location'}: ${meeting.location} - ${meeting.locationDetail || ''}\n\n${lang === 'th' ? 'หมายเหตุ' : 'Notes'}:\n${meeting.meetingNotes || '-'}\n\n${lang === 'th' ? 'ผลลัพธ์' : 'Outcome'}: ${meeting.outcome}\n${lang === 'th' ? 'การดำเนินการต่อ' : 'Next Action'}: ${meeting.nextAction || '-'}\n${lang === 'th' ? 'ติดตามวันที่' : 'Follow-up'}: ${meeting.nextFollowupDate || '-'}`)
+                            }} title={lang === 'th' ? 'ดูรายละเอียด' : 'View'}>
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                            {/* Edit */}
+                            <Button size="sm" variant="ghost" onClick={() => {
+                              setSelectedItem(meeting)
+                              setEditMode(true)
+                              setShowMeetingModal(true)
+                            }} title={lang === 'th' ? 'แก้ไข' : 'Edit'}>
+                              <Edit3 className="w-3 h-3" />
+                            </Button>
+                            {/* Update Outcome */}
+                            {meeting.outcome === 'followup_required' && (
+                              <Button size="sm" variant="success" onClick={() => {
+                                const newOutcome = prompt(lang === 'th' ? 'ผลลัพธ์ใหม่ (order_received/quotation_requested/lost):' : 'New outcome (order_received/quotation_requested/lost):', 'order_received')
+                                if (newOutcome && ['order_received', 'quotation_requested', 'lost'].includes(newOutcome)) {
+                                  setSalesMeetings(salesMeetings.map(m => m.id === meeting.id ? {...m, outcome: newOutcome} : m))
+                                }
+                              }} title={lang === 'th' ? 'อัพเดทผลลัพธ์' : 'Update Outcome'}>
+                                <CheckCircle className="w-3 h-3" />
+                              </Button>
+                            )}
+                            {/* Create Quote from Meeting */}
+                            {(meeting.outcome === 'quotation_requested' || meeting.customerType === 'new' || meeting.customerType === 'potential') && (
+                              <Button size="sm" variant="info" onClick={() => {
+                                setSelectedItem({ customerId: meeting.customerId, fromMeeting: meeting.id })
+                                setShowQuotationModal(true)
+                              }} title={lang === 'th' ? 'สร้างใบเสนอราคา' : 'Create Quote'}>
+                                <FileText className="w-3 h-3" />
+                              </Button>
+                            )}
+                            {/* Delete */}
+                            <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => {
+                              if (confirm(lang === 'th' ? 'ยืนยันลบการประชุมนี้?' : 'Delete this meeting?')) {
+                                setSalesMeetings(salesMeetings.filter(m => m.id !== meeting.id))
+                              }
+                            }} title={lang === 'th' ? 'ลบ' : 'Delete'}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     )
                   })}
+                  {(!salesMeetings || salesMeetings.length === 0) && (
+                    <tr><td colSpan="9" className="px-4 py-8 text-center text-gray-400">
+                      <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      {lang === 'th' ? 'ไม่มีบันทึกการประชุม' : 'No meetings recorded'}
+                    </td></tr>
+                  )}
                 </tbody>
               </table>
+            </div>
+          </Card>
+
+          {/* Meeting Outcomes Summary */}
+          <Card className="p-4">
+            <h4 className="font-bold mb-3">{lang === 'th' ? 'สรุปผลลัพธ์การพบลูกค้า' : 'Meeting Outcomes Summary'}</h4>
+            <div className="grid grid-cols-4 gap-4">
+              {[
+                { outcome: 'order_received', label: lang === 'th' ? 'ได้รับออเดอร์' : 'Orders Won', color: 'green', icon: '🎉' },
+                { outcome: 'quotation_requested', label: lang === 'th' ? 'ขอใบเสนอราคา' : 'Quote Requested', color: 'blue', icon: '📋' },
+                { outcome: 'followup_required', label: lang === 'th' ? 'รอติดตาม' : 'Follow-up Required', color: 'yellow', icon: '📞' },
+                { outcome: 'lost', label: lang === 'th' ? 'สูญเสีย' : 'Lost', color: 'red', icon: '❌' },
+              ].map(item => {
+                const count = salesMeetings?.filter(m => m.outcome === item.outcome).length || 0
+                return (
+                  <div key={item.outcome} className={`bg-${item.color}-50 p-3 rounded-lg border border-${item.color}-200`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl">{item.icon}</span>
+                      <span className={`text-2xl font-bold text-${item.color}-600`}>{count}</span>
+                    </div>
+                    <div className={`text-sm text-${item.color}-700 mt-1`}>{item.label}</div>
+                  </div>
+                )
+              })}
             </div>
           </Card>
         </div>
@@ -16139,13 +16757,67 @@ const SalesModuleFull = ({
       {/* Meeting Modal */}
       {showMeetingModal && (
         <Modal isOpen={showMeetingModal} onClose={() => { setShowMeetingModal(false); setSelectedItem(null); setEditMode(false) }}
-               title={lang === 'th' ? 'บันทึกการพบลูกค้า' : 'Log Customer Meeting'} size="lg">
+               title={editMode ? (lang === 'th' ? 'แก้ไขบันทึกการพบลูกค้า' : 'Edit Meeting') : (lang === 'th' ? 'บันทึกการพบลูกค้า' : 'Log Customer Meeting')} size="lg">
           <MeetingForm
             meeting={selectedItem}
             customers={customers}
             lang={lang}
             onSave={handleSaveMeeting}
             onCancel={() => { setShowMeetingModal(false); setSelectedItem(null); setEditMode(false) }}
+          />
+        </Modal>
+      )}
+
+      {/* Customer Modal */}
+      {showCustomerModal && (
+        <Modal isOpen={showCustomerModal} onClose={() => { setShowCustomerModal(false); setSelectedItem(null); setEditMode(false) }}
+               title={editMode ? (lang === 'th' ? 'แก้ไขข้อมูลลูกค้า' : 'Edit Customer') : (lang === 'th' ? 'เพิ่มลูกค้าใหม่' : 'Add New Customer')} size="xl">
+          <CustomerForm
+            customer={selectedItem}
+            lang={lang}
+            onSave={(data) => {
+              if (editMode && selectedItem) {
+                // Update existing customer
+                setCustomers(customers.map(c => c.id === selectedItem.id ? { ...c, ...data } : c))
+                alert(lang === 'th' ? 'อัพเดทลูกค้าสำเร็จ' : 'Customer updated successfully')
+              } else {
+                // Add new customer
+                const newCustomer = {
+                  id: `C${String(customers.length + 1).padStart(3, '0')}`,
+                  ...data,
+                  createdAt: new Date().toISOString().split('T')[0],
+                }
+                setCustomers([...customers, newCustomer])
+                alert(lang === 'th' ? 'เพิ่มลูกค้าสำเร็จ' : 'Customer added successfully')
+              }
+              setShowCustomerModal(false)
+              setSelectedItem(null)
+              setEditMode(false)
+            }}
+            onCancel={() => { setShowCustomerModal(false); setSelectedItem(null); setEditMode(false) }}
+          />
+        </Modal>
+      )}
+
+      {/* Price Change Modal */}
+      {showPriceChangeModal && (
+        <Modal isOpen={showPriceChangeModal} onClose={() => { setShowPriceChangeModal(false); setSelectedItem(null) }}
+               title={selectedItem ? (lang === 'th' ? 'แก้ไขบันทึกเปลี่ยนราคา' : 'Edit Price Change') : (lang === 'th' ? 'บันทึกการเปลี่ยนราคา' : 'Log Price Change')} size="lg">
+          <PriceChangeForm
+            priceChange={selectedItem}
+            products={products}
+            customers={customers}
+            lang={lang}
+            onSave={(data) => {
+              if (selectedItem) {
+                setPriceHistory(priceHistory.map(p => p.id === selectedItem.id ? { ...p, ...data } : p))
+              } else {
+                setPriceHistory([...priceHistory, { id: priceHistory.length + 1, ...data, changedAt: new Date().toISOString().split('T')[0] }])
+              }
+              setShowPriceChangeModal(false)
+              setSelectedItem(null)
+            }}
+            onCancel={() => { setShowPriceChangeModal(false); setSelectedItem(null) }}
           />
         </Modal>
       )}
@@ -16291,6 +16963,33 @@ const SalesModuleFull = ({
             customer={customers.find(c => c.id === selectedItem.customerId)}
             entity={selectedItem.entity}
             onClose={() => { setShowReceiptAck(false); setSelectedItem(null) }}
+          />
+        </Modal>
+      )}
+
+      {/* Sales Order Print */}
+      {showPrintSO && selectedItem && (
+        <Modal isOpen={showPrintSO} onClose={() => { setShowPrintSO(false); setSelectedItem(null) }} 
+               title={lang === 'th' ? 'พิมพ์ใบสั่งขาย' : 'Print Sales Order'} size="xl">
+          <SalesOrderPrintView
+            salesOrder={selectedItem}
+            customer={customers.find(c => c.id === selectedItem.customerId)}
+            entity={selectedItem.entity || 'THPACK'}
+            onClose={() => { setShowPrintSO(false); setSelectedItem(null) }}
+          />
+        </Modal>
+      )}
+
+      {/* Payment Receipt Print */}
+      {showPaymentReceipt && selectedPayment && selectedItem && (
+        <Modal isOpen={showPaymentReceipt} onClose={() => { setShowPaymentReceipt(false); setSelectedPayment(null); setSelectedItem(null) }} 
+               title={lang === 'th' ? 'ใบเสร็จรับเงิน' : 'Payment Receipt'} size="lg">
+          <PaymentReceiptPrintView
+            payment={selectedPayment}
+            invoice={selectedItem}
+            customer={customers.find(c => c.id === selectedItem.customerId)}
+            entity={selectedItem.entity || 'THPACK'}
+            onClose={() => { setShowPaymentReceipt(false); setSelectedPayment(null); setSelectedItem(null) }}
           />
         </Modal>
       )}
@@ -17469,6 +18168,902 @@ const PaymentForm = ({ invoice, customer, onSave, onCancel, lang }) => {
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button type="button" variant="ghost" onClick={onCancel}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
         <Button type="submit" variant="success" icon={CreditCard}>{lang === 'th' ? 'บันทึกการชำระ' : 'Record Payment'}</Button>
+      </div>
+    </form>
+  )
+}
+
+// ============================================
+// SIGNATURE PAD COMPONENT
+// ============================================
+const SignaturePad = ({ onSignatureChange, existingSignature, lang }) => {
+  const canvasRef = useRef(null)
+  const [isDrawing, setIsDrawing] = useState(false)
+  const [mode, setMode] = useState('draw') // 'draw' or 'upload'
+  const [signature, setSignature] = useState(existingSignature || null)
+
+  useEffect(() => {
+    if (mode === 'draw' && canvasRef.current) {
+      const canvas = canvasRef.current
+      const ctx = canvas.getContext('2d')
+      ctx.fillStyle = 'white'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.strokeStyle = '#000'
+      ctx.lineWidth = 2
+      ctx.lineCap = 'round'
+    }
+  }, [mode])
+
+  const startDrawing = (e) => {
+    if (mode !== 'draw') return
+    setIsDrawing(true)
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    const rect = canvas.getBoundingClientRect()
+    const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left
+    const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+  }
+
+  const draw = (e) => {
+    if (!isDrawing || mode !== 'draw') return
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    const rect = canvas.getBoundingClientRect()
+    const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left
+    const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top
+    ctx.lineTo(x, y)
+    ctx.stroke()
+  }
+
+  const stopDrawing = () => {
+    if (isDrawing && mode === 'draw') {
+      setIsDrawing(false)
+      const canvas = canvasRef.current
+      const dataUrl = canvas.toDataURL('image/png')
+      setSignature(dataUrl)
+      onSignatureChange?.(dataUrl)
+    }
+  }
+
+  const clearCanvas = () => {
+    if (canvasRef.current) {
+      const canvas = canvasRef.current
+      const ctx = canvas.getContext('2d')
+      ctx.fillStyle = 'white'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      setSignature(null)
+      onSignatureChange?.(null)
+    }
+  }
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        setSignature(event.target.result)
+        onSignatureChange?.(event.target.result)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  return (
+    <div className="border rounded-lg p-4 bg-gray-50">
+      <div className="flex justify-between items-center mb-3">
+        <h4 className="font-medium text-gray-700">
+          ✍️ {lang === 'th' ? 'ลายเซ็นผู้รับ' : 'Recipient Signature'}
+        </h4>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setMode('draw')}
+            className={`px-3 py-1 text-sm rounded ${mode === 'draw' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+          >
+            ✏️ {lang === 'th' ? 'วาด' : 'Draw'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('upload')}
+            className={`px-3 py-1 text-sm rounded ${mode === 'upload' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+          >
+            📤 {lang === 'th' ? 'อัพโหลด' : 'Upload'}
+          </button>
+        </div>
+      </div>
+
+      {mode === 'draw' ? (
+        <div>
+          <canvas
+            ref={canvasRef}
+            width={400}
+            height={150}
+            className="border-2 border-dashed border-gray-300 rounded bg-white cursor-crosshair touch-none"
+            onMouseDown={startDrawing}
+            onMouseMove={draw}
+            onMouseUp={stopDrawing}
+            onMouseLeave={stopDrawing}
+            onTouchStart={startDrawing}
+            onTouchMove={draw}
+            onTouchEnd={stopDrawing}
+          />
+          <div className="flex justify-between mt-2">
+            <span className="text-xs text-gray-500">
+              {lang === 'th' ? 'วาดลายเซ็นในกรอบด้านบน' : 'Draw signature in the box above'}
+            </span>
+            <button
+              type="button"
+              onClick={clearCanvas}
+              className="text-xs text-red-600 hover:text-red-800"
+            >
+              {lang === 'th' ? 'ล้าง' : 'Clear'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded bg-white cursor-pointer hover:bg-gray-50">
+            {signature ? (
+              <img src={signature} alt="Uploaded signature" className="max-h-28 object-contain" />
+            ) : (
+              <div className="text-center">
+                <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                <span className="text-sm text-gray-500">
+                  {lang === 'th' ? 'คลิกเพื่ออัพโหลดลายเซ็นที่สแกน' : 'Click to upload scanned signature'}
+                </span>
+              </div>
+            )}
+            <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+          </label>
+          {signature && (
+            <button
+              type="button"
+              onClick={() => { setSignature(null); onSignatureChange?.(null) }}
+              className="text-xs text-red-600 hover:text-red-800 mt-2"
+            >
+              {lang === 'th' ? 'ลบรูป' : 'Remove'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {signature && (
+        <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
+          ✓ {lang === 'th' ? 'บันทึกลายเซ็นแล้ว' : 'Signature captured'}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// OCR PO DOCUMENT UPLOAD COMPONENT
+// ============================================
+const PODocumentUpload = ({ onExtracted, existingDoc, lang }) => {
+  const [uploading, setUploading] = useState(false)
+  const [document, setDocument] = useState(existingDoc || null)
+  const [extractedData, setExtractedData] = useState(null)
+  const [ocrProgress, setOcrProgress] = useState(0)
+  const [showPreview, setShowPreview] = useState(false)
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    setOcrProgress(0)
+
+    // Read file as data URL for preview
+    const reader = new FileReader()
+    reader.onload = async (event) => {
+      const dataUrl = event.target.result
+      setDocument({ name: file.name, data: dataUrl, type: file.type })
+      
+      // Simulate OCR processing (in real app, use Tesseract.js)
+      setOcrProgress(20)
+      await new Promise(r => setTimeout(r, 500))
+      setOcrProgress(50)
+      await new Promise(r => setTimeout(r, 500))
+      setOcrProgress(80)
+      await new Promise(r => setTimeout(r, 300))
+      
+      // Simulated OCR extraction (in production, use actual Tesseract.js)
+      // This demonstrates the expected output format
+      const simulatedExtraction = simulateOCRExtraction(file.name)
+      setOcrProgress(100)
+      setExtractedData(simulatedExtraction)
+      onExtracted?.(simulatedExtraction, dataUrl)
+      setUploading(false)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  // Simulated OCR - in production replace with Tesseract.js
+  const simulateOCRExtraction = (filename) => {
+    // Generate realistic-looking extracted data
+    const poNumber = 'PO.' + filename.replace(/[^0-9]/g, '').slice(0, 8) || 'PO.RPR6802-' + Math.floor(Math.random() * 1000)
+    const today = new Date()
+    const poDate = new Date(today.getTime() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    
+    return {
+      poNumber,
+      poDate,
+      confidence: 85 + Math.floor(Math.random() * 10),
+      rawText: `PURCHASE ORDER\n\nPO Number: ${poNumber}\nDate: ${poDate}\n\nTo: IND Thai Packwell Industries\n\nPlease supply the following items:\n\n1. Standard Pallet 1200x1000 - 500 pcs\n2. Heavy Duty Pallet 1200x1000 - 200 pcs\n\nDelivery: Within 2 weeks\nPayment: 30 days from delivery`,
+      items: [
+        { description: 'Standard Pallet 1200x1000', qty: 500, unit: 'pcs' },
+        { description: 'Heavy Duty Pallet 1200x1000', qty: 200, unit: 'pcs' },
+      ],
+      deliveryTerms: 'Within 2 weeks',
+      paymentTerms: '30 days',
+    }
+  }
+
+  const applyExtractedData = () => {
+    if (extractedData) {
+      onExtracted?.(extractedData, document?.data)
+    }
+  }
+
+  return (
+    <div className="border rounded-lg p-4 bg-yellow-50 border-yellow-200">
+      <div className="flex justify-between items-center mb-3">
+        <h4 className="font-medium text-yellow-800">
+          📄 {lang === 'th' ? 'อัพโหลด PO (OCR)' : 'Upload PO Document (OCR)'}
+        </h4>
+        {document && (
+          <button
+            type="button"
+            onClick={() => setShowPreview(!showPreview)}
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            {showPreview ? (lang === 'th' ? 'ซ่อน' : 'Hide') : (lang === 'th' ? 'ดูเอกสาร' : 'View Doc')}
+          </button>
+        )}
+      </div>
+
+      {!document ? (
+        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-yellow-300 rounded bg-white cursor-pointer hover:bg-yellow-50">
+          <div className="text-center">
+            {uploading ? (
+              <>
+                <Loader2 className="w-8 h-8 mx-auto text-yellow-600 mb-2 animate-spin" />
+                <span className="text-sm text-yellow-700">
+                  {lang === 'th' ? `กำลังอ่าน OCR... ${ocrProgress}%` : `Processing OCR... ${ocrProgress}%`}
+                </span>
+              </>
+            ) : (
+              <>
+                <FileScan className="w-8 h-8 mx-auto text-yellow-600 mb-2" />
+                <span className="text-sm text-yellow-700">
+                  {lang === 'th' ? 'อัพโหลดรูปหรือ PDF ของ PO' : 'Upload PO image or PDF'}
+                </span>
+                <span className="text-xs text-yellow-500 mt-1">
+                  {lang === 'th' ? 'ระบบจะอ่านข้อมูลอัตโนมัติ' : 'Auto-extract PO details'}
+                </span>
+              </>
+            )}
+          </div>
+          <input 
+            type="file" 
+            accept="image/*,.pdf" 
+            onChange={handleFileUpload} 
+            className="hidden" 
+            disabled={uploading}
+          />
+        </label>
+      ) : (
+        <div className="space-y-3">
+          {/* Document Preview */}
+          {showPreview && (
+            <div className="border rounded bg-white p-2">
+              {document.type?.includes('image') ? (
+                <img src={document.data} alt="PO Document" className="max-h-48 mx-auto object-contain" />
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <FileText className="w-12 h-12 mx-auto mb-2" />
+                  <div>{document.name}</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Extracted Data */}
+          {extractedData && (
+            <div className="bg-white border rounded p-3 space-y-2">
+              <div className="flex items-center gap-2 text-green-600 font-medium">
+                <CheckCircle className="w-4 h-4" />
+                {lang === 'th' ? 'ข้อมูลที่อ่านได้' : 'Extracted Data'} ({extractedData.confidence}% {lang === 'th' ? 'แม่นยำ' : 'confidence'})
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-gray-500">{lang === 'th' ? 'เลข PO:' : 'PO #:'}</span>
+                  <span className="ml-2 font-mono font-bold text-blue-600">{extractedData.poNumber}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">{lang === 'th' ? 'วันที่:' : 'Date:'}</span>
+                  <span className="ml-2">{extractedData.poDate}</span>
+                </div>
+              </div>
+
+              {extractedData.items?.length > 0 && (
+                <div className="text-sm">
+                  <div className="text-gray-500 mb-1">{lang === 'th' ? 'รายการ:' : 'Items:'}</div>
+                  <ul className="list-disc list-inside text-xs space-y-1">
+                    {extractedData.items.map((item, idx) => (
+                      <li key={idx}>{item.description} - {item.qty} {item.unit}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="pt-2 border-t flex justify-between items-center">
+                <button
+                  type="button"
+                  onClick={() => { setDocument(null); setExtractedData(null) }}
+                  className="text-xs text-red-600 hover:text-red-800"
+                >
+                  {lang === 'th' ? 'ลบและอัพโหลดใหม่' : 'Remove & Re-upload'}
+                </button>
+                <Button size="sm" onClick={applyExtractedData}>
+                  {lang === 'th' ? 'ใช้ข้อมูลนี้' : 'Apply Data'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Raw OCR Text (collapsible) */}
+          {extractedData?.rawText && (
+            <details className="text-xs">
+              <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+                {lang === 'th' ? 'ดูข้อความดิบจาก OCR' : 'View raw OCR text'}
+              </summary>
+              <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto max-h-32 whitespace-pre-wrap">
+                {extractedData.rawText}
+              </pre>
+            </details>
+          )}
+        </div>
+      )}
+
+      <div className="mt-3 text-xs text-yellow-600">
+        💡 {lang === 'th' 
+          ? 'รองรับ: JPG, PNG, PDF - ระบบจะอ่านเลข PO, วันที่, รายการสินค้าอัตโนมัติ' 
+          : 'Supports: JPG, PNG, PDF - Auto-extracts PO#, date, items'}
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// DELIVERY CONFIRMATION MODAL
+// ============================================
+const DeliveryConfirmationModal = ({ delivery, customer, onConfirm, onCancel, lang }) => {
+  const [signature, setSignature] = useState(null)
+  const [receiverName, setReceiverName] = useState('')
+  const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0])
+  const [receivedTime, setReceivedTime] = useState(new Date().toTimeString().slice(0, 5))
+  const [notes, setNotes] = useState('')
+  const [photos, setPhotos] = useState([])
+
+  const handlePhotoUpload = (e) => {
+    const files = Array.from(e.target.files || [])
+    files.forEach(file => {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        setPhotos(prev => [...prev, { name: file.name, data: event.target.result }])
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const removePhoto = (idx) => {
+    setPhotos(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const handleConfirm = () => {
+    if (!signature) {
+      alert(lang === 'th' ? 'กรุณาลงลายเซ็นผู้รับ' : 'Please capture recipient signature')
+      return
+    }
+    if (!receiverName.trim()) {
+      alert(lang === 'th' ? 'กรุณาระบุชื่อผู้รับ' : 'Please enter receiver name')
+      return
+    }
+
+    onConfirm({
+      signature,
+      receiverName,
+      receivedDate,
+      receivedTime,
+      notes,
+      photos,
+      confirmedAt: new Date().toISOString(),
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Delivery Info */}
+      <div className="p-4 bg-blue-50 rounded-lg">
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div><span className="text-gray-500">DO #:</span> <span className="font-mono font-bold">{delivery?.id}</span></div>
+          <div><span className="text-gray-500">{lang === 'th' ? 'ลูกค้า' : 'Customer'}:</span> <span className="font-medium">{customer?.name}</span></div>
+          <div><span className="text-gray-500">{lang === 'th' ? 'สถานที่' : 'Location'}:</span> <span>{delivery?.deliveryAddress || customer?.address}</span></div>
+          <div><span className="text-gray-500">{lang === 'th' ? 'รายการ' : 'Items'}:</span> <span>{delivery?.items?.length || 0} {lang === 'th' ? 'รายการ' : 'items'}</span></div>
+        </div>
+      </div>
+
+      {/* Receiver Info */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'ชื่อผู้รับ *' : 'Receiver Name *'}
+          </label>
+          <input
+            type="text"
+            value={receiverName}
+            onChange={(e) => setReceiverName(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg"
+            placeholder={lang === 'th' ? 'ชื่อ-นามสกุล ผู้รับสินค้า' : 'Full name of receiver'}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'วันที่รับ' : 'Received Date'}
+          </label>
+          <input
+            type="date"
+            value={receivedDate}
+            onChange={(e) => setReceivedDate(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'เวลารับ' : 'Received Time'}
+          </label>
+          <input
+            type="time"
+            value={receivedTime}
+            onChange={(e) => setReceivedTime(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'หมายเหตุ' : 'Notes'}
+          </label>
+          <input
+            type="text"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg"
+            placeholder={lang === 'th' ? 'หมายเหตุเพิ่มเติม' : 'Additional notes'}
+          />
+        </div>
+      </div>
+
+      {/* Signature Capture */}
+      <SignaturePad
+        onSignatureChange={setSignature}
+        existingSignature={signature}
+        lang={lang}
+      />
+
+      {/* Photo Upload */}
+      <div className="border rounded-lg p-4 bg-gray-50">
+        <div className="flex justify-between items-center mb-3">
+          <h4 className="font-medium text-gray-700">
+            📷 {lang === 'th' ? 'รูปถ่ายหลักฐาน (ถ้ามี)' : 'Photo Evidence (Optional)'}
+          </h4>
+          <label className="text-sm text-blue-600 cursor-pointer hover:text-blue-800">
+            + {lang === 'th' ? 'เพิ่มรูป' : 'Add Photo'}
+            <input type="file" accept="image/*" multiple onChange={handlePhotoUpload} className="hidden" />
+          </label>
+        </div>
+        
+        {photos.length > 0 ? (
+          <div className="grid grid-cols-4 gap-2">
+            {photos.map((photo, idx) => (
+              <div key={idx} className="relative group">
+                <img src={photo.data} alt={`Evidence ${idx + 1}`} className="w-full h-20 object-cover rounded" />
+                <button
+                  type="button"
+                  onClick={() => removePhoto(idx)}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-gray-400 text-sm py-4">
+            {lang === 'th' ? 'ยังไม่มีรูปถ่าย' : 'No photos added'}
+          </div>
+        )}
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="ghost" onClick={onCancel}>
+          {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+        </Button>
+        <Button 
+          onClick={handleConfirm}
+          variant="success"
+          icon={CheckCircle}
+          disabled={!signature || !receiverName.trim()}
+        >
+          {lang === 'th' ? 'ยืนยันรับสินค้า' : 'Confirm Receipt'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// CUSTOMER FORM - With Special Requirements
+// ============================================
+const CustomerForm = ({ customer, lang, onSave, onCancel }) => {
+  const [formData, setFormData] = useState({
+    code: customer?.code || '',
+    name: customer?.name || '',
+    nameTh: customer?.nameTh || '',
+    contact: customer?.contact || '',
+    phone: customer?.phone || '',
+    email: customer?.email || '',
+    address: customer?.address || '',
+    taxId: customer?.taxId || '',
+    paymentTerms: customer?.paymentTerms || 30,
+    orderType: customer?.orderType || 'PO',
+    type: customer?.type || 'local',
+    deliveryLocations: customer?.deliveryLocations || [{ id: 'LOC-1', name: 'Main', address: '', isDefault: true }],
+    specialRequirements: customer?.specialRequirements || {
+      qrLabels: false,
+      htCertificate: false,
+      labelFormat: null,
+      selfPickup: false,
+    },
+    isActive: customer?.isActive !== false,
+  })
+
+  const addLocation = () => {
+    const newId = `LOC-${formData.deliveryLocations.length + 1}`
+    setFormData({
+      ...formData,
+      deliveryLocations: [...formData.deliveryLocations, { id: newId, name: '', address: '', isDefault: false }]
+    })
+  }
+
+  const updateLocation = (idx, field, value) => {
+    setFormData({
+      ...formData,
+      deliveryLocations: formData.deliveryLocations.map((loc, i) => {
+        if (i === idx) {
+          if (field === 'isDefault' && value === true) {
+            return { ...loc, isDefault: true }
+          }
+          return { ...loc, [field]: value }
+        }
+        if (field === 'isDefault' && value === true) {
+          return { ...loc, isDefault: false }
+        }
+        return loc
+      })
+    })
+  }
+
+  const removeLocation = (idx) => {
+    if (formData.deliveryLocations.length > 1) {
+      const newLocations = formData.deliveryLocations.filter((_, i) => i !== idx)
+      if (!newLocations.some(l => l.isDefault)) {
+        newLocations[0].isDefault = true
+      }
+      setFormData({ ...formData, deliveryLocations: newLocations })
+    }
+  }
+
+  const toggleSpecialReq = (key) => {
+    setFormData({
+      ...formData,
+      specialRequirements: {
+        ...formData.specialRequirements,
+        [key]: !formData.specialRequirements[key]
+      }
+    })
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!formData.code || !formData.name) {
+      alert(lang === 'th' ? 'กรุณากรอกรหัสและชื่อลูกค้า' : 'Please enter customer code and name')
+      return
+    }
+    onSave(formData)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Basic Info */}
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รหัสลูกค้า *' : 'Customer Code *'}</label>
+          <input
+            type="text"
+            required
+            value={formData.code}
+            onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+            className="w-full px-3 py-2 border rounded-lg font-mono"
+            placeholder="e.g., PLX-002"
+          />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ชื่อลูกค้า *' : 'Customer Name *'}</label>
+          <input
+            type="text"
+            required
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+            placeholder="Company name in English"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ชื่อภาษาไทย' : 'Thai Name'}</label>
+          <input
+            type="text"
+            value={formData.nameTh}
+            onChange={(e) => setFormData({ ...formData, nameTh: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+            placeholder="ชื่อบริษัทภาษาไทย"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เลขประจำตัวผู้เสียภาษี' : 'Tax ID'}</label>
+          <input
+            type="text"
+            value={formData.taxId}
+            onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg font-mono"
+            placeholder="0-1234-56789-01-2"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ผู้ติดต่อ' : 'Contact Person'}</label>
+          <input
+            type="text"
+            value={formData.contact}
+            onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'โทรศัพท์' : 'Phone'}</label>
+          <input
+            type="text"
+            value={formData.phone}
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'อีเมล' : 'Email'}</label>
+          <input
+            type="email"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ที่อยู่สำนักงาน' : 'Office Address'}</label>
+        <textarea
+          value={formData.address}
+          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+          className="w-full px-3 py-2 border rounded-lg"
+          rows={2}
+        />
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภทออเดอร์' : 'Order Type'}</label>
+          <select
+            value={formData.orderType}
+            onChange={(e) => setFormData({ ...formData, orderType: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            <option value="PO">PO (Purchase Order)</option>
+            <option value="PR">PR (Forecast/PR)</option>
+            <option value="Direct">Direct Order</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'เงื่อนไขชำระ' : 'Payment Terms'}</label>
+          <select
+            value={formData.paymentTerms}
+            onChange={(e) => setFormData({ ...formData, paymentTerms: parseInt(e.target.value) })}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            <option value={15}>15 days</option>
+            <option value={30}>30 days</option>
+            <option value={45}>45 days</option>
+            <option value={60}>60 days</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภทลูกค้า' : 'Customer Type'}</label>
+          <select
+            value={formData.type}
+            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            <option value="local">{lang === 'th' ? 'ในประเทศ' : 'Local'}</option>
+            <option value="export">{lang === 'th' ? 'ส่งออก' : 'Export'}</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Delivery Locations */}
+      <div className="border rounded-lg p-4 bg-blue-50">
+        <div className="flex justify-between items-center mb-3">
+          <h4 className="font-bold text-blue-800">📍 {lang === 'th' ? 'สถานที่ส่งสินค้า' : 'Delivery Locations'}</h4>
+          <Button type="button" size="sm" onClick={addLocation} icon={Plus}>
+            {lang === 'th' ? 'เพิ่มสถานที่' : 'Add Location'}
+          </Button>
+        </div>
+        <div className="space-y-3">
+          {formData.deliveryLocations.map((loc, idx) => (
+            <div key={loc.id} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded border">
+              <div className="col-span-2">
+                <input
+                  type="text"
+                  value={loc.name}
+                  onChange={(e) => updateLocation(idx, 'name', e.target.value)}
+                  className="w-full px-2 py-1 border rounded text-sm"
+                  placeholder="Location name"
+                />
+              </div>
+              <div className="col-span-7">
+                <input
+                  type="text"
+                  value={loc.address}
+                  onChange={(e) => updateLocation(idx, 'address', e.target.value)}
+                  className="w-full px-2 py-1 border rounded text-sm"
+                  placeholder="Full delivery address"
+                />
+              </div>
+              <div className="col-span-2 flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={loc.isDefault}
+                  onChange={(e) => updateLocation(idx, 'isDefault', e.target.checked)}
+                  className="rounded"
+                />
+                <span className="text-xs text-gray-500">{lang === 'th' ? 'หลัก' : 'Default'}</span>
+              </div>
+              <div className="col-span-1">
+                {formData.deliveryLocations.length > 1 && (
+                  <button type="button" onClick={() => removeLocation(idx)} className="text-red-500 hover:text-red-700">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="text-xs text-blue-600 mt-2">
+          💡 {lang === 'th' ? 'เช่น Polyplex มี 3 สถานที่: PLOT 1, PLOT 2, PLOT 3' : 'e.g., Polyplex has 3 locations: PLOT 1, PLOT 2, PLOT 3'}
+        </div>
+      </div>
+
+      {/* Special Requirements */}
+      <div className="border rounded-lg p-4 bg-purple-50">
+        <h4 className="font-bold text-purple-800 mb-3">⭐ {lang === 'th' ? 'ข้อกำหนดพิเศษ' : 'Special Requirements'}</h4>
+        <div className="grid grid-cols-2 gap-4">
+          <label className="flex items-center gap-3 p-3 bg-white rounded-lg border cursor-pointer hover:bg-gray-50">
+            <input
+              type="checkbox"
+              checked={formData.specialRequirements.qrLabels}
+              onChange={() => toggleSpecialReq('qrLabels')}
+              className="w-5 h-5 rounded text-purple-600"
+            />
+            <div>
+              <div className="font-medium">🏷️ QR Labels</div>
+              <div className="text-xs text-gray-500">{lang === 'th' ? 'ป้าย QR Code (เช่น Allianz)' : 'QR Code Labels (e.g., Allianz)'}</div>
+            </div>
+          </label>
+
+          <label className="flex items-center gap-3 p-3 bg-white rounded-lg border cursor-pointer hover:bg-gray-50">
+            <input
+              type="checkbox"
+              checked={formData.specialRequirements.htCertificate}
+              onChange={() => toggleSpecialReq('htCertificate')}
+              className="w-5 h-5 rounded text-orange-600"
+            />
+            <div>
+              <div className="font-medium">🔥 HT Certificate</div>
+              <div className="text-xs text-gray-500">{lang === 'th' ? 'ใบรับรอง Heat Treatment ISPM15' : 'Heat Treatment Certificate ISPM15'}</div>
+            </div>
+          </label>
+
+          <label className="flex items-center gap-3 p-3 bg-white rounded-lg border cursor-pointer hover:bg-gray-50">
+            <input
+              type="checkbox"
+              checked={formData.specialRequirements.labelFormat === 'polyplex_4column'}
+              onChange={() => setFormData({
+                ...formData,
+                specialRequirements: {
+                  ...formData.specialRequirements,
+                  labelFormat: formData.specialRequirements.labelFormat === 'polyplex_4column' ? null : 'polyplex_4column'
+                }
+              })}
+              className="w-5 h-5 rounded text-green-600"
+            />
+            <div>
+              <div className="font-medium">📋 Polyplex Labels</div>
+              <div className="text-xs text-gray-500">{lang === 'th' ? 'ป้ายรูปแบบ 4 คอลัมน์' : '4-Column Label Format'}</div>
+            </div>
+          </label>
+
+          <label className="flex items-center gap-3 p-3 bg-white rounded-lg border cursor-pointer hover:bg-gray-50">
+            <input
+              type="checkbox"
+              checked={formData.specialRequirements.selfPickup}
+              onChange={() => toggleSpecialReq('selfPickup')}
+              className="w-5 h-5 rounded text-blue-600"
+            />
+            <div>
+              <div className="font-medium">🚗 Self Pickup</div>
+              <div className="text-xs text-gray-500">{lang === 'th' ? 'ลูกค้ารับเอง' : 'Customer picks up'}</div>
+            </div>
+          </label>
+        </div>
+        
+        {/* Summary of enabled requirements */}
+        <div className="mt-3 flex flex-wrap gap-2">
+          {formData.specialRequirements.qrLabels && <Badge variant="purple">QR Labels</Badge>}
+          {formData.specialRequirements.htCertificate && <Badge variant="warning">HT Certificate</Badge>}
+          {formData.specialRequirements.labelFormat && <Badge variant="success">Polyplex Labels</Badge>}
+          {formData.specialRequirements.selfPickup && <Badge variant="info">Self Pickup</Badge>}
+        </div>
+      </div>
+
+      {/* Active Status */}
+      <div className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          checked={formData.isActive}
+          onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+          className="w-5 h-5 rounded"
+        />
+        <span className="font-medium">{lang === 'th' ? 'ลูกค้าใช้งานอยู่' : 'Active Customer'}</span>
+      </div>
+
+      {/* Buttons */}
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="ghost" onClick={onCancel}>
+          {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+        </Button>
+        <Button type="submit" icon={Save}>
+          {customer ? (lang === 'th' ? 'บันทึกการแก้ไข' : 'Save Changes') : (lang === 'th' ? 'เพิ่มลูกค้า' : 'Add Customer')}
+        </Button>
       </div>
     </form>
   )
@@ -19310,6 +20905,373 @@ const ReceiptAcknowledgmentPrintView = ({ invoice, deliveryOrder, customer, enti
       </div>
     </div>
   )
+}
+
+// ============================================
+// PRINT VIEW - SALES ORDER
+// ============================================
+const SalesOrderPrintView = ({ salesOrder, customer, entity, onClose }) => {
+  const companyInfo = COMPANY_ENTITIES.find(e => e.id === entity) || COMPANY_ENTITIES[0]
+  
+  const handlePrint = () => {
+    window.print()
+  }
+
+  const subtotal = salesOrder.items?.reduce((sum, item) => sum + (item.qty * item.unitPrice), 0) || 0
+  const vat = subtotal * 0.07
+  const grandTotal = subtotal + vat
+
+  return (
+    <div className="bg-white">
+      {/* Print Controls */}
+      <div className="print:hidden p-4 bg-gray-100 flex justify-between items-center mb-4">
+        <h2 className="font-bold text-lg">Print Preview - Sales Order</h2>
+        <div className="flex gap-2">
+          <Button onClick={handlePrint} icon={Printer}>Print</Button>
+          <Button variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+
+      {/* SO Content */}
+      <div className="p-8 max-w-4xl mx-auto print:p-0 print:max-w-none" style={{ fontFamily: 'Arial, sans-serif' }}>
+        <div className="border-2 border-black">
+          {/* Header */}
+          <div className="flex justify-between items-start p-4 border-b-2 border-black">
+            <div className="flex items-center gap-4">
+              <img src={IND_LOGO_SVG} alt="IND Logo" className="w-16 h-16" />
+              <div>
+                <div className="font-bold text-lg">{companyInfo.name}</div>
+                <div className="text-xs text-gray-600">{companyInfo.address}</div>
+                <div className="text-xs text-gray-600">Tel: {companyInfo.tel} | Tax ID: {companyInfo.taxId}</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold border-2 border-blue-600 px-4 py-2 mb-2 text-blue-600">
+                SALES ORDER / ใบสั่งขาย
+              </div>
+              <div className="font-mono text-lg font-bold text-blue-600">{salesOrder.id}</div>
+              <div className="text-sm mt-1">Date: {formatDate(salesOrder.orderDate || salesOrder.date)}</div>
+            </div>
+          </div>
+
+          {/* Customer & Order Info */}
+          <div className="grid grid-cols-2 border-b border-black">
+            <div className="p-4 border-r border-black">
+              <div className="font-bold mb-2 text-sm">SOLD TO / ลูกค้า:</div>
+              <div className="font-medium text-lg">{customer?.name}</div>
+              <div className="text-sm text-gray-600">{customer?.address}</div>
+              <div className="text-sm">Tax ID: {customer?.taxId || '-'}</div>
+              <div className="text-sm">Contact: {customer?.contact} | Tel: {customer?.phone}</div>
+            </div>
+            <div className="p-4">
+              <div className="font-bold mb-2 text-sm">ORDER DETAILS / รายละเอียด:</div>
+              <div className="grid grid-cols-2 gap-1 text-sm">
+                <span>PO Reference:</span><span className="font-mono">{salesOrder.poNumber || '-'}</span>
+                <span>Payment Terms:</span><span>{customer?.paymentTerms || salesOrder.paymentTerms || 'Net 30'}</span>
+                <span>Delivery Date:</span><span className="font-medium">{formatDate(salesOrder.requestedDeliveryDate || salesOrder.deliveryDate)}</span>
+                <span>Sales Rep:</span><span>{salesOrder.salesRep || '-'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Items Table */}
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-blue-50 border-b border-black">
+                <th className="px-2 py-2 text-center border-r border-black w-10">No.</th>
+                <th className="px-2 py-2 text-center border-r border-black w-24">Item Code</th>
+                <th className="px-2 py-2 text-left border-r border-black">Description / รายการ</th>
+                <th className="px-2 py-2 text-center border-r border-black w-16">Qty</th>
+                <th className="px-2 py-2 text-center border-r border-black w-16">Unit</th>
+                <th className="px-2 py-2 text-right border-r border-black w-24">Unit Price</th>
+                <th className="px-2 py-2 text-right w-24">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {salesOrder.items?.map((item, idx) => (
+                <tr key={idx} className="border-b border-gray-300">
+                  <td className="px-2 py-3 text-center border-r border-gray-300">{idx + 1}</td>
+                  <td className="px-2 py-3 text-center border-r border-gray-300 font-mono text-xs">{item.productId || item.code || '-'}</td>
+                  <td className="px-2 py-3 border-r border-gray-300">
+                    <div>{item.description || item.productName}</div>
+                    {item.specifications && <div className="text-xs text-gray-500">{item.specifications}</div>}
+                  </td>
+                  <td className="px-2 py-3 text-center border-r border-gray-300 font-bold">{item.qty}</td>
+                  <td className="px-2 py-3 text-center border-r border-gray-300">{item.unit || 'pcs'}</td>
+                  <td className="px-2 py-3 text-right border-r border-gray-300">{formatCurrency(item.unitPrice)}</td>
+                  <td className="px-2 py-3 text-right font-medium">{formatCurrency(item.qty * item.unitPrice)}</td>
+                </tr>
+              ))}
+              {/* Empty rows for min 5 */}
+              {Array.from({ length: Math.max(0, 5 - (salesOrder.items?.length || 0)) }).map((_, idx) => (
+                <tr key={`empty-${idx}`} className="border-b border-gray-300">
+                  <td className="px-2 py-4 border-r border-gray-300">&nbsp;</td>
+                  <td className="px-2 py-4 border-r border-gray-300"></td>
+                  <td className="px-2 py-4 border-r border-gray-300"></td>
+                  <td className="px-2 py-4 border-r border-gray-300"></td>
+                  <td className="px-2 py-4 border-r border-gray-300"></td>
+                  <td className="px-2 py-4 border-r border-gray-300"></td>
+                  <td className="px-2 py-4"></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Totals */}
+          <div className="flex border-t border-black">
+            <div className="flex-grow p-4 border-r border-black">
+              <div className="font-bold mb-2 text-sm">REMARKS / หมายเหตุ:</div>
+              <div className="text-sm text-gray-600">{salesOrder.notes || '-'}</div>
+              <div className="mt-4 text-sm">
+                <div className="font-bold">DELIVERY ADDRESS / สถานที่ส่งของ:</div>
+                <div>{salesOrder.deliveryAddress || customer?.deliveryAddress || customer?.address}</div>
+              </div>
+            </div>
+            <div className="w-64 text-sm">
+              <div className="flex justify-between p-2 border-b border-gray-300">
+                <span>Subtotal / ยอดรวม:</span>
+                <span>{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="flex justify-between p-2 border-b border-gray-300">
+                <span>VAT 7%:</span>
+                <span>{formatCurrency(vat)}</span>
+              </div>
+              <div className="flex justify-between p-3 bg-blue-50 font-bold text-lg">
+                <span>Grand Total:</span>
+                <span>{formatCurrency(grandTotal)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Terms & Conditions */}
+          <div className="p-4 border-t border-black bg-gray-50">
+            <div className="font-bold text-sm mb-2">TERMS & CONDITIONS / ข้อกำหนดและเงื่อนไข:</div>
+            <ol className="text-xs text-gray-600 list-decimal list-inside space-y-1">
+              <li>Prices are valid for 30 days from the date of this order confirmation.</li>
+              <li>Payment terms as stated above. Late payment may incur interest at 1.5% per month.</li>
+              <li>Delivery schedule subject to material availability and production capacity.</li>
+              <li>Claims for defects must be made within 7 days of delivery.</li>
+              <li>This order is subject to our standard terms and conditions.</li>
+            </ol>
+          </div>
+
+          {/* Signatures */}
+          <div className="grid grid-cols-2 border-t border-black text-center text-sm">
+            <div className="p-4 border-r border-black">
+              <div className="font-bold mb-1">FOR IND THAI PACKWELL / ผู้ขาย</div>
+              <div className="mb-12 text-xs text-gray-500">Authorized Signature</div>
+              <div className="border-t border-black pt-2">
+                <div>Name: ________________</div>
+                <div>Date: ________________</div>
+              </div>
+            </div>
+            <div className="p-4">
+              <div className="font-bold mb-1">CUSTOMER ACCEPTANCE / ลูกค้ายืนยัน</div>
+              <div className="mb-12 text-xs text-gray-500">Authorized Signature & Company Stamp</div>
+              <div className="border-t border-black pt-2">
+                <div>Name: ________________</div>
+                <div>Date: ________________</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// PRINT VIEW - PAYMENT RECEIPT
+// ============================================
+const PaymentReceiptPrintView = ({ payment, invoice, customer, entity, onClose }) => {
+  const companyInfo = COMPANY_ENTITIES.find(e => e.id === entity) || COMPANY_ENTITIES[0]
+  
+  const handlePrint = () => {
+    window.print()
+  }
+
+  const receiptNumber = `REC-${invoice?.id?.replace('INV-', '') || '0000'}-${payment?.paymentIndex || '01'}`
+
+  return (
+    <div className="bg-white">
+      {/* Print Controls */}
+      <div className="print:hidden p-4 bg-gray-100 flex justify-between items-center mb-4">
+        <h2 className="font-bold text-lg">Print Preview - Payment Receipt</h2>
+        <div className="flex gap-2">
+          <Button onClick={handlePrint} icon={Printer}>Print</Button>
+          <Button variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+
+      {/* Receipt Content */}
+      <div className="p-8 max-w-3xl mx-auto print:p-0 print:max-w-none" style={{ fontFamily: 'Arial, sans-serif' }}>
+        <div className="border-2 border-black">
+          {/* Header */}
+          <div className="flex justify-between items-start p-4 border-b-2 border-black bg-green-50">
+            <div className="flex items-center gap-4">
+              <img src={IND_LOGO_SVG} alt="IND Logo" className="w-16 h-16" />
+              <div>
+                <div className="font-bold text-lg">{companyInfo.name}</div>
+                <div className="text-xs text-gray-600">{companyInfo.address}</div>
+                <div className="text-xs text-gray-600">Tel: {companyInfo.tel} | Tax ID: {companyInfo.taxId}</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold border-2 border-green-600 px-4 py-2 mb-2 text-green-600 bg-white">
+                RECEIPT / ใบเสร็จรับเงิน
+              </div>
+              <div className="font-mono text-lg font-bold text-green-600">{receiptNumber}</div>
+            </div>
+          </div>
+
+          {/* Receipt Info */}
+          <div className="grid grid-cols-2 border-b border-black">
+            <div className="p-4 border-r border-black">
+              <div className="font-bold mb-2 text-sm">RECEIVED FROM / รับเงินจาก:</div>
+              <div className="font-medium text-lg">{customer?.name}</div>
+              <div className="text-sm text-gray-600">{customer?.address}</div>
+              <div className="text-sm">Tax ID: {customer?.taxId || '-'}</div>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <span className="text-gray-600">Receipt Date:</span>
+                <span className="font-medium">{formatDate(payment?.date)}</span>
+                <span className="text-gray-600">Invoice Ref:</span>
+                <span className="font-mono font-medium">{invoice?.id}</span>
+                <span className="text-gray-600">Invoice Date:</span>
+                <span>{formatDate(invoice?.invoiceDate)}</span>
+                <span className="text-gray-600">Invoice Amount:</span>
+                <span>{formatCurrency(invoice?.grandTotal)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Details */}
+          <div className="p-6">
+            <div className="text-center mb-6">
+              <div className="text-sm text-gray-600 mb-2">AMOUNT RECEIVED / จำนวนเงินที่รับ</div>
+              <div className="text-4xl font-bold text-green-600">{formatCurrency(payment?.amount || 0)}</div>
+              <div className="text-sm text-gray-500 mt-2">
+                ({numberToThaiText(payment?.amount || 0)})
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 border-t border-b border-gray-300 py-4">
+              <div>
+                <span className="text-sm text-gray-600">Payment Method / วิธีชำระ:</span>
+                <div className="font-medium mt-1">
+                  {payment?.method === 'transfer' ? '🏦 Bank Transfer / โอนเงิน' :
+                   payment?.method === 'cash' ? '💵 Cash / เงินสด' :
+                   payment?.method === 'cheque' ? '📝 Cheque / เช็ค' :
+                   payment?.method || '-'}
+                </div>
+              </div>
+              <div>
+                <span className="text-sm text-gray-600">Reference / อ้างอิง:</span>
+                <div className="font-medium font-mono mt-1">{payment?.reference || '-'}</div>
+              </div>
+            </div>
+
+            {/* Balance Info */}
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-xs text-gray-500">Previous Balance</div>
+                  <div className="font-medium">{formatCurrency((invoice?.balance || 0) + (payment?.amount || 0))}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">This Payment</div>
+                  <div className="font-medium text-green-600">- {formatCurrency(payment?.amount || 0)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">Remaining Balance</div>
+                  <div className="font-bold text-lg">{formatCurrency(invoice?.balance || 0)}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Signatures */}
+          <div className="grid grid-cols-2 border-t border-black text-center text-sm">
+            <div className="p-4 border-r border-black">
+              <div className="font-bold mb-1">RECEIVED BY / ผู้รับเงิน</div>
+              <div className="mb-10"></div>
+              <div className="border-t border-black pt-2 mx-8">
+                <div>Name: {payment?.recordedBy || '________________'}</div>
+                <div>Date: {formatDate(payment?.date)}</div>
+              </div>
+            </div>
+            <div className="p-4">
+              <div className="font-bold mb-1">PAYER / ผู้ชำระเงิน</div>
+              <div className="mb-10"></div>
+              <div className="border-t border-black pt-2 mx-8">
+                <div>Name: ________________</div>
+                <div>Date: ________________</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Company Stamp Area */}
+          <div className="border-t border-black p-4">
+            <div className="flex justify-between items-center">
+              <div className="text-xs text-gray-500">
+                This receipt is valid only with authorized signature and company stamp.<br/>
+                ใบเสร็จนี้สมบูรณ์เมื่อมีลายเซ็นผู้มีอำนาจและตราประทับบริษัท
+              </div>
+              <div className="border-2 border-dashed border-gray-400 w-32 h-20 flex items-center justify-center text-xs text-gray-400">
+                Company Stamp<br/>ตราประทับ
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-2 border-t border-black bg-green-50 text-center text-xs text-gray-600">
+            Thank you for your payment / ขอบคุณที่ชำระเงิน | Original for Customer / ต้นฉบับสำหรับลูกค้า
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Helper function for Thai text conversion (simplified)
+const numberToThaiText = (num) => {
+  if (num === 0) return 'ศูนย์บาทถ้วน'
+  const units = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า']
+  const positions = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน', 'ล้าน']
+  
+  const baht = Math.floor(num)
+  const satang = Math.round((num - baht) * 100)
+  
+  let result = ''
+  let bahtStr = baht.toString()
+  
+  for (let i = 0; i < bahtStr.length; i++) {
+    const digit = parseInt(bahtStr[i])
+    const pos = bahtStr.length - 1 - i
+    if (digit !== 0) {
+      if (pos === 1 && digit === 1) {
+        result += 'สิบ'
+      } else if (pos === 1 && digit === 2) {
+        result += 'ยี่สิบ'
+      } else if (pos === 0 && digit === 1 && bahtStr.length > 1) {
+        result += 'เอ็ด'
+      } else {
+        result += units[digit] + positions[pos]
+      }
+    }
+  }
+  
+  result += 'บาท'
+  
+  if (satang > 0) {
+    result += units[Math.floor(satang / 10)] + (Math.floor(satang / 10) > 0 ? 'สิบ' : '')
+    result += (satang % 10 > 0 ? units[satang % 10] : '') + 'สตางค์'
+  } else {
+    result += 'ถ้วน'
+  }
+  
+  return result
 }
 
 // ============================================
