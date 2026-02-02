@@ -730,19 +730,19 @@ const STORE_TYPES = [
 // Row 2: Singh, One (P1, P2), Khem (P3), Khwai (A1), Pngsak (A2), P Toon (W), Mas (Oven), Pongsak (FG/Transport)
 // ============================================
 const INITIAL_DEPARTMENTS = [
-  { id: 'C1', code: 'C1', nameEn: 'Cutting 1 (Singh)', nameTh: 'ตัด 1 (สิงห์)', operator: 'Singh', hourlyRate: 200, type: 'cutting', sequence: 1, isActive: true },
-  { id: 'C2', code: 'C2', nameEn: 'Cutting 2', nameTh: 'ตัด 2', operator: '', hourlyRate: 200, type: 'cutting', sequence: 2, isActive: true },
-  { id: 'P1', code: 'P1', nameEn: 'Processing 1 (Singh)', nameTh: 'แปรรูป 1 (สิงห์)', operator: 'Singh', hourlyRate: 180, type: 'processing', sequence: 3, isActive: true },
-  { id: 'P2', code: 'P2', nameEn: 'Processing 2 (One)', nameTh: 'แปรรูป 2 (วัน)', operator: 'One', hourlyRate: 180, type: 'processing', sequence: 4, isActive: true },
-  { id: 'P3', code: 'P3', nameEn: 'Processing 3 (Khem)', nameTh: 'แปรรูป 3 (เข็ม)', operator: 'Khem', hourlyRate: 180, type: 'processing', sequence: 5, isActive: true },
-  { id: 'A1', code: 'A1', nameEn: 'Assembly 1 (Khwai)', nameTh: 'ประกอบ 1 (ควาย)', operator: 'Khwai', hourlyRate: 180, type: 'assembly', sequence: 6, isActive: true },
-  { id: 'A2', code: 'A2', nameEn: 'Assembly 2 (Pngsak)', nameTh: 'ประกอบ 2 (ปังศักดิ์)', operator: 'Pngsak', hourlyRate: 180, type: 'assembly', sequence: 7, isActive: true },
-  { id: 'W', code: 'W', nameEn: 'Standby (P Toon)', nameTh: 'สำรอง (พี่ตูน)', operator: 'P Toon', hourlyRate: 150, type: 'standby', sequence: 8, isActive: true },
-  { id: 'OVEN', code: 'OVEN', nameEn: 'Oven / Heat Treatment (Mas)', nameTh: 'อบความร้อน (มาส)', operator: 'Mas', hourlyRate: 150, type: 'treatment', sequence: 9, isActive: true },
-  { id: 'QC', code: 'QC', nameEn: 'Quality Control (P Toon)', nameTh: 'ตรวจคุณภาพ (พี่ตูน)', operator: 'P Toon', hourlyRate: 200, type: 'qa', sequence: 10, isActive: true },
-  { id: 'QA', code: 'QA', nameEn: 'Quality Assurance', nameTh: 'ประกันคุณภาพ', operator: '', hourlyRate: 200, type: 'qa', sequence: 11, isActive: true },
-  { id: 'FG', code: 'FG', nameEn: 'Finished Goods (Pongsak)', nameTh: 'สินค้าสำเร็จรูป (ปองศักดิ์)', operator: 'Pongsak', hourlyRate: 150, type: 'fg', sequence: 12, isActive: true },
-  { id: 'TRANS', code: 'TRANS', nameEn: 'Transport', nameTh: 'ขนส่ง', operator: 'Drivers', hourlyRate: 200, type: 'transport', sequence: 13, isActive: true },
+  { id: 'C1', code: 'C1', nameEn: 'Cutting 1', nameTh: 'ตัด 1', hourlyRate: 200, type: 'cutting', sequence: 1, isActive: true, assignedWorkers: [] },
+  { id: 'C2', code: 'C2', nameEn: 'Cutting 2', nameTh: 'ตัด 2', hourlyRate: 200, type: 'cutting', sequence: 2, isActive: true, assignedWorkers: [] },
+  { id: 'P1', code: 'P1', nameEn: 'Processing 1', nameTh: 'แปรรูป 1', hourlyRate: 180, type: 'processing', sequence: 3, isActive: true, assignedWorkers: [] },
+  { id: 'P2', code: 'P2', nameEn: 'Processing 2', nameTh: 'แปรรูป 2', hourlyRate: 180, type: 'processing', sequence: 4, isActive: true, assignedWorkers: [] },
+  { id: 'P3', code: 'P3', nameEn: 'Processing 3', nameTh: 'แปรรูป 3', hourlyRate: 180, type: 'processing', sequence: 5, isActive: true, assignedWorkers: [] },
+  { id: 'A1', code: 'A1', nameEn: 'Assembly 1', nameTh: 'ประกอบ 1', hourlyRate: 180, type: 'assembly', sequence: 6, isActive: true, assignedWorkers: [] },
+  { id: 'A2', code: 'A2', nameEn: 'Assembly 2', nameTh: 'ประกอบ 2', hourlyRate: 180, type: 'assembly', sequence: 7, isActive: true, assignedWorkers: [] },
+  { id: 'W', code: 'W', nameEn: 'Standby', nameTh: 'สำรอง', hourlyRate: 150, type: 'standby', sequence: 8, isActive: true, assignedWorkers: [] },
+  { id: 'OVEN', code: 'OVEN', nameEn: 'Oven / Heat Treatment', nameTh: 'อบความร้อน', hourlyRate: 150, type: 'treatment', sequence: 9, isActive: true, assignedWorkers: [] },
+  { id: 'QC', code: 'QC', nameEn: 'Quality Control', nameTh: 'ตรวจคุณภาพ', hourlyRate: 200, type: 'qa', sequence: 10, isActive: true, assignedWorkers: [] },
+  { id: 'QA', code: 'QA', nameEn: 'Quality Assurance', nameTh: 'ประกันคุณภาพ', hourlyRate: 200, type: 'qa', sequence: 11, isActive: true, assignedWorkers: [] },
+  { id: 'FG', code: 'FG', nameEn: 'Finished Goods', nameTh: 'สินค้าสำเร็จรูป', hourlyRate: 150, type: 'fg', sequence: 12, isActive: true, assignedWorkers: [] },
+  { id: 'TRANS', code: 'TRANS', nameEn: 'Transport', nameTh: 'ขนส่ง', hourlyRate: 200, type: 'transport', sequence: 13, isActive: true, assignedWorkers: [] },
 ]
 
 // ============================================
@@ -752,7 +752,7 @@ const INITIAL_DEPARTMENTS = [
 const PRODUCTION_SCENARIOS = [
   // PLN 0: Direct
   { id: 'PLN_0', code: 'PLN 0', name: 'FG+T', description: 'Direct from FG', path: ['FG', 'TRANS'], requiresHT: false, remarks: '' },
-  // PLN 1.x: Processing 1 (Singh/P1)
+  // PLN 1.x: Processing 1 (P1)
   { id: 'PLN_1', code: 'PLN 1', name: 'P1+FG+T', description: 'Processing 1 only', path: ['P1', 'QA', 'FG', 'TRANS'], requiresHT: false, remarks: 'PW Cutting 2' },
   { id: 'PLN_1_0_1', code: 'PLN 1.0.1', name: 'P1+O+FG+T', description: 'P1 + Oven', path: ['P1', 'QA', 'OVEN', 'QC', 'FG', 'TRANS'], requiresHT: true, remarks: 'MLH Cutting 1' },
   { id: 'PLN_1_1_1', code: 'PLN 1.1.1', name: 'P1+A1+QC+FG+T', description: 'P1 + Assembly 1 (no oven)', path: ['P1', 'QA', 'A1', 'QA', 'QC', 'FG', 'TRANS'], requiresHT: false, remarks: 'KD - no oven' },
@@ -7439,7 +7439,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
 // ============================================
 // PRODUCTION MODULE (With Costing Analysis)
 // ============================================
-const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, inventory, setInventory, categories, stores, salesOrders, lang }) => {
+const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, inventory, setInventory, categories, stores, salesOrders, employees, lang }) => {
   const [activeTab, setActiveTab] = useState('po_tracker')
   const [showWOModal, setShowWOModal] = useState(false)
   const [showIssueModal, setShowIssueModal] = useState(false)
@@ -7449,14 +7449,35 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
   const [expandedPOs, setExpandedPOs] = useState({})
   const [expandedWOs, setExpandedWOs] = useState({})
   const [expandedItems, setExpandedItems] = useState({})
+  const [ganttView, setGanttView] = useState('all')
+  const [selectedGanttDept, setSelectedGanttDept] = useState(null)
+  const [showScanIssueModal, setShowScanIssueModal] = useState(false)
+  const [scanWO, setScanWO] = useState(null)
+  const [scanInput, setScanInput] = useState('')
 
   const tabs = [
     { id: 'po_tracker', label: lang === 'th' ? 'ติดตาม PO' : 'PO Tracker', icon: Package },
     { id: 'dashboard', label: lang === 'th' ? 'ภาพรวม' : 'Dashboard', icon: BarChart3 },
     { id: 'orders', label: lang === 'th' ? 'ใบสั่งผลิต' : 'Work Orders', icon: ClipboardList },
+    { id: 'gantt', label: lang === 'th' ? 'แผนงาน' : 'Gantt Chart', icon: Calendar },
     { id: 'floor', label: lang === 'th' ? 'หน้างาน' : 'Floor View', icon: Factory },
     { id: 'costing', label: lang === 'th' ? 'ต้นทุน' : 'Costing', icon: Calculator },
   ]
+
+  // FG Alerts - new items ready
+  const [fgAlerts, setFgAlerts] = useState([])
+  const checkFGReady = () => {
+    const readyWOs = workOrders.filter(wo => wo.department === 'FG' && wo.status === 'in_progress')
+    if (readyWOs.length > 0) {
+      setFgAlerts(readyWOs.map(wo => ({
+        id: wo.id,
+        message: `${wo.productName} (${wo.quantity} pcs) ready at FG`,
+        time: new Date().toISOString(),
+        woId: wo.id,
+        acknowledged: false,
+      })))
+    }
+  }
 
   // PO Tracker Stats
   const poStats = {
@@ -7721,7 +7742,7 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
                     <th className="px-3 py-3 text-center font-semibold text-gray-700">Balance</th>
                     <th className="px-2 py-3 text-center font-semibold text-gray-700">PLN</th>
                     {/* Production Path columns - from Production Mapping */}
-                    <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-yellow-50 text-xs">Singh</th>
+                    <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-yellow-50 text-xs">C1</th>
                     <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-yellow-50 text-xs">P1</th>
                     <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-gray-50 text-xs">QA</th>
                     <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-green-50 text-xs">P2</th>
@@ -7764,12 +7785,12 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
                       const getPathProgress = (pln) => {
                         const paths = {
                           'PLN 0': { FG: true, Trans: true },
-                          'PLN 1': { Singh: true, P1: true, QA1: true, FG: true, Trans: true },
-                          'PLN 1.0.1': { Singh: true, P1: true, QA1: true, Oven: true, QC: true, FG: true, Trans: true },
-                          'PLN 1.1.1': { Singh: true, P1: true, QA1: true, A1: true, QA3: true, QC: true, FG: true, Trans: true },
-                          'PLN 1.1.2': { Singh: true, P1: true, QA1: true, A1: true, QA3: true, Oven: true, QC: true, FG: true, Trans: true },
-                          'PLN 1.2.1': { Singh: true, P1: true, QA1: true, A2: true, QA4: true, QC: true, FG: true, Trans: true },
-                          'PLN 1.2.2': { Singh: true, P1: true, QA1: true, A2: true, QA4: true, Oven: true, QC: true, FG: true, Trans: true },
+                          'PLN 1': { C1: true, P1: true, QA1: true, FG: true, Trans: true },
+                          'PLN 1.0.1': { C1: true, P1: true, QA1: true, Oven: true, QC: true, FG: true, Trans: true },
+                          'PLN 1.1.1': { C1: true, P1: true, QA1: true, A1: true, QA3: true, QC: true, FG: true, Trans: true },
+                          'PLN 1.1.2': { C1: true, P1: true, QA1: true, A1: true, QA3: true, Oven: true, QC: true, FG: true, Trans: true },
+                          'PLN 1.2.1': { C1: true, P1: true, QA1: true, A2: true, QA4: true, QC: true, FG: true, Trans: true },
+                          'PLN 1.2.2': { C1: true, P1: true, QA1: true, A2: true, QA4: true, Oven: true, QC: true, FG: true, Trans: true },
                           'PLN 2': { P2: true, QA2: true, FG: true, Trans: true },
                           'PLN 2.0.1': { P2: true, QA2: true, Oven: true, QC: true, FG: true, Trans: true },
                           'PLN 2.1.1': { P2: true, QA2: true, A1: true, QA3: true, QC: true, FG: true, Trans: true },
@@ -7849,8 +7870,8 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
                               <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-mono">{plnScenario}</span>
                             </td>
                             {/* Production Path X marks - from Production Mapping */}
-                            <td className={`px-1 py-3 text-center ${pathProgress.Singh ? 'bg-yellow-100' : ''}`}>
-                              {pathProgress.Singh && <span className={`text-xs font-bold ${currentDept === 'C1' ? 'text-green-600' : 'text-yellow-600'}`}>X</span>}
+                            <td className={`px-1 py-3 text-center ${pathProgress.C1 ? 'bg-yellow-100' : ''}`}>
+                              {pathProgress.C1 && <span className={`text-xs font-bold ${currentDept === 'C1' ? 'text-green-600' : 'text-yellow-600'}`}>X</span>}
                             </td>
                             <td className={`px-1 py-3 text-center ${pathProgress.P1 ? 'bg-yellow-100' : ''}`}>
                               {pathProgress.P1 && <span className={`text-xs font-bold ${currentDept === 'P1' ? 'text-green-600' : 'text-yellow-600'}`}>X</span>}
@@ -8180,7 +8201,7 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
                     <th className="px-2 py-3 text-center font-semibold text-gray-700">Done</th>
                     <th className="px-2 py-3 text-center font-semibold text-gray-700">PLN</th>
                     {/* Production Path columns */}
-                    <th className="px-1 py-3 text-center font-semibold bg-yellow-50 text-xs">Singh</th>
+                    <th className="px-1 py-3 text-center font-semibold bg-yellow-50 text-xs">C1</th>
                     <th className="px-1 py-3 text-center font-semibold bg-yellow-50 text-xs">P1</th>
                     <th className="px-1 py-3 text-center font-semibold bg-gray-50 text-xs">QA</th>
                     <th className="px-1 py-3 text-center font-semibold bg-green-50 text-xs">P2</th>
@@ -8205,7 +8226,7 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
                       const deptOrder = ['C1', 'P1', 'P2', 'A1', 'A2', 'OVEN', 'QC', 'FG']
                       const currentIdx = deptOrder.indexOf(dept)
                       return {
-                        Singh: currentIdx >= 0,
+                        C1: currentIdx >= 0,
                         P1: currentIdx >= 1 || dept === 'P1',
                         QA1: currentIdx >= 1,
                         P2: dept === 'P2' || (currentIdx >= 2 && plnScenario.includes('PLN 2')),
@@ -8250,8 +8271,8 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
                             <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-mono">{plnScenario}</span>
                           </td>
                           {/* Production Path X marks */}
-                          <td className={`px-1 py-3 text-center ${pathProgress.Singh ? 'bg-yellow-100' : ''}`}>
-                            {pathProgress.Singh && <span className={`text-xs font-bold ${wo.department === 'C1' ? 'text-green-600' : 'text-yellow-600'}`}>X</span>}
+                          <td className={`px-1 py-3 text-center ${pathProgress.C1 ? 'bg-yellow-100' : ''}`}>
+                            {pathProgress.C1 && <span className={`text-xs font-bold ${wo.department === 'C1' ? 'text-green-600' : 'text-yellow-600'}`}>X</span>}
                           </td>
                           <td className={`px-1 py-3 text-center ${pathProgress.P1 ? 'bg-yellow-100' : ''}`}>
                             {pathProgress.P1 && <span className={`text-xs font-bold ${wo.department === 'P1' ? 'text-green-600' : 'text-yellow-600'}`}>X</span>}
@@ -8303,50 +8324,136 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
                           </td>
                         </tr>
 
-                        {/* Expanded WO Details - BOM and Production Log */}
+                        {/* Expanded WO Details - BOM, Dates, RM Allotted, Scan/Issue */}
                         {isExpanded && (
                           <tr>
                             <td colSpan="18" className="p-0">
                               <div className="bg-orange-50 border-t border-l-4 border-l-orange-500 p-4">
+                                {/* Target Dates & Schedule Banner */}
+                                <div className="bg-white rounded-lg p-3 mb-4 border flex items-center justify-between">
+                                  <div className="flex items-center gap-6">
+                                    <div className="flex items-center gap-2">
+                                      <Calendar className="w-4 h-4 text-blue-600" />
+                                      <div>
+                                        <div className="text-[10px] text-gray-400 uppercase">{lang === 'th' ? 'เริ่ม' : 'Target Start'}</div>
+                                        <div className="font-bold text-sm text-blue-700">{wo.startDate ? formatDate(wo.startDate) : '—'}</div>
+                                      </div>
+                                    </div>
+                                    <ArrowRight className="w-4 h-4 text-gray-300" />
+                                    <div className="flex items-center gap-2">
+                                      <Target className="w-4 h-4 text-red-600" />
+                                      <div>
+                                        <div className="text-[10px] text-gray-400 uppercase">{lang === 'th' ? 'กำหนดเสร็จ' : 'Target Finish'}</div>
+                                        <div className="font-bold text-sm text-red-700">{wo.targetDate ? formatDate(wo.targetDate) : '—'}</div>
+                                      </div>
+                                    </div>
+                                    {wo.startDate && wo.targetDate && (() => {
+                                      const start = new Date(wo.startDate)
+                                      const end = new Date(wo.targetDate)
+                                      const now = new Date()
+                                      const totalDays = Math.ceil((end - start) / 86400000)
+                                      const elapsed = Math.ceil((now - start) / 86400000)
+                                      const remaining = Math.max(0, Math.ceil((end - now) / 86400000))
+                                      const isOverdue = now > end && wo.status !== 'completed'
+                                      return (
+                                        <div className={`px-3 py-1.5 rounded-lg text-xs font-bold ${isOverdue ? 'bg-red-100 text-red-700' : remaining <= 3 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                                          {isOverdue ? `⚠️ OVERDUE ${Math.abs(remaining)} days` : `${remaining} days remaining`} ({totalDays} total)
+                                        </div>
+                                      )
+                                    })()}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-1 rounded text-xs font-bold ${wo.status === 'completed' ? 'bg-green-100 text-green-700' : wo.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                                      {wo.status === 'completed' ? '✅ Done' : wo.status === 'in_progress' ? '🔄 In Progress' : '⏳ Pending'}
+                                    </span>
+                                    <span className="text-xs text-gray-500">@ {wo.department}</span>
+                                  </div>
+                                </div>
+
                                 <div className="grid grid-cols-2 gap-4">
-                                  {/* Left: BOM */}
+                                  {/* Left: BOM with RM Allotted */}
                                   <div>
                                     <h4 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
-                                      <FileText className="w-4 h-4" /> BOM (Bill of Materials)
+                                      <FileText className="w-4 h-4" /> {lang === 'th' ? 'วัตถุดิบที่จัดสรร (BOM)' : 'RM Allotted (BOM)'}
                                     </h4>
                                     <table className="w-full text-sm bg-white rounded-lg overflow-hidden">
                                       <thead className="bg-gray-100">
                                         <tr>
                                           <th className="px-2 py-2 text-left text-xs">Material</th>
                                           <th className="px-2 py-2 text-center text-xs">Store</th>
-                                          <th className="px-2 py-2 text-right text-xs">Req</th>
+                                          <th className="px-2 py-2 text-right text-xs">Required</th>
+                                          <th className="px-2 py-2 text-right text-xs">Allotted</th>
                                           <th className="px-2 py-2 text-right text-xs">Issued</th>
                                           <th className="px-2 py-2 text-center text-xs">Status</th>
                                         </tr>
                                       </thead>
                                       <tbody className="divide-y">
-                                        <tr>
-                                          <td className="px-2 py-2 text-xs">{wo.materialType || 'MLH'} Timber</td>
-                                          <td className="px-2 py-2 text-center"><span className="bg-amber-100 text-amber-700 px-1 py-0.5 rounded text-xs">RM</span></td>
-                                          <td className="px-2 py-2 text-right text-xs">{(wo.quantity * 4).toLocaleString()}</td>
-                                          <td className="px-2 py-2 text-right text-xs">{wo.status !== 'pending' ? (wo.quantity * 4).toLocaleString() : 0}</td>
-                                          <td className="px-2 py-2 text-center">{wo.status !== 'pending' ? <span className="text-green-600 text-xs">✓</span> : <span className="text-gray-400 text-xs">-</span>}</td>
-                                        </tr>
-                                        <tr>
-                                          <td className="px-2 py-2 text-xs">Nails 3"</td>
-                                          <td className="px-2 py-2 text-center"><span className="bg-orange-100 text-orange-700 px-1 py-0.5 rounded text-xs">CON</span></td>
-                                          <td className="px-2 py-2 text-right text-xs">{(wo.quantity * 20).toLocaleString()}</td>
-                                          <td className="px-2 py-2 text-right text-xs">{wo.status !== 'pending' ? (wo.quantity * 20).toLocaleString() : 0}</td>
-                                          <td className="px-2 py-2 text-center">{wo.status !== 'pending' ? <span className="text-green-600 text-xs">✓</span> : <span className="text-gray-400 text-xs">-</span>}</td>
-                                        </tr>
+                                        {/* Main material */}
+                                        {(() => {
+                                          const matReq = wo.quantity * 4
+                                          const matIssued = (wo.materialsIssued || []).reduce((s, m) => s + m.qty, 0)
+                                          const matAllotted = wo.status !== 'pending' ? matReq : 0
+                                          return (
+                                            <>
+                                              <tr className={matIssued >= matReq ? 'bg-green-50' : matAllotted > 0 ? 'bg-yellow-50' : ''}>
+                                                <td className="px-2 py-2 text-xs font-medium">{wo.materialType || 'MLH'} Timber</td>
+                                                <td className="px-2 py-2 text-center"><span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-xs">RM</span></td>
+                                                <td className="px-2 py-2 text-right text-xs">{matReq.toLocaleString()}</td>
+                                                <td className="px-2 py-2 text-right text-xs font-bold text-blue-600">{matAllotted.toLocaleString()}</td>
+                                                <td className="px-2 py-2 text-right text-xs">{matIssued.toLocaleString()}</td>
+                                                <td className="px-2 py-2 text-center">
+                                                  {matIssued >= matReq ? <span className="text-green-600 text-xs font-bold">✓ Done</span> :
+                                                   matAllotted > 0 ? <span className="text-yellow-600 text-xs">⬤ Partial</span> :
+                                                   <span className="text-gray-400 text-xs">○ Pending</span>}
+                                                </td>
+                                              </tr>
+                                              <tr>
+                                                <td className="px-2 py-2 text-xs">Nails 3"</td>
+                                                <td className="px-2 py-2 text-center"><span className="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-xs">CON</span></td>
+                                                <td className="px-2 py-2 text-right text-xs">{(wo.quantity * 20).toLocaleString()}</td>
+                                                <td className="px-2 py-2 text-right text-xs font-bold text-blue-600">{(wo.status !== 'pending' ? wo.quantity * 20 : 0).toLocaleString()}</td>
+                                                <td className="px-2 py-2 text-right text-xs">{(wo.status !== 'pending' ? wo.quantity * 20 : 0).toLocaleString()}</td>
+                                                <td className="px-2 py-2 text-center">{wo.status !== 'pending' ? <span className="text-green-600 text-xs font-bold">✓ Done</span> : <span className="text-gray-400 text-xs">○ Pending</span>}</td>
+                                              </tr>
+                                              <tr>
+                                                <td className="px-2 py-2 text-xs">Glue PVA</td>
+                                                <td className="px-2 py-2 text-center"><span className="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-xs">CON</span></td>
+                                                <td className="px-2 py-2 text-right text-xs">{Math.ceil(wo.quantity * 0.5).toLocaleString()}</td>
+                                                <td className="px-2 py-2 text-right text-xs font-bold text-blue-600">{(wo.status !== 'pending' ? Math.ceil(wo.quantity * 0.5) : 0).toLocaleString()}</td>
+                                                <td className="px-2 py-2 text-right text-xs">{(wo.status !== 'pending' ? Math.ceil(wo.quantity * 0.5) : 0).toLocaleString()}</td>
+                                                <td className="px-2 py-2 text-center">{wo.status !== 'pending' ? <span className="text-green-600 text-xs font-bold">✓ Done</span> : <span className="text-gray-400 text-xs">○ Pending</span>}</td>
+                                              </tr>
+                                            </>
+                                          )
+                                        })()}
                                       </tbody>
+                                      <tfoot className="bg-gray-50">
+                                        <tr>
+                                          <td colSpan="5" className="px-2 py-2 text-right text-xs font-bold">Material Cost:</td>
+                                          <td className="px-2 py-2 text-center text-xs font-bold text-orange-600">{formatCurrency(wo.costs?.material || 0)}</td>
+                                        </tr>
+                                      </tfoot>
                                     </table>
+
+                                    {/* Materials Already Issued Detail */}
+                                    {(wo.materialsIssued || []).length > 0 && (
+                                      <div className="mt-2">
+                                        <div className="text-xs font-medium text-gray-500 mb-1">{lang === 'th' ? 'วัสดุที่เบิกแล้ว:' : 'Issued Lots:'}</div>
+                                        <div className="flex flex-wrap gap-1">
+                                          {wo.materialsIssued.map((m, idx) => (
+                                            <span key={idx} className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] rounded border border-green-200">
+                                              📦 {m.lotNo}: {m.qty} pcs ({m.category})
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
 
-                                  {/* Right: Production Log */}
+                                  {/* Right: Production Log + Costs */}
                                   <div>
                                     <h4 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
-                                      <Clock className="w-4 h-4" /> Production Log
+                                      <Clock className="w-4 h-4" /> {lang === 'th' ? 'บันทึกการผลิต' : 'Production Log'}
                                     </h4>
                                     <div className="bg-white rounded-lg p-3 space-y-2 text-sm">
                                       <div className="flex justify-between">
@@ -8359,19 +8466,40 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
                                       </div>
                                       <div className="flex justify-between">
                                         <span className="text-gray-500">Progress:</span>
-                                        <span className="font-bold">{progress}%</span>
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                                            <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${progress}%` }} />
+                                          </div>
+                                          <span className="font-bold text-sm">{progress}%</span>
+                                        </div>
                                       </div>
-                                      <div className="flex justify-between">
-                                        <span className="text-gray-500">Material Cost:</span>
-                                        <span>{formatCurrency(wo.costs?.material || 0)}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span className="text-gray-500">Labor Cost:</span>
-                                        <span>{formatCurrency(wo.costs?.labor || 0)}</span>
-                                      </div>
-                                      <div className="flex justify-between font-bold border-t pt-2">
-                                        <span>Total Cost:</span>
-                                        <span className="text-orange-600">{formatCurrency(wo.costs?.total || 0)}</span>
+                                      {/* Operations history */}
+                                      {(wo.operations || []).length > 0 && (
+                                        <div className="border-t pt-2 mt-2">
+                                          <div className="text-xs font-medium text-gray-500 mb-1">{lang === 'th' ? 'ประวัติปฏิบัติงาน:' : 'Operations:'}</div>
+                                          {wo.operations.map((op, idx) => (
+                                            <div key={idx} className="flex items-center gap-2 text-xs py-0.5">
+                                              <span className={`w-2 h-2 rounded-full ${op.status === 'completed' ? 'bg-green-500' : op.status === 'in_progress' ? 'bg-blue-500 animate-pulse' : 'bg-gray-300'}`} />
+                                              <span className="font-mono w-10">{op.dept}</span>
+                                              <span className="text-gray-400">{op.hours}h</span>
+                                              <span className={op.status === 'completed' ? 'text-green-600' : 'text-blue-600'}>{op.status}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      <div className="border-t pt-2 mt-2 space-y-1">
+                                        <div className="flex justify-between text-xs">
+                                          <span className="text-gray-500">Material:</span>
+                                          <span>{formatCurrency(wo.costs?.material || 0)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-xs">
+                                          <span className="text-gray-500">Labor:</span>
+                                          <span>{formatCurrency(wo.costs?.labor || 0)}</span>
+                                        </div>
+                                        <div className="flex justify-between font-bold border-t pt-1">
+                                          <span>Total:</span>
+                                          <span className="text-orange-600">{formatCurrency(wo.costs?.total || 0)}</span>
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
@@ -8397,16 +8525,36 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
                                 </div>
 
                                 {/* Actions */}
-                                <div className="mt-3 flex gap-2">
-                                  <Button size="sm" variant="outline">
-                                    <Package className="w-4 h-4 mr-1" /> Issue Materials
+                                <div className="mt-3 flex gap-2 flex-wrap">
+                                  <Button size="sm" variant="outline" onClick={() => { setSelectedWO(wo); setShowScanIssueModal(true); setScanWO(wo) }}>
+                                    <Scan className="w-4 h-4 mr-1" /> {lang === 'th' ? 'สแกน & เบิกวัสดุ' : 'Scan & Issue Material'}
                                   </Button>
-                                  <Button size="sm" variant="outline">
-                                    <ArrowRight className="w-4 h-4 mr-1" /> Move to Next Dept
+                                  <Button size="sm" variant="outline" onClick={() => { setSelectedWO(wo); setShowIssueModal(true) }}>
+                                    <Package className="w-4 h-4 mr-1" /> {lang === 'th' ? 'เบิกวัสดุ' : 'Issue Materials'}
                                   </Button>
-                                  <Button size="sm" variant="outline">
-                                    <CheckCircle className="w-4 h-4 mr-1" /> Complete WO
+                                  <Button size="sm" variant="outline" onClick={() => {
+                                    const scenario = PRODUCTION_SCENARIOS.find(s => s.code === plnScenario)
+                                    if (!scenario) return
+                                    const currentIdx = scenario.path.indexOf(wo.department)
+                                    const nextDept = scenario.path[currentIdx + 1]
+                                    if (nextDept) {
+                                      const wasFG = wo.department === 'FG'
+                                      setWorkOrders(prev => prev.map(w => w.id === wo.id ? { ...w, department: nextDept, status: nextDept === 'FG' || nextDept === 'TRANS' ? 'completed' : 'in_progress' } : w))
+                                      if (nextDept === 'FG') {
+                                        setFgAlerts(prev => [...prev, { id: wo.id + '-fg', message: `${wo.productName} (${wo.quantity} pcs) ready at FG`, time: new Date().toISOString(), woId: wo.id, acknowledged: false }])
+                                      }
+                                    }
+                                  }}>
+                                    <ArrowRight className="w-4 h-4 mr-1" /> {lang === 'th' ? 'ย้ายแผนกถัดไป' : 'Move to Next Dept'}
                                   </Button>
+                                  {wo.department === 'FG' && (
+                                    <Button size="sm" onClick={() => {
+                                      setWorkOrders(prev => prev.map(w => w.id === wo.id ? { ...w, status: 'completed', completedQty: w.quantity } : w))
+                                      setFgAlerts(prev => [...prev, { id: wo.id + '-complete', message: `✅ ${wo.productName} (${wo.quantity} pcs) COMPLETED & added to FG Store`, time: new Date().toISOString(), woId: wo.id, acknowledged: false }])
+                                    }}>
+                                      <CheckCircle className="w-4 h-4 mr-1" /> {lang === 'th' ? 'เสร็จ & เข้า FG' : 'Complete & Add to FG'}
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -8419,6 +8567,238 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
               </table>
             </div>
           </Card>
+        </div>
+      )}
+
+      {/* ========== GANTT CHART TAB ========== */}
+      {activeTab === 'gantt' && (() => {
+        const today = new Date()
+        const startOfWeek = new Date(today)
+        startOfWeek.setDate(today.getDate() - today.getDay() + 1)
+        const days = Array.from({ length: 28 }, (_, i) => {
+          const d = new Date(startOfWeek)
+          d.setDate(startOfWeek.getDate() + i)
+          return d
+        })
+        const weekNums = [...new Set(days.map(d => {
+          const jan1 = new Date(d.getFullYear(), 0, 1)
+          return Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7)
+        }))]
+        const activeDepts = departments.filter(d => d.isActive && !['QA', 'TRANS'].includes(d.id))
+
+        const getWOsForDept = (deptId) => workOrders.filter(wo => {
+          const scenario = PRODUCTION_SCENARIOS.find(s => s.code === (wo.productionScenario || 'PLN 1.1.1'))
+          return scenario?.path.includes(deptId) || wo.department === deptId
+        })
+
+        const getBarPosition = (wo) => {
+          const start = wo.startDate ? new Date(wo.startDate) : new Date()
+          const end = wo.targetDate ? new Date(wo.targetDate) : new Date(start.getTime() + 7 * 86400000)
+          const rangeStart = days[0].getTime()
+          const rangeEnd = days[days.length - 1].getTime()
+          const totalRange = rangeEnd - rangeStart
+          const left = Math.max(0, ((start.getTime() - rangeStart) / totalRange) * 100)
+          const width = Math.max(3, Math.min(100 - left, ((end.getTime() - start.getTime()) / totalRange) * 100))
+          return { left: `${left}%`, width: `${width}%` }
+        }
+
+        const getBarColor = (wo) => {
+          if (wo.status === 'completed') return 'bg-green-500'
+          if (wo.status === 'in_progress') return 'bg-blue-500'
+          return 'bg-gray-400'
+        }
+
+        return (
+          <div className="space-y-4">
+            {/* Gantt Controls */}
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                <button onClick={() => { setGanttView('all'); setSelectedGanttDept(null) }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium ${ganttView === 'all' ? 'bg-[#1A5276] text-white' : 'bg-gray-100'}`}>
+                  {lang === 'th' ? 'ทุกแผนก' : 'All Departments'}
+                </button>
+                <button onClick={() => setGanttView('dept')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium ${ganttView === 'dept' ? 'bg-[#1A5276] text-white' : 'bg-gray-100'}`}>
+                  {lang === 'th' ? 'รายแผนก' : 'By Department'}
+                </button>
+              </div>
+              {ganttView === 'dept' && (
+                <select value={selectedGanttDept || ''} onChange={e => setSelectedGanttDept(e.target.value)}
+                  className="px-3 py-2 border rounded-lg text-sm">
+                  <option value="">{lang === 'th' ? 'เลือกแผนก' : 'Select Department'}</option>
+                  {activeDepts.map(d => <option key={d.id} value={d.id}>{d.code} - {d.nameEn}</option>)}
+                </select>
+              )}
+            </div>
+
+            {/* ALL DEPARTMENTS Gantt */}
+            {ganttView === 'all' && (
+              <Card className="overflow-hidden">
+                <div className="px-4 py-3 bg-gradient-to-r from-[#1A5276] to-[#2E86C1] text-white">
+                  <h3 className="font-bold flex items-center gap-2">
+                    <Calendar className="w-5 h-5" /> {lang === 'th' ? 'แผนผังการผลิต - ทุกแผนก' : 'Production Gantt - All Departments'}
+                  </h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <div className="min-w-[1200px]">
+                    {/* Timeline header */}
+                    <div className="flex border-b bg-gray-50">
+                      <div className="w-36 shrink-0 px-3 py-2 font-semibold text-sm border-r">{lang === 'th' ? 'แผนก' : 'Department'}</div>
+                      <div className="flex-1 flex">
+                        {days.map((d, i) => {
+                          const isToday = d.toDateString() === today.toDateString()
+                          const isWeekend = d.getDay() === 0 || d.getDay() === 6
+                          return (
+                            <div key={i} className={`flex-1 text-center text-xs py-2 border-r ${isToday ? 'bg-blue-100 font-bold' : isWeekend ? 'bg-red-50' : ''}`}>
+                              <div>{['S','M','T','W','T','F','S'][d.getDay()]}</div>
+                              <div className={isToday ? 'text-blue-600' : ''}>{d.getDate()}</div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    {/* Department rows */}
+                    {activeDepts.map(dept => {
+                      const deptWOs = getWOsForDept(dept.id)
+                      const typeColors = { cutting: '#F59E0B', processing: '#3B82F6', assembly: '#06B6D4', treatment: '#F97316', qa: '#8B5CF6', fg: '#10B981', standby: '#6B7280' }
+                      return (
+                        <div key={dept.id} className="flex border-b hover:bg-gray-50 min-h-[48px]">
+                          <div className="w-36 shrink-0 px-3 py-2 border-r flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: typeColors[dept.type] || '#6B7280' }} />
+                            <div>
+                              <div className="font-bold text-sm">{dept.code}</div>
+                              <div className="text-xs text-gray-400">{deptWOs.length} WOs</div>
+                            </div>
+                          </div>
+                          <div className="flex-1 relative py-1">
+                            {deptWOs.slice(0, 3).map((wo, idx) => {
+                              const pos = getBarPosition(wo)
+                              const progress = wo.quantity > 0 ? Math.round((wo.completedQty || 0) / wo.quantity * 100) : 0
+                              return (
+                                <div key={wo.id} className={`absolute h-5 rounded-sm ${getBarColor(wo)} opacity-90 cursor-pointer hover:opacity-100 flex items-center px-1 overflow-hidden`}
+                                  style={{ left: pos.left, width: pos.width, top: `${idx * 22 + 2}px` }}
+                                  title={`${wo.id}: ${wo.productName} (${progress}%)\nStart: ${wo.startDate || 'TBD'}\nTarget: ${wo.targetDate || 'TBD'}`}>
+                                  <span className="text-white text-[10px] font-medium truncate">{wo.id.split('-').pop()} {progress}%</span>
+                                </div>
+                              )
+                            })}
+                            {deptWOs.length > 3 && (
+                              <div className="absolute text-[10px] text-gray-400 right-1 bottom-0">+{deptWOs.length - 3} more</div>
+                            )}
+                            {/* Today line */}
+                            {(() => {
+                              const todayPos = ((today.getTime() - days[0].getTime()) / (days[days.length-1].getTime() - days[0].getTime())) * 100
+                              return todayPos >= 0 && todayPos <= 100 ? (
+                                <div className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-10" style={{ left: `${todayPos}%` }} />
+                              ) : null
+                            })()}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+                <div className="p-3 bg-gray-50 flex items-center gap-4 text-xs">
+                  <div className="flex items-center gap-1"><div className="w-4 h-2 rounded-sm bg-blue-500" /> In Progress</div>
+                  <div className="flex items-center gap-1"><div className="w-4 h-2 rounded-sm bg-green-500" /> Completed</div>
+                  <div className="flex items-center gap-1"><div className="w-4 h-2 rounded-sm bg-gray-400" /> Pending</div>
+                  <div className="flex items-center gap-1"><div className="w-0.5 h-4 bg-red-500" /> Today</div>
+                </div>
+              </Card>
+            )}
+
+            {/* DEPARTMENT-WISE Gantt */}
+            {ganttView === 'dept' && selectedGanttDept && (() => {
+              const dept = departments.find(d => d.id === selectedGanttDept)
+              const deptWOs = getWOsForDept(selectedGanttDept)
+              const deptWorkers = (employees || []).filter(e => e.department === selectedGanttDept || e.dept === selectedGanttDept)
+              return (
+                <Card className="overflow-hidden">
+                  <div className="px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+                    <h3 className="font-bold flex items-center gap-2">
+                      <Factory className="w-5 h-5" /> {dept?.code} - {dept?.nameEn} ({deptWOs.length} WOs)
+                    </h3>
+                  </div>
+                  {/* Workers in this department */}
+                  <div className="px-4 py-2 bg-indigo-50 border-b flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-indigo-700">{lang === 'th' ? 'พนักงาน:' : 'Workers:'}</span>
+                    {deptWorkers.length > 0 ? deptWorkers.map(w => (
+                      <span key={w.id} className="px-2 py-0.5 bg-white border rounded text-xs">{w.name || w.firstName}</span>
+                    )) : <span className="text-xs text-gray-400">No workers assigned</span>}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[1000px]">
+                      {/* Timeline */}
+                      <div className="flex border-b bg-gray-50">
+                        <div className="w-48 shrink-0 px-3 py-2 font-semibold text-sm border-r">WO / Product</div>
+                        <div className="flex-1 flex">
+                          {days.map((d, i) => {
+                            const isToday = d.toDateString() === today.toDateString()
+                            return (
+                              <div key={i} className={`flex-1 text-center text-xs py-2 border-r ${isToday ? 'bg-blue-100 font-bold' : d.getDay() === 0 || d.getDay() === 6 ? 'bg-red-50' : ''}`}>
+                                <div>{['S','M','T','W','T','F','S'][d.getDay()]}</div>
+                                <div>{d.getDate()}/{d.getMonth()+1}</div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      {/* WO rows */}
+                      {deptWOs.map(wo => {
+                        const pos = getBarPosition(wo)
+                        const progress = wo.quantity > 0 ? Math.round((wo.completedQty || 0) / wo.quantity * 100) : 0
+                        const customer = customers.find(c => c.id === wo.customerId)
+                        return (
+                          <div key={wo.id} className="flex border-b hover:bg-gray-50">
+                            <div className="w-48 shrink-0 px-3 py-2 border-r">
+                              <div className="font-mono text-xs text-blue-600 font-bold">{wo.id}</div>
+                              <div className="text-xs truncate">{wo.productName}</div>
+                              <div className="text-[10px] text-gray-400">{customer?.name} · {wo.quantity} pcs</div>
+                            </div>
+                            <div className="flex-1 relative py-2">
+                              <div className={`absolute h-6 rounded ${getBarColor(wo)} cursor-pointer hover:opacity-80 flex items-center px-2`}
+                                style={{ left: pos.left, width: pos.width, top: '4px' }}
+                                title={`${wo.id}: ${progress}% complete`}>
+                                <span className="text-white text-[10px] font-medium truncate">{progress}%</span>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {deptWOs.length === 0 && (
+                        <div className="p-8 text-center text-gray-400">
+                          <CheckCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                          <div>{lang === 'th' ? 'แผนกว่าง' : 'Department is free - no WOs scheduled'}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              )
+            })()}
+
+            {ganttView === 'dept' && !selectedGanttDept && (
+              <Card className="p-12 text-center text-gray-400">
+                <Factory className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <div>{lang === 'th' ? 'เลือกแผนกเพื่อดูแผนงาน' : 'Select a department to view its schedule'}</div>
+              </Card>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* FG Ready Alert Banner */}
+      {fgAlerts.filter(a => !a.acknowledged).length > 0 && (
+        <div className="fixed bottom-4 right-4 z-50 bg-green-600 text-white rounded-lg shadow-lg p-4 max-w-sm animate-bounce">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle className="w-5 h-5" />
+            <span className="font-bold">{lang === 'th' ? 'สินค้าพร้อมที่ FG!' : 'New FG Items Ready!'}</span>
+          </div>
+          {fgAlerts.filter(a => !a.acknowledged).map(alert => (
+            <div key={alert.id} className="text-sm mb-1">📦 {alert.message}</div>
+          ))}
+          <button onClick={() => setFgAlerts(prev => prev.map(a => ({ ...a, acknowledged: true })))}
+            className="mt-2 text-xs underline opacity-80 hover:opacity-100">Dismiss</button>
         </div>
       )}
 
@@ -8520,6 +8900,143 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
             onCancel={() => setShowIssueModal(false)}
           />
         </Modal>
+      )}
+
+      {/* Store Scan & Issue Modal - Scan barcode to issue from WO BOM */}
+      {showScanIssueModal && scanWO && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowScanIssueModal(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-4 rounded-t-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Scan className="w-6 h-6" />
+                  <div>
+                    <h3 className="font-bold text-lg">{lang === 'th' ? 'สแกน & เบิกวัสดุ' : 'Scan & Issue Material'}</h3>
+                    <p className="text-green-100 text-sm">WO: {scanWO.id} — {scanWO.productName}</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowScanIssueModal(false)} className="text-white/80 hover:text-white">✕</button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* WO BOM Summary */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-bold text-sm mb-2 text-gray-700">{lang === 'th' ? 'รายการวัสดุที่ต้องเบิก (BOM)' : 'Required Materials (BOM)'}</h4>
+                <div className="space-y-2">
+                  {[
+                    { name: `${scanWO.materialType || 'MLH'} Timber`, store: 'RM', req: scanWO.quantity * 4, issued: (scanWO.materialsIssued || []).reduce((s, m) => s + m.qty, 0) },
+                    { name: 'Nails 3"', store: 'CON', req: scanWO.quantity * 20, issued: scanWO.status !== 'pending' ? scanWO.quantity * 20 : 0 },
+                    { name: 'Glue PVA', store: 'CON', req: Math.ceil(scanWO.quantity * 0.5), issued: scanWO.status !== 'pending' ? Math.ceil(scanWO.quantity * 0.5) : 0 },
+                  ].map((mat, idx) => {
+                    const remaining = mat.req - mat.issued
+                    return (
+                      <div key={idx} className="flex items-center justify-between bg-white px-3 py-2 rounded border">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${mat.store === 'RM' ? 'bg-amber-100 text-amber-700' : 'bg-orange-100 text-orange-700'}`}>{mat.store}</span>
+                          <span className="text-sm">{mat.name}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="text-gray-400">Req: {mat.req.toLocaleString()}</span>
+                          <span className="text-green-600">Issued: {mat.issued.toLocaleString()}</span>
+                          {remaining > 0 ? (
+                            <span className="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded">Need: {remaining.toLocaleString()}</span>
+                          ) : (
+                            <span className="font-bold text-green-600">✓ Complete</span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Barcode Scanner Input */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{lang === 'th' ? 'สแกนบาร์โค้ด / ล็อต' : 'Scan Barcode / Lot No'}</label>
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <Scan className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      value={scanInput}
+                      onChange={e => setScanInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && scanInput.trim()) {
+                          const match = inventory.find(i => i.lotNo === scanInput.trim() || i.code === scanInput.trim())
+                          if (match && match.qty > 0) {
+                            handleMaterialIssue({
+                              woId: scanWO.id,
+                              items: [{ lotNo: match.lotNo, category: match.category, code: match.code, qty: Math.min(match.qty, scanWO.quantity), cost: match.cost }]
+                            })
+                            setScanInput('')
+                          }
+                        }
+                      }}
+                      placeholder={lang === 'th' ? 'สแกนหรือพิมพ์รหัส Lot...' : 'Scan or type lot number...'}
+                      className="w-full pl-10 pr-4 py-3 border-2 border-green-300 rounded-lg text-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      autoFocus
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (scanInput.trim()) {
+                        const match = inventory.find(i => i.lotNo === scanInput.trim() || i.code === scanInput.trim())
+                        if (match && match.qty > 0) {
+                          handleMaterialIssue({
+                            woId: scanWO.id,
+                            items: [{ lotNo: match.lotNo, category: match.category, code: match.code, qty: Math.min(match.qty, scanWO.quantity), cost: match.cost }]
+                          })
+                          setScanInput('')
+                        }
+                      }
+                    }}
+                    className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold"
+                  >
+                    {lang === 'th' ? 'เบิก' : 'Issue'}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{lang === 'th' ? 'สแกนบาร์โค้ดของล็อตวัสดุเพื่อเบิกอัตโนมัติ' : 'Scan material lot barcode to auto-issue against this WO'}</p>
+              </div>
+
+              {/* Available matching inventory */}
+              <div>
+                <h4 className="font-bold text-sm text-gray-700 mb-2">{lang === 'th' ? 'วัสดุที่ตรงกัน' : 'Matching Inventory'} ({scanWO.materialType})</h4>
+                <div className="border rounded-lg max-h-48 overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs">Lot</th>
+                        <th className="px-3 py-2 text-left text-xs">Code</th>
+                        <th className="px-3 py-2 text-right text-xs">Avail</th>
+                        <th className="px-3 py-2 text-center text-xs">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {inventory.filter(i => i.category === scanWO.materialType && i.qty > 0).slice(0, 10).map(item => (
+                        <tr key={item.lotNo} className="hover:bg-green-50">
+                          <td className="px-3 py-2 text-xs font-mono">{item.lotNo}</td>
+                          <td className="px-3 py-2 text-xs">{item.code}</td>
+                          <td className="px-3 py-2 text-right text-xs font-bold">{item.qty}</td>
+                          <td className="px-3 py-2 text-center">
+                            <button onClick={() => {
+                              handleMaterialIssue({
+                                woId: scanWO.id,
+                                items: [{ lotNo: item.lotNo, category: item.category, code: item.code, qty: Math.min(item.qty, scanWO.quantity), cost: item.cost }]
+                              })
+                            }} className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200 font-medium">
+                              {lang === 'th' ? 'เบิก' : 'Issue'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -11294,6 +11811,7 @@ function AppBasicVersion() {
                       categories={categories}
                       stores={stores}
                       salesOrders={salesOrders}
+                      employees={employees}
                       lang={lang}
                     />
                   )}
@@ -13028,13 +13546,59 @@ const HRModuleFull = ({ employees, setEmployees, lang }) => {
   const [selectedYear, setSelectedYear] = useState('2025')
   const [showEmployeeForm, setShowEmployeeForm] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState(null)
+  const [showTransferModal, setShowTransferModal] = useState(false)
+  const [transferEmployee, setTransferEmployee] = useState(null)
+  const [transferForm, setTransferForm] = useState({ fromDept: '', toDept: '', reason: '', effectiveDate: '', approvedBy: '' })
+  const [transferHistory, setTransferHistory] = useState([
+    { id: 'TR-001', empId: 2, empName: 'Somchai Yodrak', fromDept: 'C1', toDept: 'P1', reason: 'Skill development - cross-training', effectiveDate: '2025-11-01', approvedBy: 'Wuttipong Srisuk', status: 'completed', createdAt: '2025-10-25' },
+    { id: 'TR-002', empId: 6, empName: 'Somporn Kaewjai', fromDept: 'P1', toDept: 'A1', reason: 'Production demand - assembly needs', effectiveDate: '2025-12-15', approvedBy: 'Wuttipong Srisuk', status: 'completed', createdAt: '2025-12-10' },
+  ])
 
   const tabs = [
     { id: 'employees', label: lang === 'th' ? 'พนักงาน' : 'Employees', icon: Users },
     { id: 'payroll', label: lang === 'th' ? 'เงินเดือน' : 'Payroll', icon: DollarSign },
     { id: 'attendance', label: lang === 'th' ? 'การเข้างาน' : 'Attendance', icon: Clock },
     { id: 'leave', label: lang === 'th' ? 'ลางาน' : 'Leave', icon: Calendar },
+    { id: 'transfers', label: lang === 'th' ? 'โอนย้าย' : 'Transfers', icon: RefreshCw },
   ]
+
+  const DEPT_OPTIONS = [
+    { id: 'office', name: 'Office' }, { id: 'hr', name: 'HR' }, { id: 'accounting', name: 'Accounting' },
+    { id: 'sales', name: 'Sales' }, { id: 'warehouse', name: 'Warehouse' }, { id: 'transport', name: 'Transport' },
+    { id: 'maintenance', name: 'Maintenance' },
+    { id: 'C1', name: 'Cutting 1' }, { id: 'C2', name: 'Cutting 2' },
+    { id: 'P1', name: 'Processing 1' }, { id: 'P2', name: 'Processing 2' }, { id: 'P3', name: 'Processing 3' },
+    { id: 'A1', name: 'Assembly 1' }, { id: 'A2', name: 'Assembly 2' },
+    { id: 'W', name: 'Standby' }, { id: 'OVEN', name: 'Oven' }, { id: 'QC', name: 'Quality Control' },
+    { id: 'FG', name: 'Finished Goods' }, { id: 'TRANS', name: 'Transport (Production)' },
+  ]
+
+  const handleTransferSubmit = () => {
+    if (!transferEmployee || !transferForm.toDept || !transferForm.effectiveDate) return
+    const newTransfer = {
+      id: `TR-${String(transferHistory.length + 1).padStart(3, '0')}`,
+      empId: transferEmployee.id,
+      empName: transferEmployee.name,
+      fromDept: transferEmployee.department + (transferEmployee.subDept ? `/${transferEmployee.subDept}` : ''),
+      toDept: transferForm.toDept,
+      reason: transferForm.reason,
+      effectiveDate: transferForm.effectiveDate,
+      approvedBy: transferForm.approvedBy || 'HR Manager',
+      status: new Date(transferForm.effectiveDate) <= new Date() ? 'completed' : 'pending',
+      createdAt: new Date().toISOString().split('T')[0],
+    }
+    setTransferHistory(prev => [newTransfer, ...prev])
+    // Update employee department
+    const isProductionDept = ['C1','C2','P1','P2','P3','A1','A2','W','OVEN','QC','FG','TRANS'].includes(transferForm.toDept)
+    setEmployees(prev => prev.map(e => e.id === transferEmployee.id ? {
+      ...e,
+      department: isProductionDept ? 'production' : transferForm.toDept,
+      subDept: isProductionDept ? transferForm.toDept : undefined,
+    } : e))
+    setShowTransferModal(false)
+    setTransferEmployee(null)
+    setTransferForm({ fromDept: '', toDept: '', reason: '', effectiveDate: '', approvedBy: '' })
+  }
 
   // Payroll calculations
   const calculatePayroll = (emp) => {
@@ -13307,6 +13871,198 @@ const HRModuleFull = ({ employees, setEmployees, lang }) => {
           <p className="text-gray-500 mb-4">{lang === 'th' ? 'จัดการวันลาพักร้อน ลาป่วย ลากิจ' : 'Manage annual, sick, and personal leave'}</p>
           <Badge variant="warning">{lang === 'th' ? 'กำลังพัฒนา' : 'Coming Soon'}</Badge>
         </Card>
+      )}
+
+      {/* ========== TRANSFERS TAB ========== */}
+      {activeTab === 'transfers' && (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-gray-800">{lang === 'th' ? 'การโอนย้ายแผนก' : 'Department Transfers'}</h3>
+              <p className="text-sm text-gray-500">{lang === 'th' ? 'บันทึกและจัดการการโอนย้ายพนักงาน' : 'Document and manage employee department transfers'}</p>
+            </div>
+            <button onClick={() => setShowTransferModal(true)}
+              className="px-4 py-2 bg-[#1A5276] text-white rounded-lg hover:bg-[#154360] flex items-center gap-2">
+              <RefreshCw className="w-4 h-4" /> {lang === 'th' ? 'โอนย้ายใหม่' : 'New Transfer'}
+            </button>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-3 gap-4">
+            <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+              <div className="text-xs text-blue-600 font-medium">{lang === 'th' ? 'ทั้งหมด' : 'Total Transfers'}</div>
+              <div className="text-2xl font-bold text-blue-700">{transferHistory.length}</div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
+              <div className="text-xs text-yellow-600 font-medium">{lang === 'th' ? 'รอดำเนินการ' : 'Pending'}</div>
+              <div className="text-2xl font-bold text-yellow-700">{transferHistory.filter(t => t.status === 'pending').length}</div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+              <div className="text-xs text-green-600 font-medium">{lang === 'th' ? 'เสร็จสิ้น' : 'Completed'}</div>
+              <div className="text-2xl font-bold text-green-700">{transferHistory.filter(t => t.status === 'completed').length}</div>
+            </Card>
+          </div>
+
+          {/* Transfer History Table */}
+          <Card className="overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 border-b">
+              <h4 className="font-bold text-gray-700">{lang === 'th' ? 'ประวัติการโอนย้าย' : 'Transfer History'}</h4>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold">{lang === 'th' ? 'เลขที่' : 'Ref#'}</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold">{lang === 'th' ? 'พนักงาน' : 'Employee'}</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold">{lang === 'th' ? 'จากแผนก' : 'From Dept'}</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold"></th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold">{lang === 'th' ? 'ไปแผนก' : 'To Dept'}</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold">{lang === 'th' ? 'เหตุผล' : 'Reason'}</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold">{lang === 'th' ? 'วันที่มีผล' : 'Effective'}</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold">{lang === 'th' ? 'อนุมัติโดย' : 'Approved By'}</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {transferHistory.length === 0 ? (
+                    <tr><td colSpan="9" className="px-4 py-8 text-center text-gray-400">{lang === 'th' ? 'ยังไม่มีประวัติ' : 'No transfers recorded'}</td></tr>
+                  ) : transferHistory.map(tr => (
+                    <tr key={tr.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono text-xs text-blue-600 font-bold">{tr.id}</td>
+                      <td className="px-4 py-3 font-medium">{tr.empName}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="px-2 py-1 bg-red-50 text-red-600 rounded text-xs font-bold">{tr.fromDept}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center"><ArrowRight className="w-4 h-4 text-gray-400 mx-auto" /></td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="px-2 py-1 bg-green-50 text-green-600 rounded text-xs font-bold">{tr.toDept}</span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-600 max-w-[200px] truncate">{tr.reason}</td>
+                      <td className="px-4 py-3 text-center text-xs">{formatDate(tr.effectiveDate)}</td>
+                      <td className="px-4 py-3 text-center text-xs">{tr.approvedBy}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${tr.status === 'completed' ? 'bg-green-100 text-green-700' : tr.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                          {tr.status === 'completed' ? '✅' : tr.status === 'pending' ? '⏳' : '❌'} {tr.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Department Roster */}
+          <Card className="overflow-hidden">
+            <div className="px-4 py-3 bg-indigo-50 border-b">
+              <h4 className="font-bold text-indigo-700">{lang === 'th' ? 'บุคลากรตามแผนก' : 'Workers by Department'}</h4>
+            </div>
+            <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {DEPT_OPTIONS.filter(d => ['C1','C2','P1','P2','P3','A1','A2','W','OVEN','QC','FG','TRANS','warehouse','maintenance'].includes(d.id)).map(dept => {
+                const deptEmps = (employees || []).filter(e => e.department === dept.id || e.subDept === dept.id)
+                return (
+                  <div key={dept.id} className="border rounded-lg p-3 bg-white">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-bold text-sm">{dept.name}</span>
+                      <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{deptEmps.length}</span>
+                    </div>
+                    {deptEmps.length > 0 ? deptEmps.map(e => (
+                      <div key={e.id} className="flex items-center justify-between text-xs py-0.5">
+                        <span>{e.name}</span>
+                        <button onClick={() => { setTransferEmployee(e); setTransferForm(prev => ({ ...prev, fromDept: e.department + (e.subDept ? `/${e.subDept}` : '') })); setShowTransferModal(true) }}
+                          className="text-blue-500 hover:text-blue-700" title="Transfer">
+                          <RefreshCw className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )) : <div className="text-xs text-gray-400 italic">No workers</div>}
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Transfer Modal */}
+      {showTransferModal && (
+        <Modal isOpen={showTransferModal} onClose={() => { setShowTransferModal(false); setTransferEmployee(null) }} title={lang === 'th' ? 'โอนย้ายพนักงาน' : 'Transfer Employee'} size="md">
+          <div className="space-y-4">
+            {/* Select Employee if not pre-selected */}
+            {!transferEmployee ? (
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{lang === 'th' ? 'เลือกพนักงาน' : 'Select Employee'}</label>
+                <select onChange={e => {
+                  const emp = (employees || []).find(em => em.id === parseInt(e.target.value))
+                  if (emp) {
+                    setTransferEmployee(emp)
+                    setTransferForm(prev => ({ ...prev, fromDept: emp.department + (emp.subDept ? `/${emp.subDept}` : '') }))
+                  }
+                }} className="w-full border rounded-lg px-3 py-2">
+                  <option value="">{lang === 'th' ? '-- เลือก --' : '-- Select --'}</option>
+                  {(employees || []).filter(e => e.status === 'active').map(e => (
+                    <option key={e.id} value={e.id}>{e.name} ({e.department}{e.subDept ? `/${e.subDept}` : ''})</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <div className="text-sm font-bold text-blue-800">{transferEmployee.name}</div>
+                <div className="text-xs text-blue-600">Current: {transferEmployee.department}{transferEmployee.subDept ? ` / ${transferEmployee.subDept}` : ''}</div>
+              </div>
+            )}
+
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{lang === 'th' ? 'แผนกปลายทาง' : 'Transfer To Department'}</label>
+              <select value={transferForm.toDept} onChange={e => setTransferForm(prev => ({ ...prev, toDept: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2">
+                <option value="">{lang === 'th' ? '-- เลือกแผนก --' : '-- Select Department --'}</option>
+                {DEPT_OPTIONS.map(d => <option key={d.id} value={d.id}>{d.id} - {d.name}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{lang === 'th' ? 'เหตุผล' : 'Reason for Transfer'}</label>
+              <textarea value={transferForm.reason} onChange={e => setTransferForm(prev => ({ ...prev, reason: e.target.value }))}
+                rows={2} className="w-full border rounded-lg px-3 py-2" placeholder={lang === 'th' ? 'ระบุเหตุผล...' : 'Enter reason...'} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{lang === 'th' ? 'วันที่มีผล' : 'Effective Date'}</label>
+                <input type="date" value={transferForm.effectiveDate} onChange={e => setTransferForm(prev => ({ ...prev, effectiveDate: e.target.value }))}
+                  className="w-full border rounded-lg px-3 py-2" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{lang === 'th' ? 'อนุมัติโดย' : 'Approved By'}</label>
+                <input type="text" value={transferForm.approvedBy} onChange={e => setTransferForm(prev => ({ ...prev, approvedBy: e.target.value }))}
+                  className="w-full border rounded-lg px-3 py-2" placeholder="Manager name" />
+              </div>
+            </div>
+
+            {transferEmployee && transferForm.toDept && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                  <span className="font-medium text-yellow-800">{lang === 'th' ? 'ยืนยันการโอนย้าย:' : 'Confirm Transfer:'}</span>
+                </div>
+                <div className="mt-1 text-sm text-yellow-700 flex items-center gap-2">
+                  <span className="font-bold">{transferEmployee.name}</span>
+                  <span className="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs">{transferForm.fromDept || transferEmployee.department}</span>
+                  <ArrowRight className="w-4 h-4" />
+                  <span className="px-2 py-0.5 bg-green-100 text-green-600 rounded text-xs">{transferForm.toDept}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button variant="outline" onClick={() => { setShowTransferModal(false); setTransferEmployee(null) }}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
+              <Button onClick={handleTransferSubmit} disabled={!transferEmployee || !transferForm.toDept || !transferForm.effectiveDate}>
+                <RefreshCw className="w-4 h-4 mr-1" /> {lang === 'th' ? 'ดำเนินการโอนย้าย' : 'Process Transfer'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   )
@@ -19956,6 +20712,7 @@ const AppFull = () => {
                         categories={categories}
                         stores={stores}
                         salesOrders={salesOrders}
+                        employees={employees}
                         lang={lang}
                       />
                     )}
