@@ -20,8 +20,29 @@ import {
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '9.0'
+const VERSION = '9.2'
 const VERSION_DATE = '2026-02-02'
+
+// v9.2 ENHANCEMENTS - REJECTION & CLAIM FORMS:
+// 1. REJECTION FORM ENHANCED - Multiple items, product dropdown from invoice, return window validation
+// 2. CLAIM FORM ENHANCED - Link to rejection, resolution workflow (accept/reject/partial)
+// 3. VIEW MODALS - Detail view for rejections and claims
+// 4. EDIT FUNCTIONALITY - Edit existing rejections and claims
+// 5. STATUS UPDATE - Buttons to update status (open→in_progress→resolved)
+// 6. PRINT VIEWS - Professional print format for rejection and claim forms
+// 7. STANDALONE CREDIT NOTE - Create CN without rejection
+// 8. RETURN WINDOW VALIDATION - 15-day standard, 30-day for specific wood products
+// 9. RESOLUTION TRACKING - Date resolved, resolved by, resolution notes
+
+// v9.1 ENHANCEMENTS - DO, INVOICE, ORDER TRACKER FIXES:
+// 1. "+ New DO" button added to Delivery tab header - create DO directly with SO dropdown
+// 2. "+ New Invoice" button added to Invoices tab header - create Invoice directly with DO dropdown
+// 3. ORDER TRACKER - Fixed date display (full dates, not truncated)
+// 4. ORDER TRACKER - Added "Actual Delivery Date" column in schedule table
+// 5. ORDER TRACKER - Added Gantt View calendar (Production to Delivery timeline)
+// 6. ORDER TRACKER - Better column headers with sub-labels for clarity
+// 7. ORDER TRACKER - Green row highlighting for delivered schedules
+// 8. CALENDAR - 4 views now: Monthly, Weekly, Customer, Gantt
 
 // v9.0 NEW FEATURES - ORDER-TO-DELIVERY TRACKER:
 // 1. COMPLETE ORDER TRACKER - Running table with 4-level expansion (Order → Lines → Schedule → History)
@@ -12771,8 +12792,18 @@ const OrderTrackerComponent = ({
                   <th className="px-3 py-3 text-left font-medium text-gray-600">{lang === 'th' ? 'เลขที่ PO' : 'Customer PO'}</th>
                   <th className="px-3 py-3 text-left font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
                   <th className="px-3 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
-                  <th className="px-3 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'รับเมื่อ' : 'Received'}</th>
-                  <th className="px-3 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'ต้องการ' : 'Req. Del'}</th>
+                  <th className="px-3 py-3 text-center font-medium text-gray-600">
+                    <div className="flex flex-col items-center">
+                      <span>{lang === 'th' ? 'วันรับ' : 'Received'}</span>
+                      <span className="text-[9px] text-gray-400 font-normal">{lang === 'th' ? 'รับออเดอร์' : 'Order In'}</span>
+                    </div>
+                  </th>
+                  <th className="px-3 py-3 text-center font-medium text-gray-600">
+                    <div className="flex flex-col items-center">
+                      <span>{lang === 'th' ? 'ต้องการ' : 'Req. Del'}</span>
+                      <span className="text-[9px] text-gray-400 font-normal">{lang === 'th' ? 'ลูกค้าต้องการ' : 'Customer Want'}</span>
+                    </div>
+                  </th>
                   <th className="px-3 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'รวม' : 'Total'}</th>
                   <th className="px-3 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'ผลิต' : 'Prod'}</th>
                   <th className="px-3 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'ส่ง' : 'Del'}</th>
@@ -12789,8 +12820,16 @@ const OrderTrackerComponent = ({
                       <td className="px-3 py-3"><div className="font-mono text-blue-600 font-medium text-xs">{order.customerPO || order.id}</div><div className="text-[10px] text-gray-400">SO: {order.id}</div></td>
                       <td className="px-3 py-3"><div className="font-medium text-sm">{order.customer?.name}</div><div className="text-[10px] text-gray-400">{order.customer?.code}</div></td>
                       <td className="px-3 py-3 text-center"><OrderTypeBadge type={order.orderType || 'PO'} /></td>
-                      <td className="px-3 py-3 text-center text-xs text-green-600">{order.receivedDate?.slice(5) || order.orderDate?.slice(5) || '-'}</td>
-                      <td className="px-3 py-3 text-center text-xs text-orange-600 font-medium">{order.requestedDeliveryDate?.slice(5) || order.deliveryDate?.slice(5) || '-'}</td>
+                      <td className="px-3 py-3 text-center">
+                        <div className="text-xs text-green-600 font-medium">
+                          {order.receivedDate || order.orderDate || '-'}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <div className="text-xs text-orange-600 font-medium">
+                          {order.requestedDeliveryDate || order.deliveryDate || '-'}
+                        </div>
+                      </td>
                       <td className="px-3 py-3 text-right font-medium text-sm">{order.totalQty?.toLocaleString()}</td>
                       <td className="px-3 py-3 text-right text-sm"><span className={order.totalProduced > 0 ? 'text-green-600' : 'text-gray-400'}>{order.totalProduced?.toLocaleString()}</span></td>
                       <td className="px-3 py-3 text-right text-sm"><span className={order.totalDelivered > 0 ? 'text-blue-600 font-medium' : 'text-gray-400'}>{order.totalDelivered?.toLocaleString()}</span></td>
@@ -12901,8 +12940,24 @@ const OrderTrackerComponent = ({
                                                 <th className="w-6 px-1 py-1.5"></th>
                                                 <th className="px-2 py-1.5 text-left">Sch#</th>
                                                 <th className="px-2 py-1.5 text-right">Qty</th>
-                                                <th className="px-2 py-1.5 text-center">Req. Date</th>
-                                                <th className="px-2 py-1.5 text-center">Plan Date</th>
+                                                <th className="px-2 py-1.5 text-center">
+                                                  <div className="flex flex-col">
+                                                    <span>Req. Date</span>
+                                                    <span className="text-[8px] text-gray-400 font-normal">Customer</span>
+                                                  </div>
+                                                </th>
+                                                <th className="px-2 py-1.5 text-center">
+                                                  <div className="flex flex-col">
+                                                    <span>Plan Date</span>
+                                                    <span className="text-[8px] text-gray-400 font-normal">IND Plan</span>
+                                                  </div>
+                                                </th>
+                                                <th className="px-2 py-1.5 text-center">
+                                                  <div className="flex flex-col">
+                                                    <span>Actual</span>
+                                                    <span className="text-[8px] text-gray-400 font-normal">Delivered</span>
+                                                  </div>
+                                                </th>
                                                 <th className="px-2 py-1.5 text-left">Location</th>
                                                 <th className="px-2 py-1.5 text-left">DO#</th>
                                                 <th className="px-2 py-1.5 text-left">INV#</th>
@@ -12915,7 +12970,7 @@ const OrderTrackerComponent = ({
                                                   const schedKey = `${order.id}-${itemIdx}-${schedIdx}`
                                                   return (
                                                     <React.Fragment key={schedIdx}>
-                                                      <tr className={`hover:bg-gray-50 ${sched.status === 'revised' ? 'bg-amber-50' : ''}`}>
+                                                      <tr className={`hover:bg-gray-50 ${sched.status === 'revised' ? 'bg-amber-50' : ''} ${sched.status === 'delivered' ? 'bg-green-50' : ''}`}>
                                                         <td className="px-1 py-1.5 text-center">
                                                           {sched.revisionHistory?.length > 0 && (
                                                             <button onClick={(e) => { e.stopPropagation(); toggleSchedule(order.id, itemIdx, schedIdx) }}>
@@ -12925,11 +12980,21 @@ const OrderTrackerComponent = ({
                                                         </td>
                                                         <td className="px-2 py-1.5 font-medium">{schedIdx + 1}</td>
                                                         <td className="px-2 py-1.5 text-right font-medium">{sched.qty?.toLocaleString()}</td>
-                                                        <td className="px-2 py-1.5 text-center text-orange-600 text-[10px]">{sched.requestedDate || sched.originalDate || sched.deliveryDate}</td>
+                                                        <td className="px-2 py-1.5 text-center text-orange-600 font-medium">{sched.requestedDate || sched.originalDate || sched.deliveryDate || '-'}</td>
                                                         <td className="px-2 py-1.5 text-center">
                                                           {sched.revisedDate ? (
-                                                            <div><div className="line-through text-gray-400" style={{fontSize: '9px'}}>{sched.originalDate}</div><div className="text-blue-600 font-medium">{sched.revisedDate}</div></div>
-                                                          ) : <span>{sched.deliveryDate}</span>}
+                                                            <div>
+                                                              <div className="line-through text-gray-400" style={{fontSize: '9px'}}>{sched.originalDate || sched.deliveryDate}</div>
+                                                              <div className="text-blue-600 font-medium">{sched.revisedDate}</div>
+                                                            </div>
+                                                          ) : <span className="text-blue-600">{sched.plannedDate || sched.deliveryDate || '-'}</span>}
+                                                        </td>
+                                                        <td className="px-2 py-1.5 text-center">
+                                                          {sched.actualDate ? (
+                                                            <span className="text-green-600 font-medium">{sched.actualDate}</span>
+                                                          ) : (
+                                                            <span className="text-gray-400">-</span>
+                                                          )}
                                                         </td>
                                                         <td className="px-2 py-1.5 text-orange-600">{sched.locationName || sched.location || '-'}</td>
                                                         <td className="px-2 py-1.5 font-mono text-green-600">{sched.doNumber || '-'}</td>
@@ -12990,7 +13055,7 @@ const OrderTrackerComponent = ({
                                                       
                                                       {/* Level 4: Revision History */}
                                                       {expandedSchedules[schedKey] && sched.revisionHistory?.length > 0 && (
-                                                        <tr><td colSpan="11" className="p-0">
+                                                        <tr><td colSpan="12" className="p-0">
                                                           <div className="bg-amber-50 border-l-4 border-amber-400 ml-4 p-2">
                                                             <div className="text-xs font-medium text-amber-700 mb-1 flex items-center gap-1"><History className="w-3 h-3" /> Revision History</div>
                                                             <table className="w-full text-xs">
@@ -13019,7 +13084,7 @@ const OrderTrackerComponent = ({
                                                     </React.Fragment>
                                                   )
                                                 }) : (
-                                                  <tr><td colSpan="11" className="px-3 py-4 text-center text-gray-400">No schedule yet. Click "+ Add Schedule" to create one.</td></tr>
+                                                  <tr><td colSpan="12" className="px-3 py-4 text-center text-gray-400">No schedule yet. Click "+ Add Schedule" to create one.</td></tr>
                                                 )}
                                               </tbody>
                                             </table>
@@ -13067,7 +13132,12 @@ const OrderTrackerComponent = ({
           {/* Calendar View Tabs */}
           <div className="flex items-center gap-4">
             <div className="flex bg-gray-100 rounded-lg p-1">
-              {[{ id: 'monthly', label: lang === 'th' ? 'เดือน' : 'Monthly', icon: CalendarDays }, { id: 'weekly', label: lang === 'th' ? 'สัปดาห์' : 'Weekly', icon: Calendar }, { id: 'customer', label: lang === 'th' ? 'ลูกค้า' : 'Customer', icon: Building2 }].map(v => (
+              {[
+                { id: 'monthly', label: lang === 'th' ? 'เดือน' : 'Monthly', icon: CalendarDays },
+                { id: 'weekly', label: lang === 'th' ? 'สัปดาห์' : 'Weekly', icon: Calendar },
+                { id: 'customer', label: lang === 'th' ? 'ลูกค้า' : 'Customer', icon: Building2 },
+                { id: 'gantt', label: lang === 'th' ? 'แกนต์' : 'Gantt', icon: BarChart3 }
+              ].map(v => (
                 <button key={v.id} onClick={() => setCalendarView(v.id)} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1 ${calendarView === v.id ? 'bg-white shadow text-blue-600' : 'text-gray-600'}`}>
                   <v.icon className="w-4 h-4" /> {v.label}
                 </button>
@@ -13209,6 +13279,133 @@ const OrderTrackerComponent = ({
           
           {calendarView === 'customer' && !selectedCustomerView && (
             <Card className="p-12 text-center text-gray-500"><Building2 className="w-12 h-12 mx-auto mb-4 text-gray-300" /><p>{lang === 'th' ? 'เลือกลูกค้า' : 'Select a customer'}</p></Card>
+          )}
+
+          {/* Gantt View - Production to Delivery Timeline */}
+          {calendarView === 'gantt' && (
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b flex justify-between items-center">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-blue-600" />
+                  {lang === 'th' ? 'แผนการผลิต-ส่งมอบ' : 'Production to Delivery Timeline'}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setCalendarDate(new Date(calendarDate.getTime() - 14 * 24 * 60 * 60 * 1000))} className="p-2 hover:bg-gray-100 rounded">
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <span className="font-medium">
+                    {calendarDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(calendarDate.getTime() + 13 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                  <button onClick={() => setCalendarDate(new Date(calendarDate.getTime() + 14 * 24 * 60 * 60 * 1000))} className="p-2 hover:bg-gray-100 rounded">
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Gantt Chart */}
+              <div className="overflow-x-auto">
+                <div className="min-w-[900px]">
+                  {/* Date Headers */}
+                  <div className="flex border-b bg-gray-50">
+                    <div className="w-48 px-3 py-2 font-medium text-sm text-gray-600 border-r flex-shrink-0">
+                      {lang === 'th' ? 'ออเดอร์' : 'Order'}
+                    </div>
+                    <div className="flex-1 flex">
+                      {Array.from({ length: 14 }, (_, i) => {
+                        const date = new Date(calendarDate.getTime() + i * 24 * 60 * 60 * 1000)
+                        const isToday = date.toDateString() === new Date().toDateString()
+                        const isWeekend = date.getDay() === 0 || date.getDay() === 6
+                        return (
+                          <div key={i} className={`flex-1 min-w-[50px] px-1 py-2 text-center text-xs border-r ${isToday ? 'bg-blue-100 font-bold text-blue-600' : isWeekend ? 'bg-gray-100' : ''}`}>
+                            <div>{date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                            <div className="font-medium">{date.getDate()}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* Order Rows */}
+                  {filteredOrders.slice(0, 10).map((order, orderIdx) => {
+                    const orderStart = new Date(order.orderDate || order.createdAt)
+                    const orderDelivery = new Date(order.requestedDeliveryDate || order.deliveryDate || orderStart)
+                    
+                    return (
+                      <div key={order.id} className={`flex border-b hover:bg-gray-50 ${orderIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
+                        {/* Order Info */}
+                        <div className="w-48 px-3 py-2 border-r flex-shrink-0">
+                          <div className="font-mono text-xs text-blue-600 truncate">{order.customerPO || order.id}</div>
+                          <div className="text-[10px] text-gray-500 truncate">{order.customer?.name}</div>
+                          <div className="text-[9px] text-gray-400">{order.totalQty} {order.items?.[0]?.unit || 'pcs'}</div>
+                        </div>
+                        
+                        {/* Timeline */}
+                        <div className="flex-1 flex relative">
+                          {Array.from({ length: 14 }, (_, i) => {
+                            const cellDate = new Date(calendarDate.getTime() + i * 24 * 60 * 60 * 1000)
+                            const cellDateStr = cellDate.toISOString().split('T')[0]
+                            const isWeekend = cellDate.getDay() === 0 || cellDate.getDay() === 6
+                            
+                            // Check if any delivery on this date
+                            const hasDelivery = order.items?.some(item => 
+                              item.deliverySchedule?.some(sched => {
+                                const schedDate = sched.revisedDate || sched.deliveryDate
+                                return schedDate === cellDateStr
+                              })
+                            )
+                            
+                            // Check if production ongoing
+                            const orderDateStr = (order.orderDate || order.createdAt?.split('T')[0])
+                            const deliveryDateStr = order.requestedDeliveryDate || order.deliveryDate
+                            const isInRange = cellDateStr >= orderDateStr && cellDateStr <= deliveryDateStr
+                            
+                            return (
+                              <div key={i} className={`flex-1 min-w-[50px] h-12 border-r relative ${isWeekend ? 'bg-gray-100/50' : ''}`}>
+                                {/* Production bar */}
+                                {isInRange && (
+                                  <div className={`absolute top-2 left-0 right-0 h-3 ${
+                                    order.overallStatus === 'complete' ? 'bg-green-400' :
+                                    order.overallStatus === 'partial' ? 'bg-orange-400' :
+                                    order.overallStatus === 'ready' ? 'bg-cyan-400' :
+                                    order.overallStatus === 'in_production' ? 'bg-yellow-400' :
+                                    'bg-gray-300'
+                                  }`} style={{ borderRadius: i === 0 ? '4px 0 0 4px' : cellDateStr === deliveryDateStr ? '0 4px 4px 0' : '0' }} />
+                                )}
+                                
+                                {/* Delivery marker */}
+                                {hasDelivery && (
+                                  <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2">
+                                    <Truck className="w-4 h-4 text-green-600" />
+                                  </div>
+                                )}
+                                
+                                {/* Requested delivery marker */}
+                                {cellDateStr === deliveryDateStr && (
+                                  <div className="absolute top-1 left-1/2 transform -translate-x-1/2">
+                                    <Target className="w-3 h-3 text-red-500" />
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+              
+              {/* Legend */}
+              <div className="p-3 bg-gray-50 border-t flex flex-wrap gap-4 text-xs">
+                <div className="flex items-center gap-1"><div className="w-6 h-3 bg-gray-300 rounded" /> {lang === 'th' ? 'วางแผน' : 'Planned'}</div>
+                <div className="flex items-center gap-1"><div className="w-6 h-3 bg-yellow-400 rounded" /> {lang === 'th' ? 'กำลังผลิต' : 'In Production'}</div>
+                <div className="flex items-center gap-1"><div className="w-6 h-3 bg-cyan-400 rounded" /> {lang === 'th' ? 'พร้อมส่ง' : 'Ready'}</div>
+                <div className="flex items-center gap-1"><div className="w-6 h-3 bg-orange-400 rounded" /> {lang === 'th' ? 'ส่งบางส่วน' : 'Partial'}</div>
+                <div className="flex items-center gap-1"><div className="w-6 h-3 bg-green-400 rounded" /> {lang === 'th' ? 'เสร็จ' : 'Complete'}</div>
+                <div className="flex items-center gap-1"><Target className="w-3 h-3 text-red-500" /> {lang === 'th' ? 'กำหนดส่ง' : 'Target'}</div>
+                <div className="flex items-center gap-1"><Truck className="w-4 h-4 text-green-600" /> {lang === 'th' ? 'ส่งมอบ' : 'Delivery'}</div>
+              </div>
+            </Card>
           )}
         </div>
       )}
@@ -13359,6 +13556,7 @@ const SalesModuleFull = ({
   const [showSOModal, setShowSOModal] = useState(false)
   const [showDOModal, setShowDOModal] = useState(false)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  const [showInvoiceCreateModal, setShowInvoiceCreateModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showRejectionModal, setShowRejectionModal] = useState(false)
   const [showClaimModal, setShowClaimModal] = useState(false)
@@ -14551,8 +14749,24 @@ const SalesModuleFull = ({
       {/* ========== DELIVERY ORDERS TAB ========== */}
       {activeTab === 'delivery' && (
         <Card className="overflow-hidden">
-          <div className="p-4 border-b">
+          <div className="p-4 border-b flex justify-between items-center">
             <h3 className="font-bold">{lang === 'th' ? 'รายการใบส่งสินค้า' : 'Delivery Orders List'}</h3>
+            <Button size="sm" icon={Plus} onClick={() => { 
+              // Show SO selection for DO creation
+              const pendingSOs = salesOrders?.filter(so => {
+                const totalQty = so.items?.reduce((sum, item) => sum + item.qty, 0) || 0
+                const deliveredQty = so.items?.reduce((sum, item) => sum + (item.qtyDelivered || 0), 0) || 0
+                return deliveredQty < totalQty
+              }) || []
+              if (pendingSOs.length === 0) {
+                alert(lang === 'th' ? 'ไม่มี SO ที่รอส่งสินค้า' : 'No Sales Orders pending delivery')
+                return
+              }
+              setSelectedItem({ pendingSOs, mode: 'new_do' })
+              setShowDOModal(true)
+            }}>
+              {lang === 'th' ? 'สร้างใหม่' : 'New DO'}
+            </Button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -14628,8 +14842,23 @@ const SalesModuleFull = ({
       {/* ========== INVOICES TAB ========== */}
       {activeTab === 'invoices' && (
         <Card className="overflow-hidden">
-          <div className="p-4 border-b">
+          <div className="p-4 border-b flex justify-between items-center">
             <h3 className="font-bold">{lang === 'th' ? 'รายการใบแจ้งหนี้' : 'Invoices List'}</h3>
+            <Button size="sm" icon={Plus} onClick={() => { 
+              // Show DO selection for Invoice creation
+              const pendingDOs = deliveryOrders?.filter(doItem => {
+                const hasInvoice = invoices?.some(inv => inv.doId === doItem.id)
+                return !hasInvoice
+              }) || []
+              if (pendingDOs.length === 0) {
+                alert(lang === 'th' ? 'ไม่มี DO ที่รอสร้างใบแจ้งหนี้' : 'No Delivery Orders pending invoicing')
+                return
+              }
+              setSelectedItem({ pendingDOs, mode: 'new_invoice' })
+              setShowInvoiceCreateModal(true)
+            }}>
+              {lang === 'th' ? 'สร้างใหม่' : 'New Invoice'}
+            </Button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -15133,6 +15362,26 @@ const SalesModuleFull = ({
       {/* ========== REJECTIONS TAB ========== */}
       {activeTab === 'rejections' && (
         <div className="space-y-6">
+          {/* Summary Stats */}
+          <div className="grid grid-cols-4 gap-4">
+            <Card className="p-4 border-l-4 border-l-red-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รอดำเนินการ' : 'Open'}</div>
+              <div className="text-2xl font-bold text-red-600">{rejections?.filter(r => r.status === 'open').length || 0}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'กำลังดำเนินการ' : 'In Progress'}</div>
+              <div className="text-2xl font-bold text-blue-600">{rejections?.filter(r => r.status === 'in_progress').length || 0}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-green-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'เสร็จสิ้น' : 'Resolved'}</div>
+              <div className="text-2xl font-bold text-green-600">{rejections?.filter(r => r.status === 'resolved').length || 0}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-yellow-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่ารวม' : 'Total Value'}</div>
+              <div className="text-xl font-bold text-yellow-600">{formatCurrency(rejections?.reduce((sum, r) => sum + (r.totalValue || 0), 0) || 0)}</div>
+            </Card>
+          </div>
+
           <Card className="overflow-hidden">
             <div className="p-4 border-b flex justify-between items-center">
               <h3 className="font-bold">{lang === 'th' ? 'รายการคืนสินค้า/ปฏิเสธรับ' : 'Returns & Rejections'}</h3>
@@ -15144,58 +15393,110 @@ const SalesModuleFull = ({
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'REJ #'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'Invoice/DO' : 'Invoice/DO'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'สาเหตุ' : 'Reason'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'REJ #'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'Invoice' : 'Invoice'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+                    <th className="px-3 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'สาเหตุ' : 'Reason'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'การดำเนินการ' : 'Action'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {rejections?.map(rej => {
                     const customer = customers.find(c => c.id === rej.customerId)
                     return (
-                      <tr key={rej.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 font-mono text-red-600">{rej.id}</td>
-                        <td className="px-4 py-3">{formatDate(rej.date)}</td>
-                        <td className="px-4 py-3">{customer?.name}</td>
-                        <td className="px-4 py-3 text-sm">
-                          <span className="font-mono text-teal-600">{rej.invoiceId}</span>
-                          {rej.doId && <span className="text-gray-400 ml-1">/ {rej.doId}</span>}
+                      <tr key={rej.id} className={`hover:bg-gray-50 ${rej.status === 'open' ? 'bg-red-50/30' : ''}`}>
+                        <td className="px-3 py-3 font-mono text-red-600 font-medium">{rej.id}</td>
+                        <td className="px-3 py-3 text-sm">{formatDate(rej.date)}</td>
+                        <td className="px-3 py-3 text-sm">{customer?.name}</td>
+                        <td className="px-3 py-3">
+                          <span className="font-mono text-teal-600 text-sm">{rej.invoiceId}</span>
                         </td>
-                        <td className="px-4 py-3 text-center font-bold text-red-600">{rej.totalRejected}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3 text-center font-bold text-red-600">{rej.totalRejected}</td>
+                        <td className="px-3 py-3 text-right font-medium text-orange-600">{formatCurrency(rej.totalValue || 0)}</td>
+                        <td className="px-3 py-3">
                           <Badge variant={
                             rej.reason === 'damaged' ? 'danger' :
                             rej.reason === 'quality_issue' ? 'warning' :
+                            rej.reason === 'wrong_size' ? 'info' :
                             'default'
-                          }>{rej.reason}</Badge>
+                          }>{rej.reason?.replace('_', ' ')}</Badge>
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-3 py-3">
+                          <Badge variant={
+                            rej.action === 'credit_note' ? 'warning' :
+                            rej.action === 'replace' ? 'info' :
+                            rej.action === 'refund' ? 'success' :
+                            'default'
+                          }>{rej.action?.replace('_', ' ') || '-'}</Badge>
+                        </td>
+                        <td className="px-3 py-3 text-center">
                           <Badge variant={
                             rej.status === 'resolved' ? 'success' :
                             rej.status === 'in_progress' ? 'info' :
                             'warning'
                           }>{rej.status}</Badge>
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-3 py-3">
                           <div className="flex items-center justify-center gap-1">
-                            {rej.status === 'open' && !rej.creditNoteId && (
-                              <Button size="sm" variant="warning" onClick={() => handleCreateCreditNote(rej)}>
-                                {lang === 'th' ? 'ออก CN' : 'Issue CN'}
+                            {/* View Button */}
+                            <Button size="sm" variant="ghost" onClick={() => { 
+                              setSelectedItem(rej)
+                              alert(`${lang === 'th' ? 'รายละเอียด' : 'Details'}:\n\n${lang === 'th' ? 'สาเหตุ' : 'Reason'}: ${rej.reason}\n${lang === 'th' ? 'รายละเอียด' : 'Description'}: ${rej.description || '-'}\n${lang === 'th' ? 'ผู้รับเรื่อง' : 'Handled by'}: ${rej.handledBy || '-'}\n${lang === 'th' ? 'รายการ' : 'Items'}: ${rej.items?.length || 0} items`)
+                            }} title={lang === 'th' ? 'ดูรายละเอียด' : 'View Details'}>
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                            
+                            {/* Edit Button */}
+                            <Button size="sm" variant="ghost" onClick={() => { 
+                              setSelectedItem(rej)
+                              setEditMode(true)
+                              setShowRejectionModal(true)
+                            }} title={lang === 'th' ? 'แก้ไข' : 'Edit'}>
+                              <Edit3 className="w-3 h-3" />
+                            </Button>
+                            
+                            {/* Status Update Buttons */}
+                            {rej.status === 'open' && (
+                              <Button size="sm" variant="info" onClick={() => {
+                                setRejections(rejections.map(r => r.id === rej.id ? {...r, status: 'in_progress'} : r))
+                              }} title={lang === 'th' ? 'เริ่มดำเนินการ' : 'Start Processing'}>
+                                <Play className="w-3 h-3" />
                               </Button>
                             )}
+                            
+                            {rej.status === 'in_progress' && !rej.creditNoteId && (
+                              <Button size="sm" variant="warning" onClick={() => handleCreateCreditNote(rej)}>
+                                {lang === 'th' ? 'CN' : 'CN'}
+                              </Button>
+                            )}
+                            
+                            {rej.status === 'in_progress' && (
+                              <Button size="sm" variant="success" onClick={() => {
+                                setRejections(rejections.map(r => r.id === rej.id ? {...r, status: 'resolved', resolutionDate: new Date().toISOString().split('T')[0]} : r))
+                              }} title={lang === 'th' ? 'เสร็จสิ้น' : 'Resolve'}>
+                                <CheckCircle className="w-3 h-3" />
+                              </Button>
+                            )}
+                            
                             {rej.creditNoteId && (
-                              <span className="text-xs text-green-600 font-mono">{rej.creditNoteId}</span>
+                              <span className="text-xs text-green-600 font-mono bg-green-50 px-2 py-1 rounded">{rej.creditNoteId}</span>
                             )}
                           </div>
                         </td>
                       </tr>
                     )
                   })}
+                  {(!rejections || rejections.length === 0) && (
+                    <tr><td colSpan="10" className="px-4 py-8 text-center text-gray-400">
+                      <RotateCcw className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      {lang === 'th' ? 'ไม่มีรายการคืนสินค้า' : 'No returns recorded'}
+                    </td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -15203,8 +15504,36 @@ const SalesModuleFull = ({
 
           {/* Credit Notes Section */}
           <Card className="overflow-hidden">
-            <div className="p-4 border-b bg-yellow-50">
+            <div className="p-4 border-b bg-yellow-50 flex justify-between items-center">
               <h3 className="font-bold text-yellow-800">{lang === 'th' ? 'ใบลดหนี้ (Credit Notes)' : 'Credit Notes'}</h3>
+              <Button size="sm" variant="warning" icon={Plus} onClick={() => {
+                // Create standalone credit note
+                const customerId = prompt(lang === 'th' ? 'กรุณาใส่รหัสลูกค้า:' : 'Enter Customer ID:')
+                const invoiceId = prompt(lang === 'th' ? 'กรุณาใส่เลข Invoice:' : 'Enter Invoice ID:')
+                const amount = prompt(lang === 'th' ? 'จำนวนเงิน:' : 'Amount:')
+                const reason = prompt(lang === 'th' ? 'เหตุผล:' : 'Reason:')
+                if (customerId && amount && reason) {
+                  const newCN = {
+                    id: generateId('CN'),
+                    date: new Date().toISOString().split('T')[0],
+                    customerId,
+                    originalInvoiceId: invoiceId || null,
+                    rejectionId: null,
+                    claimId: null,
+                    reason,
+                    items: [{ id: 1, description: reason, qty: 1, unitPrice: parseFloat(amount), total: parseFloat(amount) }],
+                    subtotal: parseFloat(amount),
+                    vatRate: 7,
+                    vat: parseFloat(amount) * 0.07,
+                    grandTotal: parseFloat(amount) * 1.07,
+                    status: 'draft',
+                    createdAt: new Date().toISOString().split('T')[0],
+                  }
+                  setCreditNotes([...creditNotes, newCN])
+                }
+              }}>
+                {lang === 'th' ? 'สร้าง CN' : 'New CN'}
+              </Button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -15214,6 +15543,7 @@ const SalesModuleFull = ({
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'Invoice อ้างอิง' : 'Ref Invoice'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เหตุผล' : 'Reason'}</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่า' : 'Amount'}</th>
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
                     <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
@@ -15224,10 +15554,11 @@ const SalesModuleFull = ({
                     const customer = customers.find(c => c.id === cn.customerId)
                     return (
                       <tr key={cn.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 font-mono text-yellow-600">{cn.id}</td>
+                        <td className="px-4 py-3 font-mono text-yellow-600 font-medium">{cn.id}</td>
                         <td className="px-4 py-3">{formatDate(cn.date)}</td>
-                        <td className="px-4 py-3">{customer?.name}</td>
-                        <td className="px-4 py-3 font-mono text-teal-600">{cn.originalInvoiceId}</td>
+                        <td className="px-4 py-3">{customer?.name || cn.customerId}</td>
+                        <td className="px-4 py-3 font-mono text-teal-600">{cn.originalInvoiceId || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{cn.reason}</td>
                         <td className="px-4 py-3 text-right font-bold text-yellow-600">{formatCurrency(cn.grandTotal)}</td>
                         <td className="px-4 py-3 text-center">
                           <Badge variant={cn.status === 'applied' ? 'success' : cn.status === 'issued' ? 'info' : 'warning'}>
@@ -15235,16 +15566,46 @@ const SalesModuleFull = ({
                           </Badge>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <Button size="sm" variant="ghost" onClick={() => { 
-                            setSelectedItem({ ...cn, amount: cn.grandTotal, invoiceId: cn.originalInvoiceId }); 
-                            setShowCreditNotePrint(true) 
-                          }} title="Print">
-                            <Printer className="w-3 h-3" />
-                          </Button>
+                          <div className="flex items-center justify-center gap-1">
+                            {cn.status === 'draft' && (
+                              <Button size="sm" variant="info" onClick={() => {
+                                setCreditNotes(creditNotes.map(c => c.id === cn.id ? {...c, status: 'issued'} : c))
+                              }} title={lang === 'th' ? 'ออกใบลดหนี้' : 'Issue'}>
+                                <Send className="w-3 h-3" />
+                              </Button>
+                            )}
+                            {cn.status === 'issued' && cn.originalInvoiceId && (
+                              <Button size="sm" variant="success" onClick={() => {
+                                // Apply to invoice
+                                const inv = invoices?.find(i => i.id === cn.originalInvoiceId)
+                                if (inv) {
+                                  setInvoices(invoices.map(i => i.id === inv.id ? {
+                                    ...i, 
+                                    balance: Math.max(0, (i.balance || i.grandTotal) - cn.grandTotal),
+                                    creditNoteApplied: (i.creditNoteApplied || 0) + cn.grandTotal
+                                  } : i))
+                                  setCreditNotes(creditNotes.map(c => c.id === cn.id ? {...c, status: 'applied', appliedDate: new Date().toISOString().split('T')[0]} : c))
+                                }
+                              }} title={lang === 'th' ? 'หักลบจาก Invoice' : 'Apply to Invoice'}>
+                                <CheckCircle className="w-3 h-3" />
+                              </Button>
+                            )}
+                            <Button size="sm" variant="ghost" onClick={() => { 
+                              setSelectedItem({ ...cn, amount: cn.grandTotal, invoiceId: cn.originalInvoiceId }); 
+                              setShowCreditNotePrint(true) 
+                            }} title="Print">
+                              <Printer className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     )
                   })}
+                  {(!creditNotes || creditNotes.length === 0) && (
+                    <tr><td colSpan="8" className="px-4 py-8 text-center text-gray-400">
+                      {lang === 'th' ? 'ไม่มีใบลดหนี้' : 'No credit notes'}
+                    </td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -15254,66 +15615,200 @@ const SalesModuleFull = ({
 
       {/* ========== CLAIMS TAB ========== */}
       {activeTab === 'claims' && (
-        <Card className="overflow-hidden">
-          <div className="p-4 border-b flex justify-between items-center">
-            <h3 className="font-bold">{lang === 'th' ? 'รายการเคลม/ข้อพิพาท' : 'Claims & Disputes'}</h3>
-            <Button size="sm" icon={Plus} onClick={() => { setEditMode(false); setSelectedItem(null); setShowClaimModal(true) }}>
-              {lang === 'th' ? 'บันทึกเคลม' : 'New Claim'}
-            </Button>
+        <div className="space-y-6">
+          {/* Summary Stats */}
+          <div className="grid grid-cols-5 gap-4">
+            <Card className="p-4 border-l-4 border-l-orange-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รอตรวจสอบ' : 'Open'}</div>
+              <div className="text-2xl font-bold text-orange-600">{claims?.filter(c => c.status === 'open').length || 0}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'กำลังตรวจสอบ' : 'Under Review'}</div>
+              <div className="text-2xl font-bold text-blue-600">{claims?.filter(c => c.status === 'under_review').length || 0}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-green-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'แก้ไขแล้ว' : 'Resolved'}</div>
+              <div className="text-2xl font-bold text-green-600">{claims?.filter(c => c.status === 'resolved' || c.status === 'closed').length || 0}</div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-red-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รอติดตาม' : 'Follow-up Due'}</div>
+              <div className="text-2xl font-bold text-red-600">
+                {claims?.filter(c => c.followUpDate && new Date(c.followUpDate) <= new Date() && c.status !== 'resolved' && c.status !== 'closed').length || 0}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-yellow-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'มูลค่าเคลม' : 'Total Claimed'}</div>
+              <div className="text-xl font-bold text-yellow-600">{formatCurrency(claims?.reduce((sum, c) => sum + (c.claimAmount || 0), 0) || 0)}</div>
+            </Card>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'CLM #'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่าเคลม' : 'Claim Amt'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'รายละเอียด' : 'Description'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ผลการแก้ไข' : 'Resolution'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {claims?.map(claim => {
-                  const customer = customers.find(c => c.id === claim.customerId)
-                  return (
-                    <tr key={claim.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-mono text-orange-600">{claim.id}</td>
-                      <td className="px-4 py-3">{formatDate(claim.date)}</td>
-                      <td className="px-4 py-3">{customer?.name}</td>
-                      <td className="px-4 py-3">
-                        <Badge variant={
-                          claim.claimType === 'quality' ? 'warning' :
-                          claim.claimType === 'damage' ? 'danger' :
-                          claim.claimType === 'shortage' ? 'info' :
-                          'default'
-                        }>{claim.claimType}</Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold">{claim.claimAmount ? formatCurrency(claim.claimAmount) : '-'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{claim.description}</td>
-                      <td className="px-4 py-3 text-center">
-                        <Badge variant={
-                          claim.status === 'closed' || claim.status === 'resolved' ? 'success' :
-                          claim.status === 'under_review' ? 'info' :
-                          'warning'
-                        }>{claim.status}</Badge>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {claim.resolution ? (
-                          <Badge variant={claim.resolution === 'accepted_full' ? 'success' : claim.resolution === 'rejected' ? 'danger' : 'warning'}>
-                            {claim.resolution}
-                          </Badge>
-                        ) : '-'}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="font-bold">{lang === 'th' ? 'รายการเคลม/ข้อพิพาท' : 'Claims & Disputes'}</h3>
+              <Button size="sm" icon={Plus} onClick={() => { setEditMode(false); setSelectedItem(null); setShowClaimModal(true) }}>
+                {lang === 'th' ? 'บันทึกเคลม' : 'New Claim'}
+              </Button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'CLM #'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'วันที่' : 'Date'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
+                    <th className="px-3 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'อ้างอิง' : 'Reference'}</th>
+                    <th className="px-3 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'มูลค่าเคลม' : 'Claim Amt'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ติดตาม' : 'Follow-up'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'ผลสรุป' : 'Resolution'}</th>
+                    <th className="px-3 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {claims?.map(claim => {
+                    const customer = customers.find(c => c.id === claim.customerId)
+                    const isFollowUpDue = claim.followUpDate && new Date(claim.followUpDate) <= new Date() && claim.status !== 'resolved' && claim.status !== 'closed'
+                    return (
+                      <tr key={claim.id} className={`hover:bg-gray-50 ${isFollowUpDue ? 'bg-red-50/50' : claim.status === 'open' ? 'bg-orange-50/30' : ''}`}>
+                        <td className="px-3 py-3 font-mono text-orange-600 font-medium">{claim.id}</td>
+                        <td className="px-3 py-3 text-sm">{formatDate(claim.date)}</td>
+                        <td className="px-3 py-3 text-sm">{customer?.name}</td>
+                        <td className="px-3 py-3">
+                          <Badge variant={
+                            claim.claimType === 'quality' ? 'warning' :
+                            claim.claimType === 'damage' ? 'danger' :
+                            claim.claimType === 'shortage' ? 'info' :
+                            claim.claimType === 'late_delivery' ? 'default' :
+                            'default'
+                          }>{claim.claimType?.replace('_', ' ')}</Badge>
+                        </td>
+                        <td className="px-3 py-3 text-sm">
+                          {claim.rejectionId && <span className="font-mono text-red-500 text-xs">{claim.rejectionId}</span>}
+                          {claim.invoiceId && <span className="font-mono text-teal-600 text-xs ml-1">{claim.invoiceId}</span>}
+                          {!claim.rejectionId && !claim.invoiceId && <span className="text-gray-400">-</span>}
+                        </td>
+                        <td className="px-3 py-3 text-right font-bold text-orange-600">{claim.claimAmount ? formatCurrency(claim.claimAmount) : '-'}</td>
+                        <td className="px-3 py-3 text-center">
+                          {claim.followUpDate ? (
+                            <span className={`text-xs ${isFollowUpDue ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
+                              {isFollowUpDue && '⚠️ '}{formatDate(claim.followUpDate)}
+                            </span>
+                          ) : '-'}
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <Badge variant={
+                            claim.status === 'closed' || claim.status === 'resolved' ? 'success' :
+                            claim.status === 'under_review' ? 'info' :
+                            'warning'
+                          }>{claim.status?.replace('_', ' ')}</Badge>
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          {claim.resolution ? (
+                            <Badge variant={
+                              claim.resolution === 'accepted_full' ? 'success' : 
+                              claim.resolution === 'accepted_partial' ? 'warning' :
+                              claim.resolution === 'rejected' ? 'danger' : 
+                              'info'
+                            }>{claim.resolution?.replace('_', ' ')}</Badge>
+                          ) : '-'}
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center justify-center gap-1">
+                            {/* View Button */}
+                            <Button size="sm" variant="ghost" onClick={() => { 
+                              alert(`${lang === 'th' ? 'รายละเอียดเคลม' : 'Claim Details'}:\n\n${lang === 'th' ? 'ประเภท' : 'Type'}: ${claim.claimType}\n${lang === 'th' ? 'มูลค่า' : 'Amount'}: ${formatCurrency(claim.claimAmount || 0)}\n\n${lang === 'th' ? 'รายละเอียด' : 'Description'}:\n${claim.description || '-'}\n\n${lang === 'th' ? 'การตรวจสอบ' : 'Investigation'}:\n${claim.investigationNotes || '-'}\n\n${lang === 'th' ? 'ผลสรุป' : 'Resolution'}: ${claim.resolution || 'Pending'}\n${lang === 'th' ? 'หมายเหตุ' : 'Notes'}: ${claim.resolutionNotes || '-'}`)
+                            }} title={lang === 'th' ? 'ดูรายละเอียด' : 'View Details'}>
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                            
+                            {/* Edit Button */}
+                            <Button size="sm" variant="ghost" onClick={() => { 
+                              setSelectedItem(claim)
+                              setEditMode(true)
+                              setShowClaimModal(true)
+                            }} title={lang === 'th' ? 'แก้ไข' : 'Edit'}>
+                              <Edit3 className="w-3 h-3" />
+                            </Button>
+                            
+                            {/* Status Update Buttons */}
+                            {claim.status === 'open' && (
+                              <Button size="sm" variant="info" onClick={() => {
+                                setClaims(claims.map(c => c.id === claim.id ? {...c, status: 'under_review'} : c))
+                              }} title={lang === 'th' ? 'เริ่มตรวจสอบ' : 'Start Review'}>
+                                <Play className="w-3 h-3" />
+                              </Button>
+                            )}
+                            
+                            {claim.status === 'under_review' && !claim.resolution && (
+                              <>
+                                <Button size="sm" variant="success" onClick={() => {
+                                  const compensation = prompt(lang === 'th' ? 'มูลค่าชดเชย:' : 'Compensation amount:', claim.claimAmount?.toString() || '0')
+                                  setClaims(claims.map(c => c.id === claim.id ? {
+                                    ...c, 
+                                    resolution: 'accepted_full', 
+                                    status: 'resolved',
+                                    compensationAmount: parseFloat(compensation) || 0,
+                                    resolutionDate: new Date().toISOString().split('T')[0]
+                                  } : c))
+                                }} title={lang === 'th' ? 'ยอมรับ' : 'Accept'}>
+                                  <CheckCircle className="w-3 h-3" />
+                                </Button>
+                                <Button size="sm" variant="danger" onClick={() => {
+                                  const reason = prompt(lang === 'th' ? 'เหตุผลที่ปฏิเสธ:' : 'Rejection reason:')
+                                  setClaims(claims.map(c => c.id === claim.id ? {
+                                    ...c, 
+                                    resolution: 'rejected', 
+                                    status: 'closed',
+                                    resolutionNotes: reason,
+                                    resolutionDate: new Date().toISOString().split('T')[0]
+                                  } : c))
+                                }} title={lang === 'th' ? 'ปฏิเสธ' : 'Reject'}>
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </>
+                            )}
+                            
+                            {/* Compensation Badge */}
+                            {claim.compensationAmount > 0 && claim.resolution && (
+                              <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                                {formatCurrency(claim.compensationAmount)}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {(!claims || claims.length === 0) && (
+                    <tr><td colSpan="10" className="px-4 py-8 text-center text-gray-400">
+                      <AlertCircle className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      {lang === 'th' ? 'ไม่มีรายการเคลม' : 'No claims recorded'}
+                    </td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Claims Summary by Type */}
+          <Card className="p-4">
+            <h4 className="font-medium text-gray-700 mb-3">{lang === 'th' ? 'สรุปตามประเภท' : 'Summary by Type'}</h4>
+            <div className="grid grid-cols-4 gap-4">
+              {['quality', 'damage', 'shortage', 'late_delivery'].map(type => {
+                const count = claims?.filter(c => c.claimType === type).length || 0
+                const amount = claims?.filter(c => c.claimType === type).reduce((sum, c) => sum + (c.claimAmount || 0), 0) || 0
+                return (
+                  <div key={type} className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-sm text-gray-500 capitalize">{type.replace('_', ' ')}</div>
+                    <div className="text-lg font-bold">{count} <span className="text-sm font-normal text-gray-400">cases</span></div>
+                    <div className="text-sm text-orange-600">{formatCurrency(amount)}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* ========== MEETINGS TAB ========== */}
@@ -15448,19 +15943,68 @@ const SalesModuleFull = ({
         </Modal>
       )}
 
-      {/* DO Modal */}
+      {/* DO Modal - Enhanced to support standalone creation */}
       {showDOModal && selectedItem && (
         <Modal isOpen={showDOModal} onClose={() => { setShowDOModal(false); setSelectedItem(null) }}
                title={lang === 'th' ? 'สร้างใบส่งสินค้า' : 'Create Delivery Order'} size="lg">
-          <DeliveryOrderForm
-            so={selectedItem}
-            customers={customers}
-            trucks={trucks}
-            employees={employees}
-            lang={lang}
-            onSave={handleSaveDO}
-            onCancel={() => { setShowDOModal(false); setSelectedItem(null) }}
-          />
+          {selectedItem.mode === 'new_do' ? (
+            // New mode: Select SO from dropdown
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="flex items-center gap-2 text-blue-700 font-medium mb-2">
+                  <Truck className="w-5 h-5" />
+                  {lang === 'th' ? 'เลือก Sales Order ที่ต้องการส่ง' : 'Select Sales Order to Deliver'}
+                </div>
+                <select 
+                  className="w-full px-3 py-2 border rounded-lg"
+                  id="selectSOForDO"
+                  defaultValue=""
+                >
+                  <option value="">{lang === 'th' ? '-- เลือก SO --' : '-- Select SO --'}</option>
+                  {selectedItem.pendingSOs?.map(so => {
+                    const customer = customers.find(c => c.id === so.customerId)
+                    const totalQty = so.items?.reduce((sum, item) => sum + item.qty, 0) || 0
+                    const deliveredQty = so.items?.reduce((sum, item) => sum + (item.qtyDelivered || 0), 0) || 0
+                    return (
+                      <option key={so.id} value={so.id}>
+                        {so.id} | {customer?.name} | PO: {so.customerPO || '-'} | {deliveredQty}/{totalQty} delivered
+                      </option>
+                    )
+                  })}
+                </select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => { setShowDOModal(false); setSelectedItem(null) }}>
+                  {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+                </Button>
+                <Button onClick={() => {
+                  const selectedSOId = document.getElementById('selectSOForDO').value
+                  if (!selectedSOId) {
+                    alert(lang === 'th' ? 'กรุณาเลือก SO' : 'Please select a Sales Order')
+                    return
+                  }
+                  const so = salesOrders.find(s => s.id === selectedSOId)
+                  if (so) {
+                    const pendingItems = so.items.filter(item => (item.qty - (item.qtyDelivered || 0)) > 0)
+                    setSelectedItem({ ...so, pendingItems })
+                  }
+                }}>
+                  {lang === 'th' ? 'ถัดไป' : 'Next'} <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            // Existing mode: Direct DO form
+            <DeliveryOrderForm
+              so={selectedItem}
+              customers={customers}
+              trucks={trucks}
+              employees={employees}
+              lang={lang}
+              onSave={handleSaveDO}
+              onCancel={() => { setShowDOModal(false); setSelectedItem(null) }}
+            />
+          )}
         </Modal>
       )}
 
@@ -15488,6 +16032,75 @@ const SalesModuleFull = ({
             entity={selectedItem.entity}
             lang={lang}
           />
+        </Modal>
+      )}
+
+      {/* Invoice Create Modal - Select DO and create invoice */}
+      {showInvoiceCreateModal && selectedItem && (
+        <Modal isOpen={showInvoiceCreateModal} onClose={() => { setShowInvoiceCreateModal(false); setSelectedItem(null) }} 
+               title={lang === 'th' ? 'สร้างใบแจ้งหนี้' : 'Create Invoice'} size="lg">
+          <div className="space-y-4">
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 text-purple-700 font-medium mb-2">
+                <Receipt className="w-5 h-5" />
+                {lang === 'th' ? 'เลือกใบส่งสินค้าที่ต้องการออกใบแจ้งหนี้' : 'Select Delivery Order to Invoice'}
+              </div>
+              <select 
+                className="w-full px-3 py-2 border rounded-lg"
+                id="selectDOForInvoice"
+                defaultValue=""
+              >
+                <option value="">{lang === 'th' ? '-- เลือก DO --' : '-- Select DO --'}</option>
+                {selectedItem.pendingDOs?.map(doItem => {
+                  const customer = customers.find(c => c.id === doItem.customerId)
+                  const totalQty = doItem.items?.reduce((sum, item) => sum + (item.qty || 0), 0) || 0
+                  return (
+                    <option key={doItem.id} value={doItem.id}>
+                      {doItem.id} | {customer?.name} | {formatDate(doItem.deliveryDate)} | {totalQty} items
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+            
+            {/* Preview section */}
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <div className="text-sm text-gray-500 mb-2">{lang === 'th' ? 'ข้อมูลที่จะสร้าง:' : 'Will create:'}</div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">{lang === 'th' ? 'เลขที่ใบแจ้งหนี้:' : 'Invoice #:'}</span>
+                  <span className="ml-2 font-mono text-purple-600">{generateId('INV')}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">{lang === 'th' ? 'วันที่:' : 'Date:'}</span>
+                  <span className="ml-2">{new Date().toISOString().split('T')[0]}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => { setShowInvoiceCreateModal(false); setSelectedItem(null) }}>
+                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+              </Button>
+              <Button onClick={() => {
+                const selectedDOId = document.getElementById('selectDOForInvoice').value
+                if (!selectedDOId) {
+                  alert(lang === 'th' ? 'กรุณาเลือก DO' : 'Please select a Delivery Order')
+                  return
+                }
+                const doItem = deliveryOrders.find(d => d.id === selectedDOId)
+                if (doItem) {
+                  handleCreateInvoice(doItem)
+                  setShowInvoiceCreateModal(false)
+                  setSelectedItem(null)
+                  alert(lang === 'th' ? 'สร้างใบแจ้งหนี้เรียบร้อย' : 'Invoice created successfully')
+                }
+              }}>
+                <Receipt className="w-4 h-4 mr-1" />
+                {lang === 'th' ? 'สร้างใบแจ้งหนี้' : 'Create Invoice'}
+              </Button>
+            </div>
+          </div>
         </Modal>
       )}
 
@@ -15694,19 +16307,58 @@ const RejectionForm = ({ rejection, customers, invoices, deliveryOrders, onSave,
     customerId: rejection?.customerId || '',
     invoiceId: rejection?.invoiceId || '',
     doId: rejection?.doId || '',
-    items: rejection?.items || [{ productName: '', qtyRejected: 0, qtyDelivered: 0, reason: 'damaged', notes: '' }],
+    items: rejection?.items || [],
     totalRejected: rejection?.totalRejected || 0,
     reason: rejection?.reason || 'damaged',
     description: rejection?.description || '',
     action: rejection?.action || 'credit_note',
     handledBy: rejection?.handledBy || '',
+    returnWindowValid: true,
+    returnWindowMessage: '',
   })
+
+  const [selectedInvoice, setSelectedInvoice] = useState(null)
+
+  // Update invoice reference and check return window
+  useEffect(() => {
+    if (formData.invoiceId) {
+      const inv = invoices?.find(i => i.id === formData.invoiceId)
+      setSelectedInvoice(inv)
+      
+      // Check return window (15 days standard, 30 days for specific wood)
+      if (inv) {
+        const invoiceDate = new Date(inv.invoiceDate)
+        const today = new Date(formData.date)
+        const daysDiff = Math.floor((today - invoiceDate) / (1000 * 60 * 60 * 24))
+        
+        // Check if any item is specific wood (30-day window)
+        const hasSpecificWood = inv.items?.some(item => 
+          item.description?.toLowerCase().includes('plywood') || 
+          item.description?.toLowerCase().includes('ply') ||
+          item.description?.toLowerCase().includes('mlh')
+        )
+        
+        const maxDays = hasSpecificWood ? 30 : 15
+        const isValid = daysDiff <= maxDays
+        
+        setFormData(prev => ({
+          ...prev,
+          returnWindowValid: isValid,
+          returnWindowMessage: isValid 
+            ? `✓ Within ${maxDays}-day return window (Day ${daysDiff})`
+            : `⚠️ Exceeded ${maxDays}-day return window (Day ${daysDiff}) - Requires manager approval`
+        }))
+      }
+    }
+  }, [formData.invoiceId, formData.date, invoices])
 
   const reasonOptions = [
     { id: 'wrong_size', label: lang === 'th' ? 'ขนาดไม่ตรง' : 'Wrong Size' },
     { id: 'damaged', label: lang === 'th' ? 'เสียหาย' : 'Damaged' },
     { id: 'quality_issue', label: lang === 'th' ? 'ปัญหาคุณภาพ' : 'Quality Issue' },
     { id: 'wrong_product', label: lang === 'th' ? 'สินค้าผิด' : 'Wrong Product' },
+    { id: 'excess_delivery', label: lang === 'th' ? 'ส่งเกิน' : 'Excess Delivery' },
+    { id: 'customer_change', label: lang === 'th' ? 'ลูกค้าเปลี่ยนใจ' : 'Customer Changed Mind' },
     { id: 'other', label: lang === 'th' ? 'อื่นๆ' : 'Other' },
   ]
 
@@ -15714,56 +16366,209 @@ const RejectionForm = ({ rejection, customers, invoices, deliveryOrders, onSave,
     { id: 'replace', label: lang === 'th' ? 'เปลี่ยนใหม่' : 'Replace' },
     { id: 'repair', label: lang === 'th' ? 'ซ่อม' : 'Repair' },
     { id: 'credit_note', label: lang === 'th' ? 'ออกใบลดหนี้' : 'Credit Note' },
+    { id: 'refund', label: lang === 'th' ? 'คืนเงิน' : 'Refund' },
     { id: 'scrap_invoice', label: lang === 'th' ? 'ยกเลิกใบแจ้งหนี้' : 'Scrap Invoice' },
+    { id: 'no_action', label: lang === 'th' ? 'ไม่ดำเนินการ (ลูกค้ารับผิดชอบ)' : 'No Action (Customer Fault)' },
   ]
+
+  // Add item from invoice
+  const addItem = (invoiceItem) => {
+    const exists = formData.items.find(i => i.productName === invoiceItem.description)
+    if (exists) return
+    
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, {
+        productName: invoiceItem.description,
+        qtyDelivered: invoiceItem.qty,
+        qtyRejected: 0,
+        unitPrice: invoiceItem.unitPrice || 0,
+        reason: 'damaged',
+        notes: ''
+      }]
+    }))
+  }
+
+  // Update item qty
+  const updateItem = (idx, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) => i === idx ? { ...item, [field]: value } : item)
+    }))
+  }
+
+  // Remove item
+  const removeItem = (idx) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== idx)
+    }))
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    if (formData.items.length === 0) {
+      alert(lang === 'th' ? 'กรุณาเพิ่มรายการสินค้า' : 'Please add at least one item')
+      return
+    }
     const totalRej = formData.items.reduce((sum, item) => sum + (item.qtyRejected || 0), 0)
-    onSave({ ...formData, totalRejected: totalRej })
+    const totalValue = formData.items.reduce((sum, item) => sum + ((item.qtyRejected || 0) * (item.unitPrice || 0)), 0)
+    onSave({ ...formData, totalRejected: totalRej, totalValue })
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Header Info */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันที่' : 'Date'}</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันที่รับคืน' : 'Return Date'}</label>
           <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ลูกค้า' : 'Customer'} *</label>
-          <select required value={formData.customerId} onChange={(e) => setFormData({...formData, customerId: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+          <select required value={formData.customerId} onChange={(e) => setFormData({...formData, customerId: e.target.value, invoiceId: '', items: []})} className="w-full px-3 py-2 border rounded-lg">
             <option value="">{lang === 'th' ? 'เลือกลูกค้า' : 'Select Customer'}</option>
             {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
       </div>
 
+      {/* Invoice & DO Reference */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'Invoice อ้างอิง' : 'Reference Invoice'}</label>
-          <select value={formData.invoiceId} onChange={(e) => setFormData({...formData, invoiceId: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'Invoice อ้างอิง' : 'Reference Invoice'} *</label>
+          <select required value={formData.invoiceId} onChange={(e) => setFormData({...formData, invoiceId: e.target.value, items: []})} className="w-full px-3 py-2 border rounded-lg">
             <option value="">{lang === 'th' ? 'เลือก Invoice' : 'Select Invoice'}</option>
-            {invoices?.filter(inv => inv.customerId === formData.customerId).map(inv => <option key={inv.id} value={inv.id}>{inv.id}</option>)}
+            {invoices?.filter(inv => inv.customerId === formData.customerId).map(inv => (
+              <option key={inv.id} value={inv.id}>{inv.id} - {formatDate(inv.invoiceDate)} - {formatCurrency(inv.grandTotal)}</option>
+            ))}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'สาเหตุ' : 'Reason'}</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'DO อ้างอิง' : 'Reference DO'}</label>
+          <select value={formData.doId} onChange={(e) => setFormData({...formData, doId: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+            <option value="">{lang === 'th' ? 'เลือก DO' : 'Select DO'}</option>
+            {deliveryOrders?.filter(d => d.customerId === formData.customerId).map(d => (
+              <option key={d.id} value={d.id}>{d.id} - {formatDate(d.deliveryDate)}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Return Window Warning */}
+      {formData.invoiceId && (
+        <div className={`p-3 rounded-lg ${formData.returnWindowValid ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+          <div className={`text-sm font-medium ${formData.returnWindowValid ? 'text-green-700' : 'text-amber-700'}`}>
+            {formData.returnWindowMessage}
+          </div>
+          {!formData.returnWindowValid && (
+            <div className="text-xs text-amber-600 mt-1">
+              {lang === 'th' ? 'การคืนสินค้าเกินกำหนดต้องได้รับอนุมัติจากผู้จัดการ' : 'Late returns require manager approval'}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Items from Invoice */}
+      {selectedInvoice && (
+        <div className="border rounded-lg overflow-hidden">
+          <div className="p-3 bg-blue-50 border-b flex justify-between items-center">
+            <span className="font-medium text-blue-700">{lang === 'th' ? 'รายการสินค้าใน Invoice' : 'Invoice Items'}</span>
+            <span className="text-xs text-blue-500">{lang === 'th' ? 'คลิกเพื่อเพิ่ม' : 'Click to add'}</span>
+          </div>
+          <div className="p-2 max-h-32 overflow-y-auto">
+            <div className="flex flex-wrap gap-2">
+              {selectedInvoice.items?.map((item, idx) => {
+                const added = formData.items.find(i => i.productName === item.description)
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => !added && addItem(item)}
+                    disabled={added}
+                    className={`px-3 py-1 rounded-full text-xs ${added ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700'}`}
+                  >
+                    {added ? '✓ ' : '+ '}{item.description} ({item.qty})
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Items Table */}
+      {formData.items.length > 0 && (
+        <div className="border rounded-lg overflow-hidden">
+          <div className="p-3 bg-red-50 border-b">
+            <span className="font-medium text-red-700">{lang === 'th' ? 'รายการที่ถูกปฏิเสธ' : 'Rejected Items'}</span>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-left">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
+                <th className="px-3 py-2 text-center w-20">{lang === 'th' ? 'ส่ง' : 'Del'}</th>
+                <th className="px-3 py-2 text-center w-24">{lang === 'th' ? 'คืน' : 'Return'}</th>
+                <th className="px-3 py-2 text-left w-32">{lang === 'th' ? 'สาเหตุ' : 'Reason'}</th>
+                <th className="px-3 py-2 text-center w-20">{lang === 'th' ? 'มูลค่า' : 'Value'}</th>
+                <th className="px-3 py-2 w-10"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {formData.items.map((item, idx) => (
+                <tr key={idx}>
+                  <td className="px-3 py-2 text-gray-700">{item.productName}</td>
+                  <td className="px-3 py-2 text-center text-gray-500">{item.qtyDelivered}</td>
+                  <td className="px-3 py-2">
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max={item.qtyDelivered}
+                      value={item.qtyRejected} 
+                      onChange={(e) => updateItem(idx, 'qtyRejected', Math.min(parseInt(e.target.value) || 0, item.qtyDelivered))}
+                      className="w-full px-2 py-1 border rounded text-center"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <select value={item.reason || 'damaged'} onChange={(e) => updateItem(idx, 'reason', e.target.value)} className="w-full px-2 py-1 border rounded text-xs">
+                      {reasonOptions.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-3 py-2 text-center text-orange-600 font-medium">
+                    {formatCurrency((item.qtyRejected || 0) * (item.unitPrice || 0))}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    <button type="button" onClick={() => removeItem(idx)} className="text-red-500 hover:text-red-700">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-gray-50">
+              <tr>
+                <td colSpan="2" className="px-3 py-2 text-right font-medium">{lang === 'th' ? 'รวม:' : 'Total:'}</td>
+                <td className="px-3 py-2 text-center font-bold text-red-600">
+                  {formData.items.reduce((sum, item) => sum + (item.qtyRejected || 0), 0)}
+                </td>
+                <td></td>
+                <td className="px-3 py-2 text-center font-bold text-red-600">
+                  {formatCurrency(formData.items.reduce((sum, item) => sum + ((item.qtyRejected || 0) * (item.unitPrice || 0)), 0))}
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {/* Reason & Action */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'สาเหตุหลัก' : 'Primary Reason'}</label>
           <select value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
             {reasonOptions.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
           </select>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รายละเอียด' : 'Description'} *</label>
-        <textarea required value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-3 py-2 border rounded-lg" rows="2" />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'จำนวนที่ถูกปฏิเสธ' : 'Qty Rejected'}</label>
-          <input type="number" value={formData.items[0]?.qtyRejected || 0} onChange={(e) => setFormData({...formData, items: [{...formData.items[0], qtyRejected: parseInt(e.target.value) || 0}]})} className="w-full px-3 py-2 border rounded-lg" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'การดำเนินการ' : 'Action'}</label>
@@ -15773,6 +16578,19 @@ const RejectionForm = ({ rejection, customers, invoices, deliveryOrders, onSave,
         </div>
       </div>
 
+      {/* Description */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รายละเอียดเพิ่มเติม' : 'Additional Details'}</label>
+        <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-3 py-2 border rounded-lg" rows="2" placeholder={lang === 'th' ? 'รายละเอียดความเสียหาย, หมายเหตุ...' : 'Damage details, notes...'} />
+      </div>
+
+      {/* Handled By */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ผู้รับเรื่อง' : 'Handled By'}</label>
+        <input type="text" value={formData.handledBy} onChange={(e) => setFormData({...formData, handledBy: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder={lang === 'th' ? 'ชื่อพนักงาน' : 'Staff name'} />
+      </div>
+
+      {/* Buttons */}
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button type="button" variant="ghost" onClick={onCancel}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
         <Button type="submit" icon={Save}>{lang === 'th' ? 'บันทึก' : 'Save'}</Button>
@@ -15788,20 +16606,63 @@ const ClaimForm = ({ claim, customers, invoices, rejections, onSave, onCancel, l
   const [formData, setFormData] = useState({
     date: claim?.date || new Date().toISOString().split('T')[0],
     customerId: claim?.customerId || '',
-    relatedDocs: claim?.relatedDocs || { invoiceId: null, doId: null, rejectionId: null },
+    rejectionId: claim?.rejectionId || '',
+    invoiceId: claim?.invoiceId || '',
     claimType: claim?.claimType || 'quality',
     claimAmount: claim?.claimAmount || 0,
     description: claim?.description || '',
     investigationNotes: claim?.investigationNotes || '',
+    resolution: claim?.resolution || '',
+    resolutionNotes: claim?.resolutionNotes || '',
+    resolutionDate: claim?.resolutionDate || '',
+    resolvedBy: claim?.resolvedBy || '',
+    compensationAmount: claim?.compensationAmount || 0,
+    compensationType: claim?.compensationType || '',
+    followUpDate: claim?.followUpDate || '',
   })
 
   const claimTypes = [
-    { id: 'quality', label: lang === 'th' ? 'คุณภาพ' : 'Quality' },
+    { id: 'quality', label: lang === 'th' ? 'คุณภาพ' : 'Quality Issue' },
     { id: 'shortage', label: lang === 'th' ? 'ขาด/ไม่ครบ' : 'Shortage' },
-    { id: 'damage', label: lang === 'th' ? 'เสียหาย' : 'Damage' },
+    { id: 'damage', label: lang === 'th' ? 'เสียหาย' : 'Damage in Transit' },
+    { id: 'wrong_product', label: lang === 'th' ? 'สินค้าผิด' : 'Wrong Product' },
     { id: 'price_dispute', label: lang === 'th' ? 'ราคาไม่ตรง' : 'Price Dispute' },
+    { id: 'late_delivery', label: lang === 'th' ? 'ส่งล่าช้า' : 'Late Delivery' },
+    { id: 'documentation', label: lang === 'th' ? 'เอกสารผิด' : 'Documentation Error' },
     { id: 'other', label: lang === 'th' ? 'อื่นๆ' : 'Other' },
   ]
+
+  const resolutionOptions = [
+    { id: 'accepted_full', label: lang === 'th' ? 'รับผิดชอบเต็มจำนวน' : 'Accept Full', color: 'green' },
+    { id: 'accepted_partial', label: lang === 'th' ? 'รับผิดชอบบางส่วน' : 'Accept Partial', color: 'yellow' },
+    { id: 'rejected', label: lang === 'th' ? 'ปฏิเสธ' : 'Reject', color: 'red' },
+    { id: 'under_negotiation', label: lang === 'th' ? 'กำลังเจรจา' : 'Under Negotiation', color: 'blue' },
+  ]
+
+  const compensationTypes = [
+    { id: 'credit_note', label: lang === 'th' ? 'ใบลดหนี้' : 'Credit Note' },
+    { id: 'replacement', label: lang === 'th' ? 'เปลี่ยนสินค้า' : 'Replacement' },
+    { id: 'refund', label: lang === 'th' ? 'คืนเงิน' : 'Refund' },
+    { id: 'discount_next', label: lang === 'th' ? 'ส่วนลดครั้งถัดไป' : 'Discount on Next Order' },
+    { id: 'none', label: lang === 'th' ? 'ไม่มี' : 'None' },
+  ]
+
+  // Auto-fill from rejection if selected
+  const handleRejectionSelect = (rejId) => {
+    const rej = rejections?.find(r => r.id === rejId)
+    if (rej) {
+      setFormData(prev => ({
+        ...prev,
+        rejectionId: rejId,
+        customerId: rej.customerId,
+        invoiceId: rej.invoiceId,
+        claimAmount: rej.totalValue || 0,
+        description: `${lang === 'th' ? 'จากการคืนสินค้า' : 'From rejection'} ${rejId}: ${rej.description || ''}`
+      }))
+    } else {
+      setFormData(prev => ({ ...prev, rejectionId: rejId }))
+    }
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -15810,43 +16671,141 @@ const ClaimForm = ({ claim, customers, invoices, rejections, onSave, onCancel, l
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      {/* Header Row */}
+      <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันที่' : 'Date'}</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันที่รับเรื่อง' : 'Claim Date'}</label>
           <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ลูกค้า' : 'Customer'} *</label>
-          <select required value={formData.customerId} onChange={(e) => setFormData({...formData, customerId: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+          <select required value={formData.customerId} onChange={(e) => setFormData({...formData, customerId: e.target.value, rejectionId: '', invoiceId: ''})} className="w-full px-3 py-2 border rounded-lg">
             <option value="">{lang === 'th' ? 'เลือกลูกค้า' : 'Select Customer'}</option>
             {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภทเคลม' : 'Claim Type'}</label>
-          <select value={formData.claimType} onChange={(e) => setFormData({...formData, claimType: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภทเคลม' : 'Claim Type'} *</label>
+          <select required value={formData.claimType} onChange={(e) => setFormData({...formData, claimType: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
             {claimTypes.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
           </select>
         </div>
+      </div>
+
+      {/* Link to Rejection */}
+      <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'มูลค่าเคลม (ถ้ามี)' : 'Claim Amount (if any)'}</label>
-          <input type="number" value={formData.claimAmount} onChange={(e) => setFormData({...formData, claimAmount: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" />
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            <RotateCcw className="w-4 h-4 inline mr-1 text-red-500" />
+            {lang === 'th' ? 'จากใบคืนสินค้า (ถ้ามี)' : 'Related Rejection (if any)'}
+          </label>
+          <select value={formData.rejectionId} onChange={(e) => handleRejectionSelect(e.target.value)} className="w-full px-3 py-2 border rounded-lg">
+            <option value="">{lang === 'th' ? 'ไม่มี / เลือก' : 'None / Select'}</option>
+            {rejections?.filter(r => !formData.customerId || r.customerId === formData.customerId).map(r => (
+              <option key={r.id} value={r.id}>{r.id} - {r.reason} - {formatDate(r.date)}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'Invoice อ้างอิง' : 'Reference Invoice'}</label>
+          <select value={formData.invoiceId} onChange={(e) => setFormData({...formData, invoiceId: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+            <option value="">{lang === 'th' ? 'เลือก Invoice' : 'Select Invoice'}</option>
+            {invoices?.filter(inv => !formData.customerId || inv.customerId === formData.customerId).map(inv => (
+              <option key={inv.id} value={inv.id}>{inv.id} - {formatCurrency(inv.grandTotal)}</option>
+            ))}
+          </select>
         </div>
       </div>
 
+      {/* Claim Amount */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'มูลค่าที่เคลม' : 'Claim Amount'}</label>
+          <input type="number" value={formData.claimAmount} onChange={(e) => setFormData({...formData, claimAmount: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันที่ต้องติดตาม' : 'Follow-up Date'}</label>
+          <input type="date" value={formData.followUpDate} onChange={(e) => setFormData({...formData, followUpDate: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+      </div>
+
+      {/* Description */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'รายละเอียดเคลม' : 'Claim Description'} *</label>
-        <textarea required value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-3 py-2 border rounded-lg" rows="3" />
+        <textarea required value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-3 py-2 border rounded-lg" rows="3" placeholder={lang === 'th' ? 'อธิบายปัญหาและความต้องการของลูกค้า...' : 'Describe the issue and customer request...'} />
       </div>
 
+      {/* Investigation Notes */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'บันทึกการตรวจสอบ' : 'Investigation Notes'}</label>
-        <textarea value={formData.investigationNotes} onChange={(e) => setFormData({...formData, investigationNotes: e.target.value})} className="w-full px-3 py-2 border rounded-lg" rows="2" />
+        <textarea value={formData.investigationNotes} onChange={(e) => setFormData({...formData, investigationNotes: e.target.value})} className="w-full px-3 py-2 border rounded-lg" rows="2" placeholder={lang === 'th' ? 'ผลการตรวจสอบ, สาเหตุที่พบ...' : 'Investigation findings, root cause...'} />
       </div>
 
+      {/* Resolution Section */}
+      <div className="border-t pt-4 mt-4">
+        <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
+          <CheckCircle className="w-4 h-4 text-green-600" />
+          {lang === 'th' ? 'การแก้ไข/ผลสรุป' : 'Resolution'}
+        </h4>
+        
+        {/* Resolution Buttons */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {resolutionOptions.map(opt => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setFormData({...formData, resolution: opt.id, resolutionDate: formData.resolutionDate || new Date().toISOString().split('T')[0]})}
+              className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                formData.resolution === opt.id 
+                  ? opt.color === 'green' ? 'bg-green-100 border-green-500 text-green-700'
+                  : opt.color === 'yellow' ? 'bg-yellow-100 border-yellow-500 text-yellow-700'
+                  : opt.color === 'red' ? 'bg-red-100 border-red-500 text-red-700'
+                  : 'bg-blue-100 border-blue-500 text-blue-700'
+                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Resolution Details - Show when resolution is selected */}
+        {formData.resolution && (
+          <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'วันที่แก้ไข' : 'Resolution Date'}</label>
+                <input type="date" value={formData.resolutionDate} onChange={(e) => setFormData({...formData, resolutionDate: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ผู้ดำเนินการ' : 'Resolved By'}</label>
+                <input type="text" value={formData.resolvedBy} onChange={(e) => setFormData({...formData, resolvedBy: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder={lang === 'th' ? 'ชื่อ' : 'Name'} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'ประเภทการชดเชย' : 'Compensation Type'}</label>
+                <select value={formData.compensationType} onChange={(e) => setFormData({...formData, compensationType: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
+                  <option value="">{lang === 'th' ? 'เลือก' : 'Select'}</option>
+                  {compensationTypes.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                </select>
+              </div>
+            </div>
+            
+            {(formData.resolution === 'accepted_full' || formData.resolution === 'accepted_partial') && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'มูลค่าชดเชย' : 'Compensation Amount'}</label>
+                <input type="number" value={formData.compensationAmount} onChange={(e) => setFormData({...formData, compensationAmount: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{lang === 'th' ? 'หมายเหตุการแก้ไข' : 'Resolution Notes'}</label>
+              <textarea value={formData.resolutionNotes} onChange={(e) => setFormData({...formData, resolutionNotes: e.target.value})} className="w-full px-3 py-2 border rounded-lg" rows="2" placeholder={lang === 'th' ? 'รายละเอียดการแก้ไข...' : 'Resolution details...'} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Buttons */}
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button type="button" variant="ghost" onClick={onCancel}>{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</Button>
         <Button type="submit" icon={Save}>{lang === 'th' ? 'บันทึก' : 'Save'}</Button>
