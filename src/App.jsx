@@ -25,6 +25,69 @@ const VERSION_DATE = '2026-02-02'
 
 // v11.0 COMPLETE IND ERP - PRODUCTION READY
 // =========================================
+// ALL 36 LOCKED SPECIFICATIONS + PRODUCTION MAPPING FROM EXCEL
+
+// ============================================
+// PRODUCTION MAPPING (From Production_Plan_from_PO_.xlsx)
+// ============================================
+// PLN Scenarios define the production path through departments
+const PRODUCTION_SCENARIOS = [
+  { id: 'PLN 0', name: 'FG+T', path: ['FG', 'Transport'], description: 'Direct from FG', requiresOven: false },
+  { id: 'PLN 1', name: 'P1+FG+T', path: ['P1', 'FG', 'Transport'], description: 'Processing 1 only', requiresOven: false },
+  { id: 'PLN 1.0.1', name: 'P1+O+FG+T', path: ['P1', 'Oven', 'FG', 'Transport'], description: 'P1 with Oven', requiresOven: true },
+  { id: 'PLN 1.1.1', name: 'P1+A1+QC+FG+T', path: ['P1', 'A1', 'QC', 'FG', 'Transport'], description: 'P1 + Assembly 1, no oven (KD)', requiresOven: false, remarks: 'KD - no oven' },
+  { id: 'PLN 1.1.2', name: 'P1+A1+O+QC+FG+T', path: ['P1', 'A1', 'Oven', 'QC', 'FG', 'Transport'], description: 'P1 + Assembly 1 with Oven', requiresOven: true, remarks: 'PLY Cutting 2 - No Oven' },
+  { id: 'PLN 1.2.1', name: 'P1+A2+QC+FG+T', path: ['P1', 'A2', 'QC', 'FG', 'Transport'], description: 'P1 + Assembly 2, no oven', requiresOven: false, remarks: 'PRTB Cutting 2 - No Oven' },
+  { id: 'PLN 1.2.2', name: 'P1+A2+O+QC+FG+T', path: ['P1', 'A2', 'Oven', 'QC', 'FG', 'Transport'], description: 'P1 + Assembly 2 with Oven', requiresOven: true, remarks: 'BOX No Oven' },
+  { id: 'PLN 2', name: 'P2+FG+T', path: ['P2', 'FG', 'Transport'], description: 'Processing 2 only', requiresOven: false, remarks: 'Alliance - Thung' },
+  { id: 'PLN 2.0.1', name: 'P2+O+FG+T', path: ['P2', 'Oven', 'FG', 'Transport'], description: 'P2 with Oven', requiresOven: true, remarks: 'Box Thung' },
+  { id: 'PLN 2.1.1', name: 'P2+A1+QC+FG+T', path: ['P2', 'A1', 'QC', 'FG', 'Transport'], description: 'P2 + Assembly 1, no oven', requiresOven: false, remarks: 'PW Above 6m No Oven' },
+  { id: 'PLN 2.1.2', name: 'P2+A1+O+QC+FG+T', path: ['P2', 'A1', 'Oven', 'QC', 'FG', 'Transport'], description: 'P2 + Assembly 1 with Oven', requiresOven: true },
+  { id: 'PLN 2.2.1', name: 'P2+A2+QC+FG+T', path: ['P2', 'A2', 'QC', 'FG', 'Transport'], description: 'P2 + Assembly 2, no oven', requiresOven: false },
+  { id: 'PLN 2.2.2', name: 'P2+A2+O+QC+FG+T', path: ['P2', 'A2', 'Oven', 'QC', 'FG', 'Transport'], description: 'P2 + Assembly 2 with Oven', requiresOven: true },
+]
+
+// Material Type Production Paths (from spreadsheet rows 21-26)
+const MATERIAL_PRODUCTION_PATHS = {
+  'PRTB': { path: 'Cutting 2 + QC + Transport', departments: ['C2', 'QC', 'Transport'], requiresOven: false },
+  'Pallets': { path: 'Cutting1/Cutting2 + Assembly1/Assembly2 + Oven + QC + Transport', departments: ['C1', 'C2', 'A1', 'A2', 'Oven', 'QC', 'Transport'], requiresOven: true },
+  'Pallets_NoOven': { path: 'Cutting1/Cutting2 + Cutting3 + Assembly1/Assembly2 + Oven + QC + Transport', departments: ['C1', 'C2', 'C3', 'A1', 'A2', 'Oven', 'QC', 'Transport'], requiresOven: true },
+  'Box': { path: 'Cutting1/Cutting2 + Assembly1/Assembly2 + QC + Transport', departments: ['C1', 'C2', 'A1', 'A2', 'QC', 'Transport'], requiresOven: false },
+  'Box_Simple': { path: 'Cutting1/Cutting2 + Assembly1/Assembly2 + QC + Transport', departments: ['C1', 'C2', 'A1', 'A2', 'QC', 'Transport'], requiresOven: false },
+  'Custom': { path: 'Cutting 1/Cutting 2 + Oven + QC + Transport', departments: ['C1', 'C2', 'Oven', 'QC', 'Transport'], requiresOven: true },
+}
+
+// Production Personnel (from spreadsheet columns)
+const PRODUCTION_PERSONNEL = [
+  { id: 'singh', name: 'Singh', dept: 'Cutting', role: 'Operator' },
+  { id: 'one', name: 'One', dept: 'P1', role: 'Operator' },
+  { id: 'khem', name: 'Khem', dept: 'A1', role: 'Operator' },
+  { id: 'khwai', name: 'Khwai', dept: 'A2', role: 'Operator' },
+  { id: 'pngsak', name: 'Pngsak', dept: 'Oven', role: 'Operator' },
+  { id: 'ptoon', name: 'P Toon', dept: 'QC', role: 'Inspector' },
+  { id: 'mas', name: 'Mas', dept: 'FG', role: 'Operator' },
+  { id: 'pongsak', name: 'Pongsak', dept: 'Transport', role: 'Driver' },
+]
+
+// Customer-Material Mapping (from spreadsheet row 28-30)
+const CUSTOMER_MATERIAL_MAP = {
+  'Dkok': { materials: ['MLH'], cutting: 'Singh' },
+  'furu': { materials: ['PW'], cutting: 'One' },
+  'shnstl': { materials: ['PRTB', 'Plywd'], cutting: 'One' },
+  'paci': { materials: ['PW'], cutting: 'One' },
+  'plxusa': { materials: ['KD'], cutting: 'One', noOven: true },
+  'thgrmn': { materials: ['PW'], cutting: 'One' },
+}
+
+// Store Linkages (CRITICAL)
+const STORE_MODULE_LINKS = {
+  sales: ['STORE1', 'STORE2', 'STORE6'], // RM Wood, IND2, FG
+  production: ['STORE1', 'STORE2', 'STORE3', 'STORE6'], // RM Wood, IND2, Consumables, FG
+  maintenance: ['STORE5'], // Maintenance Store
+}
+
+// v11.0 COMPLETE IND ERP - PRODUCTION READY
+// =========================================
 // Best practices extracted from: SAP, Oracle, Microsoft Dynamics, Odoo, ERPNext, NetSuite, 
 // Epicor, Fishbowl, Cin7, Salesforce, Monday.com, Asana, Notion, Airtable, ClickUp, 
 // Zoho, Freshworks, Jira, Trello, Workday, QuickBooks, Xero
@@ -720,26 +783,79 @@ const STORE_TYPES = [
 // ============================================
 // PRODUCTION DEPARTMENTS (10 Departments)
 // ============================================
+// ============================================
+// DEPARTMENTS - From Production Mapping Excel (operators shown)
+// Row 2: Singh, One (P1, P2), Khem (P3), Khwai (A1), Pngsak (A2), P Toon (W), Mas (Oven), Pongsak (FG/Transport)
+// ============================================
 const INITIAL_DEPARTMENTS = [
-  { id: 'C1', code: 'C1', nameEn: 'Cutting 1 (Singh)', nameTh: 'ตัด 1 (สิงห์)', hourlyRate: 200, type: 'cutting', sequence: 1, isActive: true },
-  { id: 'C2', code: 'C2', nameEn: 'Cutting 2 (One)', nameTh: 'ตัด 2 (วัน)', hourlyRate: 200, type: 'cutting', sequence: 2, isActive: true },
-  { id: 'P1', code: 'P1', nameEn: 'Processing 1', nameTh: 'แปรรูป 1', hourlyRate: 180, type: 'processing', sequence: 3, isActive: true },
-  { id: 'P2', code: 'P2', nameEn: 'Processing 2', nameTh: 'แปรรูป 2', hourlyRate: 180, type: 'processing', sequence: 4, isActive: true },
-  { id: 'P3', code: 'P3', nameEn: 'Processing 3', nameTh: 'แปรรูป 3', hourlyRate: 180, type: 'processing', sequence: 5, isActive: true },
-  { id: 'A1', code: 'A1', nameEn: 'Assembly 1 (Khem)', nameTh: 'ประกอบ 1 (เข็ม)', hourlyRate: 180, type: 'assembly', sequence: 6, isActive: true },
-  { id: 'A2', code: 'A2', nameEn: 'Assembly 2 (Khwai)', nameTh: 'ประกอบ 2 (ควาย)', hourlyRate: 180, type: 'assembly', sequence: 7, isActive: true },
-  { id: 'OVEN', code: 'OVEN', nameEn: 'Oven / Heat Treatment', nameTh: 'อบความร้อน', hourlyRate: 150, type: 'treatment', sequence: 8, isActive: true },
-  { id: 'QC', code: 'QC', nameEn: 'Quality Control', nameTh: 'ตรวจคุณภาพ', hourlyRate: 200, type: 'qa', sequence: 9, isActive: true },
-  { id: 'FG', code: 'FG', nameEn: 'Finished Goods', nameTh: 'สินค้าสำเร็จรูป', hourlyRate: 150, type: 'fg', sequence: 10, isActive: true },
+  { id: 'C1', code: 'C1', nameEn: 'Cutting 1 (Singh)', nameTh: 'ตัด 1 (สิงห์)', operator: 'Singh', hourlyRate: 200, type: 'cutting', sequence: 1, isActive: true },
+  { id: 'C2', code: 'C2', nameEn: 'Cutting 2', nameTh: 'ตัด 2', operator: '', hourlyRate: 200, type: 'cutting', sequence: 2, isActive: true },
+  { id: 'P1', code: 'P1', nameEn: 'Processing 1 (Singh)', nameTh: 'แปรรูป 1 (สิงห์)', operator: 'Singh', hourlyRate: 180, type: 'processing', sequence: 3, isActive: true },
+  { id: 'P2', code: 'P2', nameEn: 'Processing 2 (One)', nameTh: 'แปรรูป 2 (วัน)', operator: 'One', hourlyRate: 180, type: 'processing', sequence: 4, isActive: true },
+  { id: 'P3', code: 'P3', nameEn: 'Processing 3 (Khem)', nameTh: 'แปรรูป 3 (เข็ม)', operator: 'Khem', hourlyRate: 180, type: 'processing', sequence: 5, isActive: true },
+  { id: 'A1', code: 'A1', nameEn: 'Assembly 1 (Khwai)', nameTh: 'ประกอบ 1 (ควาย)', operator: 'Khwai', hourlyRate: 180, type: 'assembly', sequence: 6, isActive: true },
+  { id: 'A2', code: 'A2', nameEn: 'Assembly 2 (Pngsak)', nameTh: 'ประกอบ 2 (ปังศักดิ์)', operator: 'Pngsak', hourlyRate: 180, type: 'assembly', sequence: 7, isActive: true },
+  { id: 'W', code: 'W', nameEn: 'Standby (P Toon)', nameTh: 'สำรอง (พี่ตูน)', operator: 'P Toon', hourlyRate: 150, type: 'standby', sequence: 8, isActive: true },
+  { id: 'OVEN', code: 'OVEN', nameEn: 'Oven / Heat Treatment (Mas)', nameTh: 'อบความร้อน (มาส)', operator: 'Mas', hourlyRate: 150, type: 'treatment', sequence: 9, isActive: true },
+  { id: 'QC', code: 'QC', nameEn: 'Quality Control (P Toon)', nameTh: 'ตรวจคุณภาพ (พี่ตูน)', operator: 'P Toon', hourlyRate: 200, type: 'qa', sequence: 10, isActive: true },
+  { id: 'QA', code: 'QA', nameEn: 'Quality Assurance', nameTh: 'ประกันคุณภาพ', operator: '', hourlyRate: 200, type: 'qa', sequence: 11, isActive: true },
+  { id: 'FG', code: 'FG', nameEn: 'Finished Goods (Pongsak)', nameTh: 'สินค้าสำเร็จรูป (ปองศักดิ์)', operator: 'Pongsak', hourlyRate: 150, type: 'fg', sequence: 12, isActive: true },
+  { id: 'TRANS', code: 'TRANS', nameEn: 'Transport', nameTh: 'ขนส่ง', operator: 'Drivers', hourlyRate: 200, type: 'transport', sequence: 13, isActive: true },
 ]
 
 // ============================================
-// TRUCKS / VEHICLES
+// PRODUCTION SCENARIOS (PLN) - From Production Mapping
+// Format: PLN X.Y.Z where X=processing station, Y=assembly, Z=oven
+// ============================================
+const PRODUCTION_SCENARIOS = [
+  // PLN 0: Direct
+  { id: 'PLN_0', code: 'PLN 0', name: 'FG+T', description: 'Direct from FG', path: ['FG', 'TRANS'], requiresHT: false, remarks: '' },
+  // PLN 1.x: Processing 1 (Singh/P1)
+  { id: 'PLN_1', code: 'PLN 1', name: 'P1+FG+T', description: 'Processing 1 only', path: ['P1', 'QA', 'FG', 'TRANS'], requiresHT: false, remarks: 'PW Cutting 2' },
+  { id: 'PLN_1_0_1', code: 'PLN 1.0.1', name: 'P1+O+FG+T', description: 'P1 + Oven', path: ['P1', 'QA', 'OVEN', 'QC', 'FG', 'TRANS'], requiresHT: true, remarks: 'MLH Cutting 1' },
+  { id: 'PLN_1_1_1', code: 'PLN 1.1.1', name: 'P1+A1+QC+FG+T', description: 'P1 + Assembly 1 (no oven)', path: ['P1', 'QA', 'A1', 'QA', 'QC', 'FG', 'TRANS'], requiresHT: false, remarks: 'KD - no oven' },
+  { id: 'PLN_1_1_2', code: 'PLN 1.1.2', name: 'P1+A1+O+QC+FG+T', description: 'P1 + A1 + Oven', path: ['P1', 'QA', 'A1', 'QA', 'OVEN', 'QC', 'FG', 'TRANS'], requiresHT: true, remarks: 'PLY Cutting 2 - No Oven' },
+  { id: 'PLN_1_2_1', code: 'PLN 1.2.1', name: 'P1+A2+QC+FG+T', description: 'P1 + Assembly 2 (no oven)', path: ['P1', 'QA', 'A2', 'QA', 'QC', 'FG', 'TRANS'], requiresHT: false, remarks: 'PRTB Cutting 2 - No Oven' },
+  { id: 'PLN_1_2_2', code: 'PLN 1.2.2', name: 'P1+A2+O+QC+FG+T', description: 'P1 + A2 + Oven', path: ['P1', 'QA', 'A2', 'QA', 'OVEN', 'QC', 'FG', 'TRANS'], requiresHT: true, remarks: 'BOX No Oven' },
+  // PLN 2.x: Processing 2 (One/P2)
+  { id: 'PLN_2', code: 'PLN 2', name: 'P2+FG+T', description: 'Processing 2 only', path: ['P2', 'QA', 'FG', 'TRANS'], requiresHT: false, remarks: 'Alliance-Thung' },
+  { id: 'PLN_2_0_1', code: 'PLN 2.0.1', name: 'P2+O+FG+T', description: 'P2 + Oven', path: ['P2', 'QA', 'OVEN', 'QC', 'FG', 'TRANS'], requiresHT: true, remarks: 'Box Thung' },
+  { id: 'PLN_2_1_1', code: 'PLN 2.1.1', name: 'P2+A1+QC+FG+T', description: 'P2 + Assembly 1', path: ['P2', 'QA', 'A1', 'QA', 'QC', 'FG', 'TRANS'], requiresHT: false, remarks: 'PW Above 6m No Oven' },
+  { id: 'PLN_2_1_2', code: 'PLN 2.1.2', name: 'P2+A1+O+QC+FG+T', description: 'P2 + A1 + Oven', path: ['P2', 'QA', 'A1', 'QA', 'OVEN', 'QC', 'FG', 'TRANS'], requiresHT: true, remarks: '' },
+  { id: 'PLN_2_2_1', code: 'PLN 2.2.1', name: 'P2+A2+QC+FG+T', description: 'P2 + Assembly 2', path: ['P2', 'QA', 'A2', 'QA', 'QC', 'FG', 'TRANS'], requiresHT: false, remarks: '' },
+  { id: 'PLN_2_2_2', code: 'PLN 2.2.2', name: 'P2+A2+O+QC+FG+T', description: 'P2 + A2 + Oven', path: ['P2', 'QA', 'A2', 'QA', 'OVEN', 'QC', 'FG', 'TRANS'], requiresHT: true, remarks: '' },
+]
+
+// ============================================
+// MATERIAL TYPE PRODUCTION PATHS - From Production Mapping rows 21-26
+// ============================================
+const MATERIAL_PRODUCTION_PATHS = {
+  'PRTB': { name: 'PRTB', path: ['C2', 'QC', 'TRANS'], description: 'Cutting 2 + QC + Transport' },
+  'Pallets': { name: 'Pallets', path: ['C1', 'C2', 'A1', 'A2', 'OVEN', 'QC', 'TRANS'], description: 'Cutting1/Cutting2 + Assembly1/Assembly2 + Oven + QC + Transport' },
+  'Pallets_P3': { name: 'Pallets (with P3)', path: ['C1', 'C2', 'P3', 'A1', 'A2', 'OVEN', 'QC', 'TRANS'], description: 'Cutting1/Cutting2 + Cutting3 + Assembly1/Assembly2 + Oven + QC + Transport' },
+  'Box': { name: 'Box', path: ['C1', 'C2', 'A1', 'A2', 'QC', 'TRANS'], description: 'Cutting1/Cutting2 + Assembly1/Assembly2 + QC + Transport' },
+  'HT_Standard': { name: 'HT Standard', path: ['C1', 'C2', 'OVEN', 'QC', 'TRANS'], description: 'Cutting 1/Cutting 2 + Oven + QC + Transport' },
+}
+
+// ============================================
+// STORE MODULE ACCESS - Which stores each module can see
+// CRITICAL: Links stores to specific modules
+// ============================================
+const STORE_MODULE_ACCESS = {
+  sales: ['STORE1', 'STORE2', 'STORE6'], // RM Wood, IND2, FG - for checking material availability and FG dispatch
+  production: ['STORE1', 'STORE2', 'STORE3', 'STORE6'], // RM Wood, IND2, Consumables, FG - for issuing materials and receiving FG
+  maintenance: ['STORE5'], // Maintenance store only - spare parts, tools, diesel
+  inventory: ['STORE1', 'STORE2', 'STORE3', 'STORE4', 'STORE5', 'STORE6'], // All stores visible
+}
+
+// ============================================
+// TRUCKS / VEHICLES - 4 trucks from spec (Mayo, W, T, C)
 // ============================================
 const INITIAL_TRUCKS = [
-  { id: 'T1', code: 'T1', nameEn: 'Truck 1 (6-Wheeler)', nameTh: 'รถบรรทุก 1 (6 ล้อ)', capacity: '5 tons', licensePlate: 'ชบ-1234', driver: 'Vichai', driverId: 7, fuelType: 'diesel', status: 'available', isActive: true },
-  { id: 'T2', code: 'T2', nameEn: 'Truck 2 (10-Wheeler)', nameTh: 'รถบรรทุก 2 (10 ล้อ)', capacity: '10 tons', licensePlate: 'ชบ-5678', driver: 'Sompon', driverId: null, fuelType: 'diesel', status: 'available', isActive: true },
-  { id: 'T3', code: 'T3', nameEn: 'Pickup (Ford Ranger)', nameTh: 'กระบะ (ฟอร์ด เรนเจอร์)', capacity: '1 ton', licensePlate: 'ชบ-9012', driver: '', driverId: null, fuelType: 'diesel', status: 'available', isActive: true },
+  { id: 'T1', code: 'T1', nameEn: 'Truck 1 - Mayo', nameTh: 'รถบรรทุก 1 - มะโย', capacity: '6 tons', licensePlate: 'ชบ-1234', driver: 'Mayo', driverId: 7, fuelType: 'diesel', status: 'available', isActive: true },
+  { id: 'T2', code: 'T2', nameEn: 'Truck 2 - W', nameTh: 'รถบรรทุก 2 - ดับบลิว', capacity: '10 tons', licensePlate: 'ชบ-5678', driver: 'W', driverId: null, fuelType: 'diesel', status: 'available', isActive: true },
+  { id: 'T3', code: 'T3', nameEn: 'Truck 3 - T', nameTh: 'รถบรรทุก 3 - ที', capacity: '10 tons', licensePlate: 'ชบ-9012', driver: 'T', driverId: null, fuelType: 'diesel', status: 'available', isActive: true },
+  { id: 'T4', code: 'T4', nameEn: 'Truck 4 - C', nameTh: 'รถบรรทุก 4 - ซี', capacity: '6 tons', licensePlate: 'ชบ-3456', driver: 'C', driverId: null, fuelType: 'diesel', status: 'available', isActive: true },
 ]
 
 // ============================================
@@ -7562,7 +7678,7 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
         <div className="space-y-6">
           {/* Status Summary Cards */}
           <div className="grid grid-cols-6 gap-4">
-            <Card className="p-4 bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200 cursor-pointer hover:shadow-md" onClick={() => setFilterStatus('all')}>
+            <Card className={`p-4 bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200 cursor-pointer hover:shadow-md ${filterStatus === 'all' ? 'ring-2 ring-gray-500' : ''}`} onClick={() => setFilterStatus('all')}>
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-2xl font-bold text-gray-700">{poStats.total}</div>
@@ -7618,73 +7734,402 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
             </Card>
           </div>
 
-          {/* PO Running Table */}
+          {/* Store Access Cards - Shows linked stores for Production */}
+          <Card className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50">
+            <div className="flex items-center justify-between">
+              <h4 className="font-bold text-indigo-700 flex items-center gap-2">
+                <Database className="w-5 h-5" /> {lang === 'th' ? 'คลังที่เชื่อมต่อ' : 'Linked Stores'}
+              </h4>
+              <div className="flex gap-3">
+                <Badge className="bg-amber-100 text-amber-700">📦 RM Wood (STORE1)</Badge>
+                <Badge className="bg-green-100 text-green-700">📦 IND2 (STORE2)</Badge>
+                <Badge className="bg-orange-100 text-orange-700">📦 Consumables (STORE3)</Badge>
+                <Badge className="bg-purple-100 text-purple-700">📦 FG (STORE6)</Badge>
+              </div>
+            </div>
+          </Card>
+
+          {/* PO Running Table - SAP/Odoo style with Production Mapping columns */}
           <Card className="overflow-hidden">
             <div className="px-4 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white flex justify-between items-center">
               <h3 className="font-bold flex items-center gap-2">
                 <Package className="w-5 h-5" />
-                {lang === 'th' ? 'ติดตาม PO - มุมมองฝ่ายผลิต' : 'PO Tracker - Production View'}
+                {lang === 'th' ? 'PO Tracker - Production Plan from PO (มุมมองฝ่ายผลิต)' : 'PO Tracker - Production Plan from PO'}
               </h3>
-              <div className="flex gap-2 text-sm">
-                <span className="px-2 py-1 bg-white/20 rounded">⚪ {lang === 'th' ? 'รอ' : 'Await'}</span>
-                <span className="px-2 py-1 bg-white/20 rounded">🟡 {lang === 'th' ? 'ผลิต' : 'Prod'}</span>
-                <span className="px-2 py-1 bg-white/20 rounded">🔵 {lang === 'th' ? 'พร้อม' : 'Ready'}</span>
-                <span className="px-2 py-1 bg-white/20 rounded">🟢 {lang === 'th' ? 'ส่ง' : 'Done'}</span>
+              <div className="flex gap-2 text-xs">
+                <Button size="sm" variant="outline" className="bg-white/20 border-white/30 text-white hover:bg-white/30">
+                  <Download className="w-3 h-3 mr-1" /> Export
+                </Button>
               </div>
             </div>
             
-            {/* Table Header */}
-            <div className="bg-gray-100 px-4 py-2 grid grid-cols-12 gap-2 text-sm font-medium text-gray-600 border-b">
-              <div className="col-span-1"></div>
-              <div className="col-span-2">Customer PO</div>
-              <div className="col-span-2">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</div>
-              <div className="col-span-1 text-center">{lang === 'th' ? 'จำนวน' : 'Qty'}</div>
-              <div className="col-span-2 text-center">{lang === 'th' ? 'ความคืบหน้า' : 'Progress'}</div>
-              <div className="col-span-2 text-center">{lang === 'th' ? 'กำหนดส่ง' : 'Due'}</div>
-              <div className="col-span-2 text-center">{lang === 'th' ? 'สถานะ' : 'Status'}</div>
-            </div>
+            {/* Table Header - EXACT columns from Production Plan from PO */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-100 sticky top-0">
+                  <tr>
+                    <th className="w-8 px-2 py-3"></th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-700 whitespace-nowrap">Customer PO</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-700">Customer</th>
+                    <th className="px-2 py-3 text-center font-semibold text-gray-700">Type</th>
+                    <th className="px-3 py-3 text-center font-semibold text-gray-700 whitespace-nowrap">Total Qty</th>
+                    <th className="px-3 py-3 text-center font-semibold text-gray-700">Produced</th>
+                    <th className="px-3 py-3 text-center font-semibold text-gray-700">Delivered</th>
+                    <th className="px-3 py-3 text-center font-semibold text-gray-700">Balance</th>
+                    <th className="px-2 py-3 text-center font-semibold text-gray-700">PLN</th>
+                    {/* Production Path columns - from Production Mapping */}
+                    <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-yellow-50 text-xs">Singh</th>
+                    <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-yellow-50 text-xs">P1</th>
+                    <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-gray-50 text-xs">QA</th>
+                    <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-green-50 text-xs">P2</th>
+                    <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-gray-50 text-xs">QA</th>
+                    <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-cyan-50 text-xs">A1</th>
+                    <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-gray-50 text-xs">QA</th>
+                    <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-teal-50 text-xs">A2</th>
+                    <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-gray-50 text-xs">QA</th>
+                    <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-orange-50 text-xs">Oven</th>
+                    <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-blue-50 text-xs">QC</th>
+                    <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-purple-50 text-xs">FG</th>
+                    <th className="px-1 py-3 text-center font-semibold text-gray-700 bg-pink-50 text-xs">Trans</th>
+                    <th className="px-3 py-3 text-center font-semibold text-gray-700">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {(salesOrders || [])
+                    .filter(so => {
+                      if (filterStatus === 'all') return true
+                      if (filterStatus === 'awaiting') return so.status === 'confirmed' || so.status === 'pending'
+                      if (filterStatus === 'in_production') return so.status === 'in_production'
+                      if (filterStatus === 'ready') return so.status === 'ready' || so.status === 'fg_complete'
+                      if (filterStatus === 'partial') return so.status === 'partial'
+                      if (filterStatus === 'complete') return so.status === 'delivered' || so.status === 'complete'
+                      return true
+                    })
+                    .map(so => {
+                      const customer = customers?.find(c => c.id === so.customerId)
+                      const totalQty = so.items?.reduce((sum, i) => sum + (i.qty || 0), 0) || 0
+                      const linkedWOs = workOrders.filter(wo => wo.soId === so.id || wo.customerPO === so.customerPO)
+                      const producedQty = linkedWOs.reduce((sum, wo) => sum + (wo.completedQty || 0), 0)
+                      const deliveredQty = so.items?.reduce((sum, i) => sum + (i.deliveredQty || 0), 0) || 0
+                      const balanceQty = totalQty - deliveredQty
+                      const isExpanded = expandedPOs[so.id]
+                      
+                      // Determine PLN scenario based on product type or customer
+                      const plnScenario = so.productionScenario || so.items?.[0]?.productionScenario || 'PLN 1.1.1'
+                      
+                      // Production path progress (which depts have X)
+                      const getPathProgress = (pln) => {
+                        const paths = {
+                          'PLN 0': { FG: true, Trans: true },
+                          'PLN 1': { Singh: true, P1: true, QA1: true, FG: true, Trans: true },
+                          'PLN 1.0.1': { Singh: true, P1: true, QA1: true, Oven: true, QC: true, FG: true, Trans: true },
+                          'PLN 1.1.1': { Singh: true, P1: true, QA1: true, A1: true, QA3: true, QC: true, FG: true, Trans: true },
+                          'PLN 1.1.2': { Singh: true, P1: true, QA1: true, A1: true, QA3: true, Oven: true, QC: true, FG: true, Trans: true },
+                          'PLN 1.2.1': { Singh: true, P1: true, QA1: true, A2: true, QA4: true, QC: true, FG: true, Trans: true },
+                          'PLN 1.2.2': { Singh: true, P1: true, QA1: true, A2: true, QA4: true, Oven: true, QC: true, FG: true, Trans: true },
+                          'PLN 2': { P2: true, QA2: true, FG: true, Trans: true },
+                          'PLN 2.0.1': { P2: true, QA2: true, Oven: true, QC: true, FG: true, Trans: true },
+                          'PLN 2.1.1': { P2: true, QA2: true, A1: true, QA3: true, QC: true, FG: true, Trans: true },
+                          'PLN 2.1.2': { P2: true, QA2: true, A1: true, QA3: true, Oven: true, QC: true, FG: true, Trans: true },
+                          'PLN 2.2.1': { P2: true, QA2: true, A2: true, QA4: true, QC: true, FG: true, Trans: true },
+                          'PLN 2.2.2': { P2: true, QA2: true, A2: true, QA4: true, Oven: true, QC: true, FG: true, Trans: true },
+                        }
+                        return paths[pln] || {}
+                      }
+                      
+                      const pathProgress = getPathProgress(plnScenario)
+                      
+                      // Get current department based on WO status
+                      const getCurrentDept = () => {
+                        if (linkedWOs.length === 0) return null
+                        const activeWO = linkedWOs.find(wo => wo.status === 'in_progress')
+                        return activeWO?.department || linkedWOs[0]?.department
+                      }
+                      const currentDept = getCurrentDept()
+                      
+                      const getStatusBadge = (status) => {
+                        const map = {
+                          'confirmed': { bg: 'bg-gray-100', text: 'text-gray-700', label: '⚪ Await' },
+                          'pending': { bg: 'bg-gray-100', text: 'text-gray-700', label: '⚪ Await' },
+                          'in_production': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: '🟡 Prod' },
+                          'ready': { bg: 'bg-blue-100', text: 'text-blue-700', label: '🔵 Ready' },
+                          'fg_complete': { bg: 'bg-blue-100', text: 'text-blue-700', label: '🔵 Ready' },
+                          'partial': { bg: 'bg-orange-100', text: 'text-orange-700', label: '🟠 Partial' },
+                          'delivered': { bg: 'bg-green-100', text: 'text-green-700', label: '🟢 Done' },
+                          'complete': { bg: 'bg-green-100', text: 'text-green-700', label: '🟢 Done' },
+                        }
+                        return map[status] || { bg: 'bg-gray-100', text: 'text-gray-700', label: status }
+                      }
+                      const statusBadge = getStatusBadge(so.status)
 
-            {/* Table Body */}
-            <div className="divide-y max-h-[500px] overflow-y-auto">
-              {(salesOrders || [])
-                .filter(so => {
-                  if (filterStatus === 'all') return true
-                  if (filterStatus === 'awaiting') return so.status === 'confirmed' || so.status === 'pending'
-                  if (filterStatus === 'in_production') return so.status === 'in_production'
-                  if (filterStatus === 'ready') return so.status === 'ready' || so.status === 'fg_complete'
-                  if (filterStatus === 'partial') return so.status === 'partial'
-                  if (filterStatus === 'complete') return so.status === 'delivered' || so.status === 'complete'
-                  return true
-                })
-                .map(so => {
-                  const customer = customers?.find(c => c.id === so.customerId)
-                  const totalQty = so.items?.reduce((sum, i) => sum + (i.qty || 0), 0) || 0
-                  const linkedWOs = workOrders.filter(wo => wo.soId === so.id || wo.customerPO === so.customerPO)
-                  const completedQty = linkedWOs.reduce((sum, wo) => sum + (wo.completedQty || 0), 0)
-                  const progress = totalQty > 0 ? Math.round((completedQty / totalQty) * 100) : 0
-                  const isExpanded = expandedPOs[so.id]
+                      return (
+                        <React.Fragment key={so.id}>
+                          {/* Main Row */}
+                          <tr 
+                            className={`hover:bg-gray-50 cursor-pointer ${isExpanded ? 'bg-blue-50' : ''}`}
+                            onClick={() => setExpandedPOs(prev => ({ ...prev, [so.id]: !prev[so.id] }))}
+                          >
+                            <td className="px-2 py-3 text-center">
+                              <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                            </td>
+                            <td className="px-3 py-3">
+                              <div className="font-mono font-bold text-blue-600 text-xs">{so.customerPO || so.id}</div>
+                              <div className="text-[10px] text-gray-400">{formatDate(so.orderDate)}</div>
+                            </td>
+                            <td className="px-3 py-3">
+                              <div className="font-medium text-sm">{customer?.name || 'Unknown'}</div>
+                            </td>
+                            <td className="px-2 py-3 text-center">
+                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                so.orderType === 'PO' ? 'bg-green-100 text-green-700' :
+                                so.orderType === 'PR' ? 'bg-blue-100 text-blue-700' :
+                                'bg-yellow-100 text-yellow-700'
+                              }`}>{so.orderType || 'PO'}</span>
+                            </td>
+                            <td className="px-3 py-3 text-center font-bold">{totalQty.toLocaleString()}</td>
+                            <td className="px-3 py-3 text-center">
+                              <span className={producedQty >= totalQty ? 'text-green-600 font-bold' : producedQty > 0 ? 'text-yellow-600' : 'text-gray-400'}>
+                                {producedQty.toLocaleString()}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3 text-center">
+                              <span className={deliveredQty >= totalQty ? 'text-green-600 font-bold' : deliveredQty > 0 ? 'text-blue-600' : 'text-gray-400'}>
+                                {deliveredQty.toLocaleString()}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3 text-center">
+                              <span className={balanceQty > 0 ? 'text-red-600 font-bold' : 'text-green-600'}>
+                                {balanceQty.toLocaleString()}
+                              </span>
+                            </td>
+                            <td className="px-2 py-3 text-center">
+                              <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-mono">{plnScenario}</span>
+                            </td>
+                            {/* Production Path X marks - from Production Mapping */}
+                            <td className={`px-1 py-3 text-center ${pathProgress.Singh ? 'bg-yellow-100' : ''}`}>
+                              {pathProgress.Singh && <span className={`text-xs font-bold ${currentDept === 'C1' ? 'text-green-600' : 'text-yellow-600'}`}>X</span>}
+                            </td>
+                            <td className={`px-1 py-3 text-center ${pathProgress.P1 ? 'bg-yellow-100' : ''}`}>
+                              {pathProgress.P1 && <span className={`text-xs font-bold ${currentDept === 'P1' ? 'text-green-600' : 'text-yellow-600'}`}>X</span>}
+                            </td>
+                            <td className={`px-1 py-3 text-center ${pathProgress.QA1 ? 'bg-gray-100' : ''}`}>
+                              {pathProgress.QA1 && <span className="text-xs font-bold text-gray-500">X</span>}
+                            </td>
+                            <td className={`px-1 py-3 text-center ${pathProgress.P2 ? 'bg-green-100' : ''}`}>
+                              {pathProgress.P2 && <span className={`text-xs font-bold ${currentDept === 'P2' ? 'text-green-600' : 'text-green-500'}`}>X</span>}
+                            </td>
+                            <td className={`px-1 py-3 text-center ${pathProgress.QA2 ? 'bg-gray-100' : ''}`}>
+                              {pathProgress.QA2 && <span className="text-xs font-bold text-gray-500">X</span>}
+                            </td>
+                            <td className={`px-1 py-3 text-center ${pathProgress.A1 ? 'bg-cyan-100' : ''}`}>
+                              {pathProgress.A1 && <span className={`text-xs font-bold ${currentDept === 'A1' ? 'text-green-600' : 'text-cyan-600'}`}>X</span>}
+                            </td>
+                            <td className={`px-1 py-3 text-center ${pathProgress.QA3 ? 'bg-gray-100' : ''}`}>
+                              {pathProgress.QA3 && <span className="text-xs font-bold text-gray-500">X</span>}
+                            </td>
+                            <td className={`px-1 py-3 text-center ${pathProgress.A2 ? 'bg-teal-100' : ''}`}>
+                              {pathProgress.A2 && <span className={`text-xs font-bold ${currentDept === 'A2' ? 'text-green-600' : 'text-teal-600'}`}>X</span>}
+                            </td>
+                            <td className={`px-1 py-3 text-center ${pathProgress.QA4 ? 'bg-gray-100' : ''}`}>
+                              {pathProgress.QA4 && <span className="text-xs font-bold text-gray-500">X</span>}
+                            </td>
+                            <td className={`px-1 py-3 text-center ${pathProgress.Oven ? 'bg-orange-100' : ''}`}>
+                              {pathProgress.Oven && <span className={`text-xs font-bold ${currentDept === 'OVEN' ? 'text-green-600' : 'text-orange-600'}`}>X</span>}
+                            </td>
+                            <td className={`px-1 py-3 text-center ${pathProgress.QC ? 'bg-blue-100' : ''}`}>
+                              {pathProgress.QC && <span className={`text-xs font-bold ${currentDept === 'QC' ? 'text-green-600' : 'text-blue-600'}`}>X</span>}
+                            </td>
+                            <td className={`px-1 py-3 text-center ${pathProgress.FG ? 'bg-purple-100' : ''}`}>
+                              {pathProgress.FG && <span className={`text-xs font-bold ${currentDept === 'FG' ? 'text-green-600' : 'text-purple-600'}`}>X</span>}
+                            </td>
+                            <td className={`px-1 py-3 text-center ${pathProgress.Trans ? 'bg-pink-100' : ''}`}>
+                              {pathProgress.Trans && <span className="text-xs font-bold text-pink-600">X</span>}
+                            </td>
+                            <td className="px-3 py-3 text-center">
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${statusBadge.bg} ${statusBadge.text}`}>
+                                {statusBadge.label}
+                              </span>
+                            </td>
+                          </tr>
+
+                          {/* Expanded Content - WO, BOM, Line Items */}
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan="24" className="p-0">
+                                <div className="bg-gray-50 border-t border-l-4 border-l-blue-500 p-4">
+                                  {/* Order Header */}
+                                  <div className="flex flex-wrap gap-4 text-sm mb-4 bg-white p-3 rounded-lg">
+                                    <div><span className="text-gray-500">Received:</span> <span className="font-medium text-green-600">{formatDate(so.receivedDate || so.orderDate)}</span></div>
+                                    <div><span className="text-gray-500">Req. Delivery:</span> <span className="font-medium text-orange-600">{formatDate(so.requestedDeliveryDate || so.deliveryDate)}</span></div>
+                                    <div><span className="text-gray-500">Location:</span> <span className="font-medium">{so.deliveryLocation || '-'}</span></div>
+                                    <div><span className="text-gray-500">Terms:</span> <span className="font-medium">{so.paymentTerms || 30} days</span></div>
+                                    <div><span className="text-gray-500">PLN Scenario:</span> <span className="font-mono font-bold text-indigo-600">{plnScenario}</span></div>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-4">
+                                    {/* Left: Line Items & WO */}
+                                    <div>
+                                      <h4 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                        <Package className="w-4 h-4" /> Line Items & Work Orders
+                                      </h4>
+                                      <table className="w-full text-sm bg-white rounded-lg overflow-hidden">
+                                        <thead className="bg-gray-100">
+                                          <tr>
+                                            <th className="px-3 py-2 text-left text-xs">Item Code</th>
+                                            <th className="px-3 py-2 text-left text-xs">Description</th>
+                                            <th className="px-2 py-2 text-right text-xs">Qty</th>
+                                            <th className="px-2 py-2 text-center text-xs">WO#</th>
+                                            <th className="px-2 py-2 text-center text-xs">Status</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                          {(so.items || []).map((item, idx) => {
+                                            const itemWO = linkedWOs.find(wo => wo.productId === item.productId)
+                                            return (
+                                              <tr key={idx} className="hover:bg-gray-50">
+                                                <td className="px-3 py-2 font-mono text-xs text-blue-600">{item.productId || item.itemCode}</td>
+                                                <td className="px-3 py-2 text-xs">{item.productName || item.name}</td>
+                                                <td className="px-2 py-2 text-right font-bold text-xs">{item.qty}</td>
+                                                <td className="px-2 py-2 text-center">
+                                                  {itemWO ? (
+                                                    <span className="font-mono text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{itemWO.id}</span>
+                                                  ) : (
+                                                    <Button size="sm" className="h-5 text-xs px-2" onClick={(e) => { e.stopPropagation(); setShowWOModal(true); }}>+ WO</Button>
+                                                  )}
+                                                </td>
+                                                <td className="px-2 py-2 text-center">
+                                                  {itemWO && (
+                                                    <Badge variant={itemWO.status === 'completed' ? 'success' : itemWO.status === 'in_progress' ? 'info' : 'warning'} className="text-xs">
+                                                      {itemWO.status}
+                                                    </Badge>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                            )
+                                          })}
+                                        </tbody>
+                                      </table>
+                                    </div>
+
+                                    {/* Right: BOM (Bill of Materials) */}
+                                    <div>
+                                      <h4 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                        <FileText className="w-4 h-4" /> BOM (Bill of Materials)
+                                      </h4>
+                                      <div className="bg-white rounded-lg p-3">
+                                        <table className="w-full text-sm">
+                                          <thead className="bg-gray-100">
+                                            <tr>
+                                              <th className="px-2 py-2 text-left text-xs">Material</th>
+                                              <th className="px-2 py-2 text-center text-xs">Store</th>
+                                              <th className="px-2 py-2 text-right text-xs">Req Qty</th>
+                                              <th className="px-2 py-2 text-right text-xs">Stock</th>
+                                              <th className="px-2 py-2 text-center text-xs">Status</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y">
+                                            {/* Sample BOM items - would come from product master */}
+                                            <tr>
+                                              <td className="px-2 py-2 text-xs">MLH Timber 40x40</td>
+                                              <td className="px-2 py-2 text-center text-xs">
+                                                <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">RM</span>
+                                              </td>
+                                              <td className="px-2 py-2 text-right text-xs font-medium">{(totalQty * 4).toLocaleString()}</td>
+                                              <td className="px-2 py-2 text-right text-xs text-green-600">5,000</td>
+                                              <td className="px-2 py-2 text-center">
+                                                <span className="text-green-600 text-xs">✓ OK</span>
+                                              </td>
+                                            </tr>
+                                            <tr>
+                                              <td className="px-2 py-2 text-xs">Nails 3 inch</td>
+                                              <td className="px-2 py-2 text-center text-xs">
+                                                <span className="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">CON</span>
+                                              </td>
+                                              <td className="px-2 py-2 text-right text-xs font-medium">{(totalQty * 20).toLocaleString()}</td>
+                                              <td className="px-2 py-2 text-right text-xs text-green-600">50,000</td>
+                                              <td className="px-2 py-2 text-center">
+                                                <span className="text-green-600 text-xs">✓ OK</span>
+                                              </td>
+                                            </tr>
+                                            <tr>
+                                              <td className="px-2 py-2 text-xs">Plywd 12mm</td>
+                                              <td className="px-2 py-2 text-center text-xs">
+                                                <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded">IND2</span>
+                                              </td>
+                                              <td className="px-2 py-2 text-right text-xs font-medium">{totalQty.toLocaleString()}</td>
+                                              <td className="px-2 py-2 text-right text-xs text-yellow-600">200</td>
+                                              <td className="px-2 py-2 text-center">
+                                                <span className="text-yellow-600 text-xs">⚠ Low</span>
+                                              </td>
+                                            </tr>
+                                          </tbody>
+                                        </table>
+                                        <div className="mt-2 flex gap-2">
+                                          <Button size="sm" variant="outline" className="text-xs">
+                                            <Package className="w-3 h-3 mr-1" /> Issue Materials
+                                          </Button>
+                                          <Button size="sm" variant="outline" className="text-xs">
+                                            <AlertTriangle className="w-3 h-3 mr-1" /> Create PR
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Production Path Visualization */}
+                                  <div className="mt-4 bg-white p-3 rounded-lg">
+                                    <h4 className="font-bold text-gray-700 mb-2">Production Path: {plnScenario}</h4>
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                      {PRODUCTION_SCENARIOS.find(s => s.code === plnScenario)?.path.map((dept, idx, arr) => (
+                                        <React.Fragment key={idx}>
+                                          <div className={`px-3 py-1.5 rounded text-xs font-medium ${
+                                            currentDept === dept ? 'bg-green-500 text-white animate-pulse' :
+                                            'bg-gray-200 text-gray-700'
+                                          }`}>
+                                            {dept}
+                                          </div>
+                                          {idx < arr.length - 1 && <ArrowRight className="w-4 h-4 text-gray-400" />}
+                                        </React.Fragment>
+                                      )) || (
+                                        <span className="text-gray-500 text-sm">Select PLN scenario</span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Actions */}
+                                  <div className="mt-3 flex gap-2">
+                                    <Button size="sm" onClick={(e) => { e.stopPropagation(); setShowWOModal(true); }}>
+                                      <Plus className="w-4 h-4 mr-1" /> Create WO
+                                    </Button>
+                                    <Button size="sm" variant="outline">
+                                      <Package className="w-4 h-4 mr-1" /> Issue Materials
+                                    </Button>
+                                    <Button size="sm" variant="outline">
+                                      <Eye className="w-4 h-4 mr-1" /> View BOM
+                                    </Button>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      )
+                    })}
                   
-                  return (
-                    <div key={so.id}>
-                      <div 
-                        className={`px-4 py-3 grid grid-cols-12 gap-2 items-center cursor-pointer hover:bg-gray-50 ${isExpanded ? 'bg-blue-50' : ''}`}
-                        onClick={() => setExpandedPOs(prev => ({ ...prev, [so.id]: !prev[so.id] }))}
-                      >
-                        <div className="col-span-1">
-                          <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                        </div>
-                        <div className="col-span-2">
-                          <div className="font-mono font-bold text-blue-600">{so.customerPO || so.id}</div>
-                          <div className="text-xs text-gray-400">{formatDate(so.orderDate || so.createdAt)}</div>
-                        </div>
-                        <div className="col-span-2">
-                          <div className="font-medium">{customer?.name || 'Unknown'}</div>
-                        </div>
-                        <div className="col-span-1 text-center font-bold">{totalQty}</div>
-                        <div className="col-span-2">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
-                              <div 
+                  {(!salesOrders || salesOrders.length === 0) && (
+                    <tr>
+                      <td colSpan="24" className="p-12 text-center text-gray-400">
+                        <Package className="w-16 h-16 mx-auto mb-3 opacity-50" />
+                        <div className="text-lg">{lang === 'th' ? 'ไม่มี PO' : 'No POs found'}</div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )} 
                                 className={`h-full ${progress >= 100 ? 'bg-green-500' : progress > 0 ? 'bg-yellow-500' : 'bg-gray-300'}`}
                                 style={{ width: `${Math.min(progress, 100)}%` }}
                               />
@@ -13183,6 +13628,20 @@ const OrderTrackerComponent = ({
           <div className="flex justify-between"><div><p className="text-sm text-green-600">{lang === 'th' ? 'เสร็จสิ้น' : 'Complete'}</p><p className="text-2xl font-bold text-green-700">{stats.complete}</p></div><CheckCircle className="w-8 h-8 text-green-400" /></div>
         </Card>
       </div>
+
+      {/* Linked Stores - Sales has access to RM Wood, IND2, FG */}
+      <Card className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="flex items-center justify-between">
+          <h4 className="font-bold text-blue-700 flex items-center gap-2">
+            <Database className="w-5 h-5" /> {lang === 'th' ? 'คลังที่เชื่อมต่อ (Sales)' : 'Linked Stores (Sales)'}
+          </h4>
+          <div className="flex gap-3">
+            <Badge className="bg-amber-100 text-amber-700">📦 RM Wood (STORE1)</Badge>
+            <Badge className="bg-green-100 text-green-700">📦 IND2 (STORE2)</Badge>
+            <Badge className="bg-purple-100 text-purple-700">📦 FG (STORE6)</Badge>
+          </div>
+        </div>
+      </Card>
 
       {/* TRACKER VIEW */}
       {activeView === 'tracker' && (
