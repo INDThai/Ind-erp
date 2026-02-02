@@ -1,9 +1,9 @@
-import React, { useState, useEffect, createContext, useContext, useRef } from 'react'
+import React, { useState, useEffect, createContext, useContext, useRef, useMemo } from 'react'
 import {
   Home, Package, Factory, Receipt, Truck, Users, Settings, BarChart3,
   Sparkles, MessageCircle, Building2, ChevronRight, ChevronDown, ChevronLeft,
   DollarSign, ShoppingCart, Wrench, Calendar, Clock, AlertTriangle,
-  CheckCircle, TrendingUp, TrendingDown, FileText, Bell, Eye, Edit3,
+  CheckCircle, CheckCircle2, TrendingUp, TrendingDown, FileText, Bell, Eye, Edit3,
   Search, Filter, Plus, Trash2, Send, RotateCcw, Layers, TreePine,
   Calculator, Zap, Upload, Camera, Scan, Target, ClipboardList,
   Globe, Phone, Shield, Key, Menu, Loader2, X, UserCheck, UserX,
@@ -13,19 +13,40 @@ import {
   Languages, Check, AlertCircle, Info, HelpCircle, ExternalLink, Play,
   Car, Hammer, CalendarDays, FileUp, Briefcase, UserPlus, Banknote,
   Fuel, MapPinned, Navigation, FileImage, FileScan, Brain, BookOpen,
-  Cog, AlertOctagon, ClipboardCheck, Timer, BadgeCheck, QrCode
+  Cog, AlertOctagon, ClipboardCheck, Timer, BadgeCheck, QrCode, History,
+  List, FileOutput
 } from 'lucide-react'
 
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '8.6'
-const VERSION_DATE = '2026-02-01'
+const VERSION = '9.0'
+const VERSION_DATE = '2026-02-02'
 
-// v8.6 NEW FEATURES - CRITICAL BUSINESS LOGIC:
+// v9.0 NEW FEATURES - ORDER-TO-DELIVERY TRACKER:
+// 1. COMPLETE ORDER TRACKER - Running table with 4-level expansion (Order → Lines → Schedule → History)
+// 2. PRODUCTION PATH VISUALIZATION - Shows department flow (Singh→P1→QA→A1→Oven→QC→FG→Transport)
+// 3. DELIVERY CALENDAR - 3 views (Monthly, Weekly, Customer)
+// 4. FULL REVISION HISTORY - Every change tracked with who/when/why
+// 5. CUSTOMER VIEW - Delivery timeline and order summary per customer
+// 6. AUTO STATUS TRACKING - Draft → Producing → Ready → Partial → Complete
+// 7. PRODUCTION SCENARIO MAPPING - PLN 0, PLN 1, PLN 1.1.1, etc. from Production Mapping
+// 8. REAL-TIME BALANCE - Total/Produced/Delivered/Balance at glance
+
+// v8.7 FEATURES - DELIVERY SCHEDULE MANAGEMENT:
+// 1. CUSTOMER DELIVERY LOCATIONS - Multiple locations per customer (e.g. Polyplex PLOT 1/2/3)
+// 2. DELIVERY SCHEDULE PER ITEM - Split orders into partial deliveries at different locations/dates
+// 3. CUSTOMER REQUEST-BASED REVISIONS - Sales updates schedules based on customer requests (not capacity)
+// 4. REVISION HISTORY TRACKING - Full audit trail: who changed, when, from/to dates, reason
+// 5. ORDER TYPE FLAGS - PR/PO/Direct per customer
+// 6. SCHEDULE STATUS - Planned → Revised → Confirmed workflow
+// 7. WO CREATED BY PRODUCTION - Production creates WO from SO dropdown (not Sales)
+// 8. PRODUCTION WO FORM ENHANCED - Dropdown to select pending SOs, auto-fill customer/product
+
+// v8.6 FEATURES - CRITICAL BUSINESS LOGIC:
 // 1. TRANSPORT ALLOWANCES - Full calculation per spec (100% furthest + 50% additional, bonuses)
 // 2. DISCOUNT APPROVAL WORKFLOW - CEO approval required, reason tracking, approval status
-// 3. SO → WO LINK - Sales Orders show linked Work Orders, "→ WO" button for production flow
+// 3. SO → WO DISPLAY - Sales Orders show linked Work Orders (display only, WO created by Production)
 // 4. CN → INVOICE BALANCE - Credit Notes now automatically reduce invoice balance
 // 5. QUOTATION DISCOUNT BLOCKING - Cannot save quotation with unapproved discount
 //
@@ -584,14 +605,50 @@ const INITIAL_PURCHASE_ORDERS = [
 // CUSTOMERS
 // ============================================
 const INITIAL_CUSTOMERS = [
-  { id: 'C001', code: 'RYL-016', name: 'Royal Ceramics', nameTh: 'รอยัล เซรามิค', contact: 'Khun Preeda', phone: '038-123-456', email: 'purchasing@royalceramics.co.th', paymentTerms: 30, deliveryAddress: 'Rayong', type: 'local', tripCost: 60, specialRequirements: null, isActive: true },
-  { id: 'C002', code: 'SHN-004', name: 'Shin Steel Industries', nameTh: 'ชินสตีล อินดัสทรีส์', contact: 'Khun Somsak', phone: '038-234-567', email: 'po@shinsteel.com', paymentTerms: 45, deliveryAddress: 'Chonburi', type: 'local', tripCost: 60, specialRequirements: null, isActive: true },
-  { id: 'C003', code: 'BVI-031', name: 'BV Industries', nameTh: 'บีวี อินดัสทรีส์', contact: 'Khun Napat', phone: '02-345-6789', email: 'procurement@bvindustries.com', paymentTerms: 60, deliveryAddress: 'Bangkok', type: 'local', tripCost: 80, specialRequirements: null, isActive: true },
-  { id: 'C004', code: 'PLX-002', name: 'Polyplex Thailand', nameTh: 'โพลีเพล็กซ์ ไทยแลนด์', contact: 'Khun Varunthanat', phone: '+66 38 627074', email: 'vthongkhumsan@polyplex.com', paymentTerms: 30, deliveryAddress: 'Siam Eastern Industrial Park, Rayong', type: 'local', tripCost: 50, specialRequirements: { labelFormat: 'polyplex_4column', colorCoding: { FILM: 'white', CPP: 'peach', Line10: 'red' } }, isActive: true },
-  { id: 'C005', code: 'ALL-013', name: 'Alliance Laundry', nameTh: 'อัลไลแอนซ์ ลอนดรี้', contact: 'Khun Somchai', phone: '038-456-789', email: 'purchasing@alliance.com', paymentTerms: 30, deliveryAddress: 'Amata City, Chonburi', type: 'local', tripCost: 50, specialRequirements: { qrLabels: true, htCertificate: true }, isActive: true },
-  { id: 'C006', code: 'FRKW-001', name: 'Furukawa Electric', nameTh: 'ฟูรูคาวา อิเล็คทริค', contact: 'Khun Tanaka', phone: '038-567-890', email: 'procurement@furukawa.co.th', paymentTerms: 45, deliveryAddress: 'Eastern Seaboard Industrial Estate', type: 'export', tripCost: 60, specialRequirements: { htCertificate: true }, isActive: true },
-  { id: 'C007', code: 'JYP-011', name: 'JY Packing', nameTh: 'เจวาย แพคกิ้ง', contact: 'Khun Jiraporn', phone: '038-678-901', email: 'po@jypacking.com', paymentTerms: 30, deliveryAddress: 'Self Pick-up', type: 'local', tripCost: 0, specialRequirements: { selfPickup: true }, isActive: true },
-  { id: 'C008', code: 'OKMT-020', name: 'Okamoto Industries', nameTh: 'โอคาโมโตะ อินดัสทรีส์', contact: 'Khun Yamamoto', phone: '038-789-012', email: 'purchasing@okamoto.co.th', paymentTerms: 60, deliveryAddress: 'Amata Nakorn, Chonburi', type: 'export', tripCost: 120, specialRequirements: null, isActive: true },
+  { id: 'C001', code: 'RYL-016', name: 'Royal Ceramics', nameTh: 'รอยัล เซรามิค', contact: 'Khun Preeda', phone: '038-123-456', email: 'purchasing@royalceramics.co.th', paymentTerms: 30, 
+    deliveryLocations: [
+      { id: 'RYL-L1', name: 'Main Plant', address: 'Rayong Industrial Estate', tripCost: 60, isDefault: true }
+    ],
+    orderType: 'PO', type: 'local', specialRequirements: null, isActive: true },
+  { id: 'C002', code: 'SHN-004', name: 'Shin Steel Industries', nameTh: 'ชินสตีล อินดัสทรีส์', contact: 'Khun Somsak', phone: '038-234-567', email: 'po@shinsteel.com', paymentTerms: 45, 
+    deliveryLocations: [
+      { id: 'SHN-L1', name: 'Factory 1', address: 'Chonburi Main', tripCost: 60, isDefault: true },
+      { id: 'SHN-L2', name: 'Factory 2', address: 'Chonburi Branch', tripCost: 70, isDefault: false }
+    ],
+    orderType: 'PO', type: 'local', specialRequirements: null, isActive: true },
+  { id: 'C003', code: 'BVI-031', name: 'BV Industries', nameTh: 'บีวี อินดัสทรีส์', contact: 'Khun Napat', phone: '02-345-6789', email: 'procurement@bvindustries.com', paymentTerms: 60, 
+    deliveryLocations: [
+      { id: 'BVI-L1', name: 'Bangkok Warehouse', address: 'Bangkok', tripCost: 80, isDefault: true }
+    ],
+    orderType: 'Direct', type: 'local', specialRequirements: null, isActive: true },
+  { id: 'C004', code: 'PLX-002', name: 'Polyplex Thailand', nameTh: 'โพลีเพล็กซ์ ไทยแลนด์', contact: 'Khun Varunthanat', phone: '+66 38 627074', email: 'vthongkhumsan@polyplex.com', paymentTerms: 30, 
+    deliveryLocations: [
+      { id: 'PLX-L1', name: 'PLOT 1', address: 'Siam Eastern Industrial Park, Rayong - Plot 1', tripCost: 50, isDefault: true },
+      { id: 'PLX-L2', name: 'PLOT 2', address: 'Siam Eastern Industrial Park, Rayong - Plot 2', tripCost: 50, isDefault: false },
+      { id: 'PLX-L3', name: 'PLOT 3', address: 'Siam Eastern Industrial Park, Rayong - Plot 3', tripCost: 55, isDefault: false }
+    ],
+    orderType: 'PO', type: 'local', specialRequirements: { labelFormat: 'polyplex_4column', colorCoding: { FILM: 'white', CPP: 'peach', Line10: 'red' } }, isActive: true },
+  { id: 'C005', code: 'ALL-013', name: 'Alliance Laundry', nameTh: 'อัลไลแอนซ์ ลอนดรี้', contact: 'Khun Somchai', phone: '038-456-789', email: 'purchasing@alliance.com', paymentTerms: 30, 
+    deliveryLocations: [
+      { id: 'ALL-L1', name: 'Main Factory', address: 'Amata City, Chonburi', tripCost: 50, isDefault: true }
+    ],
+    orderType: 'PR', type: 'local', specialRequirements: { qrLabels: true, htCertificate: true }, isActive: true },
+  { id: 'C006', code: 'FRKW-001', name: 'Furukawa Electric', nameTh: 'ฟูรูคาวา อิเล็คทริค', contact: 'Khun Tanaka', phone: '038-567-890', email: 'procurement@furukawa.co.th', paymentTerms: 45, 
+    deliveryLocations: [
+      { id: 'FRK-L1', name: 'Plant A', address: 'Eastern Seaboard Industrial Estate - A', tripCost: 60, isDefault: true },
+      { id: 'FRK-L2', name: 'Plant B', address: 'Eastern Seaboard Industrial Estate - B', tripCost: 65, isDefault: false }
+    ],
+    orderType: 'PO', type: 'export', specialRequirements: { htCertificate: true }, isActive: true },
+  { id: 'C007', code: 'JYP-011', name: 'JY Packing', nameTh: 'เจวาย แพคกิ้ง', contact: 'Khun Jiraporn', phone: '038-678-901', email: 'po@jypacking.com', paymentTerms: 30, 
+    deliveryLocations: [
+      { id: 'JYP-L1', name: 'Self Pick-up', address: 'Customer collects from IND', tripCost: 0, isDefault: true }
+    ],
+    orderType: 'Direct', type: 'local', specialRequirements: { selfPickup: true }, isActive: true },
+  { id: 'C008', code: 'OKMT-020', name: 'Okamoto Industries', nameTh: 'โอคาโมโตะ อินดัสทรีส์', contact: 'Khun Yamamoto', phone: '038-789-012', email: 'purchasing@okamoto.co.th', paymentTerms: 60, 
+    deliveryLocations: [
+      { id: 'OKM-L1', name: 'Main Plant', address: 'Amata Nakorn, Chonburi', tripCost: 120, isDefault: true }
+    ],
+    orderType: 'PO', type: 'export', specialRequirements: null, isActive: true },
 ]
 
 // ============================================
@@ -7270,7 +7327,7 @@ const GoodsReceiptForm = ({ po, vendors, categories, globalLotSequence, setGloba
 // ============================================
 // PRODUCTION MODULE (With Costing Analysis)
 // ============================================
-const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, inventory, setInventory, categories, stores, lang }) => {
+const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, inventory, setInventory, categories, stores, salesOrders, lang }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [showWOModal, setShowWOModal] = useState(false)
   const [showIssueModal, setShowIssueModal] = useState(false)
@@ -7633,6 +7690,8 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
             departments={departments}
             inventory={inventory}
             categories={categories}
+            salesOrders={salesOrders}
+            workOrders={workOrders}
             lang={lang}
             onSave={(woData) => {
               const newWO = {
@@ -7820,7 +7879,7 @@ const ProductionCosting = ({ workOrders, customers, lang }) => {
 // ============================================
 // WORK ORDER FORM
 // ============================================
-const WorkOrderForm = ({ wo, customers, departments, inventory, categories, onSave, onCancel, lang }) => {
+const WorkOrderForm = ({ wo, customers, departments, inventory, categories, salesOrders, workOrders, onSave, onCancel, lang }) => {
   const [formData, setFormData] = useState({
     customerId: wo?.customerId || '',
     soId: wo?.soId || '',
@@ -7834,6 +7893,32 @@ const WorkOrderForm = ({ wo, customers, departments, inventory, categories, onSa
     entity: wo?.entity || 'IND',
   })
 
+  // Get available SOs (not already linked to a WO)
+  const linkedSOIds = workOrders?.map(w => w.soId).filter(Boolean) || []
+  const availableSOs = salesOrders?.filter(so => 
+    !linkedSOIds.includes(so.id) && 
+    so.status !== 'delivered'
+  ) || []
+
+  const handleSOSelect = (soId) => {
+    const selectedSO = salesOrders?.find(so => so.id === soId)
+    if (selectedSO) {
+      // Auto-fill from SO
+      const firstItem = selectedSO.items?.[0]
+      setFormData({
+        ...formData,
+        soId: soId,
+        customerId: selectedSO.customerId,
+        productName: firstItem?.productName || formData.productName,
+        quantity: firstItem?.qty || formData.quantity,
+        totalRevenue: selectedSO.subtotal || formData.totalRevenue,
+        targetDate: selectedSO.items?.[0]?.deliverySchedule?.[0]?.deliveryDate || selectedSO.deliveryDate || formData.targetDate,
+      })
+    } else {
+      setFormData({ ...formData, soId: soId })
+    }
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
     onSave(formData)
@@ -7843,6 +7928,53 @@ const WorkOrderForm = ({ wo, customers, departments, inventory, categories, onSa
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Link to Sales Order - Production creates WO from SO */}
+      <Card className="p-4 bg-blue-50 border-blue-200">
+        <div className="flex items-center gap-2 mb-3">
+          <ClipboardList className="w-5 h-5 text-blue-600" />
+          <span className="font-medium text-blue-800">{lang === 'th' ? 'เชื่อมกับใบสั่งขาย' : 'Link to Sales Order'}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {lang === 'th' ? 'เลือกใบสั่งขาย' : 'Select Sales Order'}
+            </label>
+            <select
+              value={formData.soId}
+              onChange={(e) => handleSOSelect(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg bg-white"
+            >
+              <option value="">{lang === 'th' ? '-- เลือก SO --' : '-- Select SO --'}</option>
+              {availableSOs.map(so => {
+                const customer = customers.find(c => c.id === so.customerId)
+                return (
+                  <option key={so.id} value={so.id}>
+                    {so.id} - {customer?.name} ({so.customerPO})
+                  </option>
+                )
+              })}
+            </select>
+            {availableSOs.length === 0 && (
+              <p className="text-xs text-orange-600 mt-1">
+                {lang === 'th' ? 'ไม่มี SO ที่รอผลิต' : 'No pending SOs available'}
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {lang === 'th' ? 'หรือ ป้อนเลข SO' : 'Or Enter SO #'}
+            </label>
+            <input
+              type="text"
+              value={formData.soId}
+              onChange={(e) => setFormData({ ...formData, soId: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg"
+              placeholder="SO-2501-001"
+            />
+          </div>
+        </div>
+      </Card>
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -7862,15 +7994,16 @@ const WorkOrderForm = ({ wo, customers, departments, inventory, categories, onSa
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            {lang === 'th' ? 'เลขที่ใบสั่งขาย' : 'Sales Order #'}
+            {lang === 'th' ? 'นิติบุคคล' : 'Entity'}
           </label>
-          <input
-            type="text"
-            value={formData.soId}
-            onChange={(e) => setFormData({ ...formData, soId: e.target.value })}
+          <select
+            value={formData.entity}
+            onChange={(e) => setFormData({ ...formData, entity: e.target.value })}
             className="w-full px-3 py-2 border rounded-lg"
-            placeholder="SO-2501-001"
-          />
+          >
+            <option value="IND">IND Thai Packwell</option>
+            <option value="IND2">IND-2 Thai Packwell</option>
+          </select>
         </div>
       </div>
 
@@ -10200,6 +10333,7 @@ function AppBasicVersion() {
                       setInventory={setInventory}
                       categories={categories}
                       stores={stores}
+                      salesOrders={salesOrders}
                       lang={lang}
                     />
                   )}
@@ -11079,23 +11213,27 @@ const ReportsModule = ({ inventory, purchaseOrders, workOrders, salesOrders, inv
 }
 
 // ============================================
-// SALES ORDER FORM
+// SALES ORDER FORM (Enhanced with Delivery Schedule)
 // ============================================
 const SalesOrderForm = ({ so, customers, products, onSave, onCancel, lang }) => {
   const [formData, setFormData] = useState({
     customerId: so?.customerId || '',
     customerPO: so?.customerPO || '',
     orderDate: so?.orderDate || new Date().toISOString().split('T')[0],
-    deliveryDate: so?.deliveryDate || '',
-    items: so?.items || [{ id: 1, productName: '', qty: 0, unit: 'pcs', unitPrice: 0 }],
+    items: so?.items || [{ id: 1, productName: '', qty: 0, unit: 'pcs', unitPrice: 0, deliverySchedule: [] }],
     notes: so?.notes || '',
     entity: so?.entity || 'IND',
   })
+  const [showDeliverySchedule, setShowDeliverySchedule] = useState(false)
+  const [selectedItemIdx, setSelectedItemIdx] = useState(null)
+
+  const selectedCustomer = customers.find(c => c.id === formData.customerId)
+  const deliveryLocations = selectedCustomer?.deliveryLocations || []
 
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { id: prev.items.length + 1, productName: '', qty: 0, unit: 'pcs', unitPrice: 0 }]
+      items: [...prev.items, { id: prev.items.length + 1, productName: '', qty: 0, unit: 'pcs', unitPrice: 0, deliverySchedule: [] }]
     }))
   }
 
@@ -11115,6 +11253,73 @@ const SalesOrderForm = ({ so, customers, products, onSave, onCancel, lang }) => 
     }
   }
 
+  // Add delivery schedule entry for an item
+  const addDeliverySchedule = (itemIdx) => {
+    const defaultLocation = deliveryLocations.find(l => l.isDefault) || deliveryLocations[0]
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) => {
+        if (i === itemIdx) {
+          const remainingQty = item.qty - (item.deliverySchedule?.reduce((sum, s) => sum + s.qty, 0) || 0)
+          return {
+            ...item,
+            deliverySchedule: [
+              ...(item.deliverySchedule || []),
+              { 
+                id: (item.deliverySchedule?.length || 0) + 1,
+                locationId: defaultLocation?.id || '',
+                locationName: defaultLocation?.name || '',
+                qty: Math.max(0, remainingQty),
+                deliveryDate: '',
+                status: 'planned'
+              }
+            ]
+          }
+        }
+        return item
+      })
+    }))
+  }
+
+  const updateDeliverySchedule = (itemIdx, schedIdx, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) => {
+        if (i === itemIdx) {
+          return {
+            ...item,
+            deliverySchedule: item.deliverySchedule.map((sched, j) => {
+              if (j === schedIdx) {
+                if (field === 'locationId') {
+                  const loc = deliveryLocations.find(l => l.id === value)
+                  return { ...sched, locationId: value, locationName: loc?.name || '' }
+                }
+                return { ...sched, [field]: value }
+              }
+              return sched
+            })
+          }
+        }
+        return item
+      })
+    }))
+  }
+
+  const removeDeliverySchedule = (itemIdx, schedIdx) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) => {
+        if (i === itemIdx) {
+          return {
+            ...item,
+            deliverySchedule: item.deliverySchedule.filter((_, j) => j !== schedIdx)
+          }
+        }
+        return item
+      })
+    }))
+  }
+
   const subtotal = formData.items.reduce((sum, item) => sum + (item.qty * item.unitPrice), 0)
   const vat = subtotal * 0.07
   const grandTotal = subtotal + vat
@@ -11132,9 +11337,9 @@ const SalesOrderForm = ({ so, customers, products, onSave, onCancel, lang }) => 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Customer & PO */}
-      <div className="grid grid-cols-3 gap-4">
-        <div>
+      {/* Customer Selection with Order Type Badge */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className="col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             {lang === 'th' ? 'ลูกค้า *' : 'Customer *'}
           </label>
@@ -11146,20 +11351,34 @@ const SalesOrderForm = ({ so, customers, products, onSave, onCancel, lang }) => 
           >
             <option value="">{lang === 'th' ? 'เลือกลูกค้า' : 'Select Customer'}</option>
             {customers.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.orderType || 'PO'}) - {c.deliveryLocations?.length || 1} locations
+              </option>
             ))}
           </select>
+          {selectedCustomer && (
+            <div className="mt-2 flex items-center gap-2">
+              <Badge variant={selectedCustomer.orderType === 'PR' ? 'warning' : selectedCustomer.orderType === 'Direct' ? 'success' : 'info'}>
+                {selectedCustomer.orderType || 'PO'} Customer
+              </Badge>
+              <span className="text-xs text-gray-500">
+                {selectedCustomer.deliveryLocations?.length || 0} delivery location(s)
+              </span>
+              {selectedCustomer.specialRequirements?.qrLabels && <Badge variant="purple">QR Labels</Badge>}
+              {selectedCustomer.specialRequirements?.htCertificate && <Badge variant="orange">HT Cert</Badge>}
+            </div>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            {lang === 'th' ? 'PO ลูกค้า' : 'Customer PO #'}
+            {lang === 'th' ? 'PO/PR ลูกค้า' : 'Customer PO/PR #'}
           </label>
           <input
             type="text"
             value={formData.customerPO}
             onChange={(e) => setFormData({ ...formData, customerPO: e.target.value })}
             className="w-full px-3 py-2 border rounded-lg"
-            placeholder="e.g., PO25001234"
+            placeholder={selectedCustomer?.orderType === 'PR' ? 'PR-XXXXX' : 'PO-XXXXX'}
           />
         </div>
         <div>
@@ -11177,7 +11396,7 @@ const SalesOrderForm = ({ so, customers, products, onSave, onCancel, lang }) => 
         </div>
       </div>
 
-      {/* Dates */}
+      {/* Order Date */}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -11191,96 +11410,168 @@ const SalesOrderForm = ({ so, customers, products, onSave, onCancel, lang }) => 
             className="w-full px-3 py-2 border rounded-lg"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {lang === 'th' ? 'กำหนดส่ง *' : 'Delivery Date *'}
-          </label>
-          <input
-            type="date"
-            required
-            value={formData.deliveryDate}
-            onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })}
-            className="w-full px-3 py-2 border rounded-lg"
-          />
+        <div className="flex items-end">
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 w-full">
+            <strong>💡 {lang === 'th' ? 'กำหนดส่ง' : 'Delivery'}:</strong> {lang === 'th' ? 'กำหนดวันส่งแยกตามรายการสินค้าด้านล่าง' : 'Set delivery dates per item below'}
+          </div>
         </div>
       </div>
 
-      {/* Items */}
+      {/* Items with Delivery Schedule */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="text-sm font-medium text-gray-700">
-            {lang === 'th' ? 'รายการสินค้า' : 'Order Items'}
+            {lang === 'th' ? 'รายการสินค้าและแผนส่ง' : 'Items & Delivery Schedule'}
           </label>
           <Button type="button" size="sm" variant="outline" onClick={addItem}>
             + {lang === 'th' ? 'เพิ่มรายการ' : 'Add Item'}
           </Button>
         </div>
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-2 text-left">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
-                <th className="px-3 py-2 text-right">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
-                <th className="px-3 py-2 text-left">{lang === 'th' ? 'หน่วย' : 'Unit'}</th>
-                <th className="px-3 py-2 text-right">{lang === 'th' ? 'ราคา/หน่วย' : 'Unit Price'}</th>
-                <th className="px-3 py-2 text-right">{lang === 'th' ? 'รวม' : 'Total'}</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {formData.items.map((item, idx) => (
-                <tr key={idx}>
-                  <td className="px-3 py-2">
+        
+        <div className="space-y-4">
+          {formData.items.map((item, idx) => {
+            const scheduledQty = item.deliverySchedule?.reduce((sum, s) => sum + (s.qty || 0), 0) || 0
+            const unscheduledQty = (item.qty || 0) - scheduledQty
+            
+            return (
+              <Card key={idx} className="p-4 border-l-4 border-l-blue-400">
+                {/* Item Row */}
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-4">
+                    <label className="block text-xs text-gray-500 mb-1">{lang === 'th' ? 'สินค้า' : 'Product'}</label>
                     <input
                       type="text"
                       value={item.productName}
                       onChange={(e) => updateItem(idx, 'productName', e.target.value)}
-                      className="w-full px-2 py-1 border rounded text-sm"
-                      placeholder="Pallet 1100x950x950"
+                      className="w-full px-2 py-1.5 border rounded text-sm"
+                      placeholder="PT 950 X 1400"
                     />
-                  </td>
-                  <td className="px-3 py-2">
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs text-gray-500 mb-1">{lang === 'th' ? 'จำนวนรวม' : 'Total Qty'}</label>
                     <input
                       type="number"
                       value={item.qty || ''}
                       onChange={(e) => updateItem(idx, 'qty', parseInt(e.target.value) || 0)}
-                      className="w-20 px-2 py-1 border rounded text-sm text-right"
+                      className="w-full px-2 py-1.5 border rounded text-sm text-right"
                     />
-                  </td>
-                  <td className="px-3 py-2">
+                  </div>
+                  <div className="col-span-1">
+                    <label className="block text-xs text-gray-500 mb-1">{lang === 'th' ? 'หน่วย' : 'Unit'}</label>
                     <select
                       value={item.unit}
                       onChange={(e) => updateItem(idx, 'unit', e.target.value)}
-                      className="w-20 px-2 py-1 border rounded text-sm"
+                      className="w-full px-2 py-1.5 border rounded text-sm"
                     >
                       <option value="pcs">pcs</option>
                       <option value="sets">sets</option>
-                      <option value="pallets">pallets</option>
                     </select>
-                  </td>
-                  <td className="px-3 py-2">
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs text-gray-500 mb-1">{lang === 'th' ? 'ราคา/หน่วย' : 'Price'}</label>
                     <input
                       type="number"
                       step="0.01"
                       value={item.unitPrice || ''}
                       onChange={(e) => updateItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
-                      className="w-28 px-2 py-1 border rounded text-sm text-right"
+                      className="w-full px-2 py-1.5 border rounded text-sm text-right"
                     />
-                  </td>
-                  <td className="px-3 py-2 text-right font-medium">
-                    {formatCurrency(item.qty * item.unitPrice)}
-                  </td>
-                  <td className="px-3 py-2">
+                  </div>
+                  <div className="col-span-2 text-right">
+                    <label className="block text-xs text-gray-500 mb-1">{lang === 'th' ? 'รวม' : 'Total'}</label>
+                    <div className="font-bold text-green-600">{formatCurrency(item.qty * item.unitPrice)}</div>
+                  </div>
+                  <div className="col-span-1 flex justify-end gap-1">
                     {formData.items.length > 1 && (
-                      <button type="button" onClick={() => removeItem(idx)} className="text-red-500 hover:text-red-700">
+                      <button type="button" onClick={() => removeItem(idx)} className="text-red-500 hover:text-red-700 p-1">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+
+                {/* Delivery Schedule Section */}
+                <div className="mt-3 pt-3 border-t border-dashed">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-orange-500" />
+                      <span className="text-sm font-medium text-gray-700">
+                        {lang === 'th' ? 'แผนการส่ง' : 'Delivery Schedule'}
+                      </span>
+                      {unscheduledQty > 0 && (
+                        <Badge variant="warning">{unscheduledQty} {lang === 'th' ? 'ยังไม่กำหนด' : 'unscheduled'}</Badge>
+                      )}
+                      {unscheduledQty === 0 && item.qty > 0 && (
+                        <Badge variant="success">✓ {lang === 'th' ? 'กำหนดครบ' : 'Fully scheduled'}</Badge>
+                      )}
+                    </div>
+                    <Button 
+                      type="button" 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => addDeliverySchedule(idx)}
+                      disabled={!formData.customerId || deliveryLocations.length === 0}
+                    >
+                      + {lang === 'th' ? 'เพิ่มงวดส่ง' : 'Add Delivery'}
+                    </Button>
+                  </div>
+
+                  {/* Delivery Schedule Entries */}
+                  {item.deliverySchedule?.length > 0 ? (
+                    <div className="space-y-2">
+                      {item.deliverySchedule.map((sched, schedIdx) => (
+                        <div key={schedIdx} className="flex items-center gap-2 p-2 bg-orange-50 rounded-lg">
+                          <span className="text-xs font-medium text-orange-600 w-16">
+                            #{schedIdx + 1}
+                          </span>
+                          <select
+                            value={sched.locationId}
+                            onChange={(e) => updateDeliverySchedule(idx, schedIdx, 'locationId', e.target.value)}
+                            className="flex-1 px-2 py-1 border rounded text-sm"
+                          >
+                            <option value="">{lang === 'th' ? 'เลือกสถานที่' : 'Select Location'}</option>
+                            {deliveryLocations.map(loc => (
+                              <option key={loc.id} value={loc.id}>
+                                {loc.name} - {loc.address}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="number"
+                            value={sched.qty || ''}
+                            onChange={(e) => updateDeliverySchedule(idx, schedIdx, 'qty', parseInt(e.target.value) || 0)}
+                            className="w-20 px-2 py-1 border rounded text-sm text-right"
+                            placeholder="Qty"
+                          />
+                          <span className="text-xs text-gray-500">{item.unit}</span>
+                          <input
+                            type="date"
+                            value={sched.deliveryDate || ''}
+                            onChange={(e) => updateDeliverySchedule(idx, schedIdx, 'deliveryDate', e.target.value)}
+                            className="w-36 px-2 py-1 border rounded text-sm"
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => removeDeliverySchedule(idx, schedIdx)}
+                            className="text-red-400 hover:text-red-600 p-1"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-3 text-sm text-gray-400 bg-gray-50 rounded">
+                      {!formData.customerId 
+                        ? (lang === 'th' ? 'เลือกลูกค้าก่อนกำหนดแผนส่ง' : 'Select customer first')
+                        : (lang === 'th' ? 'คลิก "เพิ่มงวดส่ง" เพื่อกำหนดแผนการส่ง' : 'Click "Add Delivery" to schedule deliveries')
+                      }
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )
+          })}
         </div>
       </div>
 
@@ -11294,6 +11585,7 @@ const SalesOrderForm = ({ so, customers, products, onSave, onCancel, lang }) => 
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
           rows={2}
           className="w-full px-3 py-2 border rounded-lg"
+          placeholder={lang === 'th' ? 'หมายเหตุเพิ่มเติม, ข้อกำหนดพิเศษ...' : 'Additional notes, special requirements...'}
         />
       </div>
 
@@ -12061,6 +12353,632 @@ const HRModuleFull = ({ employees, setEmployees, lang }) => {
 }
 
 // ============================================
+// ORDER-TO-DELIVERY TRACKER COMPONENT (v9.0)
+// Complete tracking: PO → Sales → Production → FG → Delivery
+// Features: Running table, 4 calendar views, revision history
+// ============================================
+const OrderTrackerComponent = ({ 
+  salesOrders, setSalesOrders, 
+  customers, workOrders, products, 
+  deliveryOrders, invoices, trucks, employees,
+  lang = 'en' 
+}) => {
+  const [activeView, setActiveView] = useState('tracker')
+  const [calendarView, setCalendarView] = useState('monthly')
+  const [expandedOrders, setExpandedOrders] = useState({})
+  const [expandedLines, setExpandedLines] = useState({})
+  const [expandedSchedules, setExpandedSchedules] = useState({})
+  const [filterCustomer, setFilterCustomer] = useState('all')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterType, setFilterType] = useState('all')
+  const [selectedCustomerView, setSelectedCustomerView] = useState('')
+  const [calendarDate, setCalendarDate] = useState(new Date())
+
+  // Production scenarios (from Production Mapping tab)
+  const productionScenarios = {
+    'PLN 0': { path: ['FG', 'Transport'], name: 'FG + Transport', ht: false },
+    'PLN 1': { path: ['P1', 'FG', 'Transport'], name: 'P1 + FG', ht: false },
+    'PLN 1.0.1': { path: ['P1', 'Oven', 'FG', 'Transport'], name: 'P1 + Oven', ht: true },
+    'PLN 1.1.1': { path: ['P1', 'QA', 'A1', 'Oven', 'QC', 'FG', 'Transport'], name: 'Full with Oven', ht: true },
+    'PLN 1.1.2': { path: ['P1', 'QA', 'A1', 'QC', 'FG', 'Transport'], name: 'No Oven', ht: false },
+    'PLN 2': { path: ['P2', 'FG', 'Transport'], name: 'P2 Line', ht: false },
+    'PLN 2.1.1': { path: ['P2', 'A1', 'Oven', 'QC', 'FG', 'Transport'], name: 'P2 + Oven', ht: true },
+  }
+
+  // Status configurations
+  const statusConfig = {
+    draft: { bg: 'bg-gray-100', text: 'text-gray-600', icon: '⚪', label: lang === 'th' ? 'ร่าง' : 'Draft' },
+    forecast: { bg: 'bg-gray-100', text: 'text-gray-500', icon: '⚪', label: 'PR' },
+    confirmed: { bg: 'bg-blue-100', text: 'text-blue-600', icon: '🔵', label: lang === 'th' ? 'ยืนยัน' : 'Confirmed' },
+    in_production: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: '🟡', label: lang === 'th' ? 'กำลังผลิต' : 'Producing' },
+    ready: { bg: 'bg-cyan-100', text: 'text-cyan-600', icon: '🔵', label: lang === 'th' ? 'พร้อมส่ง' : 'Ready' },
+    partial: { bg: 'bg-orange-100', text: 'text-orange-600', icon: '🟠', label: lang === 'th' ? 'ส่งบางส่วน' : 'Partial' },
+    dispatched: { bg: 'bg-purple-100', text: 'text-purple-600', icon: '🚚', label: lang === 'th' ? 'กำลังส่ง' : 'Dispatched' },
+    delivered: { bg: 'bg-green-100', text: 'text-green-600', icon: '🟢', label: lang === 'th' ? 'ส่งแล้ว' : 'Delivered' },
+    complete: { bg: 'bg-green-100', text: 'text-green-600', icon: '🟢', label: lang === 'th' ? 'เสร็จสิ้น' : 'Complete' },
+    cancelled: { bg: 'bg-red-100', text: 'text-red-600', icon: '🔴', label: lang === 'th' ? 'ยกเลิก' : 'Cancelled' },
+    revised: { bg: 'bg-amber-100', text: 'text-amber-700', icon: '🟠', label: lang === 'th' ? 'แก้ไขแล้ว' : 'Revised' },
+    planned: { bg: 'bg-slate-100', text: 'text-slate-600', icon: '⚪', label: lang === 'th' ? 'วางแผน' : 'Planned' },
+  }
+
+  // Transform sales orders into tracker format
+  const orderData = useMemo(() => {
+    return (salesOrders || []).map(so => {
+      const customer = customers?.find(c => c.id === so.customerId)
+      let totalQty = 0, totalProduced = 0, totalDelivered = 0
+      
+      so.items?.forEach(item => {
+        totalQty += item.qty || 0
+        const wo = workOrders?.find(w => w.soId === so.id)
+        if (wo?.status === 'completed') totalProduced += item.qty || 0
+        item.deliverySchedule?.forEach(sched => {
+          if (sched.status === 'delivered') totalDelivered += sched.actualQty || sched.qty || 0
+        })
+      })
+      
+      let status = so.status || 'draft'
+      if (so.orderType === 'PR') status = 'forecast'
+      else if (totalDelivered >= totalQty && totalQty > 0) status = 'complete'
+      else if (totalDelivered > 0) status = 'partial'
+      else if (totalProduced >= totalQty && totalQty > 0) status = 'ready'
+      else if (totalProduced > 0) status = 'in_production'
+      
+      return { ...so, customer, totalQty, totalProduced, totalDelivered, totalBalance: totalQty - totalDelivered, overallStatus: status }
+    })
+  }, [salesOrders, customers, workOrders])
+
+  // Filter orders
+  const filteredOrders = useMemo(() => {
+    return orderData.filter(order => {
+      if (filterCustomer !== 'all' && order.customerId !== filterCustomer) return false
+      if (filterStatus !== 'all' && order.overallStatus !== filterStatus) return false
+      if (filterType !== 'all' && order.orderType !== filterType) return false
+      return true
+    })
+  }, [orderData, filterCustomer, filterStatus, filterType])
+
+  // Get all schedules for calendar
+  const allSchedules = useMemo(() => {
+    const schedules = []
+    orderData.forEach(order => {
+      order.items?.forEach((item, itemIdx) => {
+        item.deliverySchedule?.forEach((sched, schedIdx) => {
+          schedules.push({
+            ...sched, orderId: order.id, orderType: order.orderType,
+            customerPO: order.customerPO, customer: order.customer,
+            item, itemIdx, schedIdx, deliveryDate: sched.revisedDate || sched.deliveryDate
+          })
+        })
+      })
+    })
+    return schedules
+  }, [orderData])
+
+  // Toggle functions
+  const toggleOrder = (id) => setExpandedOrders(prev => ({ ...prev, [id]: !prev[id] }))
+  const toggleLine = (orderId, idx) => setExpandedLines(prev => ({ ...prev, [`${orderId}-${idx}`]: !prev[`${orderId}-${idx}`] }))
+  const toggleSchedule = (orderId, lineIdx, schedIdx) => setExpandedSchedules(prev => ({ ...prev, [`${orderId}-${lineIdx}-${schedIdx}`]: !prev[`${orderId}-${lineIdx}-${schedIdx}`] }))
+
+  // Revise schedule
+  const handleReviseSchedule = (orderId, itemIdx, schedIdx, changes, reason) => {
+    setSalesOrders(salesOrders.map(so => {
+      if (so.id !== orderId) return so
+      return {
+        ...so,
+        items: so.items.map((item, iIdx) => {
+          if (iIdx !== itemIdx) return item
+          return {
+            ...item,
+            deliverySchedule: item.deliverySchedule.map((sched, sIdx) => {
+              if (sIdx !== schedIdx) return sched
+              const newVersion = (sched.currentVersion || 1) + 1
+              return {
+                ...sched, ...changes,
+                originalDate: sched.originalDate || sched.deliveryDate,
+                revisedDate: changes.deliveryDate || sched.revisedDate,
+                status: 'revised',
+                currentVersion: newVersion,
+                revisionHistory: [
+                  ...(sched.revisionHistory || []),
+                  { version: newVersion, timestamp: new Date().toISOString(), changedBy: 'Sales',
+                    changeType: changes.deliveryDate ? 'date_change' : 'update',
+                    changes: { field: 'deliveryDate', from: sched.deliveryDate, to: changes.deliveryDate, reason } }
+                ]
+              }
+            })
+          }
+        })
+      }
+    }))
+  }
+
+  // Calendar helpers
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear(), month = date.getMonth()
+    const firstDay = new Date(year, month, 1), lastDay = new Date(year, month + 1, 0)
+    const days = []
+    for (let i = 0; i < firstDay.getDay(); i++) days.push(null)
+    for (let d = 1; d <= lastDay.getDate(); d++) days.push(new Date(year, month, d))
+    return days
+  }
+
+  const getSchedulesForDate = (date) => {
+    if (!date) return []
+    const dateStr = date.toISOString().split('T')[0]
+    return allSchedules.filter(s => s.deliveryDate === dateStr)
+  }
+
+  const getWeekDates = (date) => {
+    const week = [], start = new Date(date)
+    start.setDate(start.getDate() - start.getDay() + 1)
+    for (let i = 0; i < 7; i++) { const d = new Date(start); d.setDate(start.getDate() + i); week.push(d) }
+    return week
+  }
+
+  // Stats
+  const stats = {
+    total: filteredOrders.length,
+    producing: filteredOrders.filter(o => o.overallStatus === 'in_production').length,
+    ready: filteredOrders.filter(o => o.overallStatus === 'ready').length,
+    partial: filteredOrders.filter(o => o.overallStatus === 'partial').length,
+    complete: filteredOrders.filter(o => o.overallStatus === 'complete').length,
+  }
+
+  // Components
+  const StatusBadge = ({ status }) => {
+    const cfg = statusConfig[status] || statusConfig.draft
+    return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>{cfg.icon} {cfg.label}</span>
+  }
+
+  const OrderTypeBadge = ({ type }) => {
+    const cfg = { PR: { bg: 'bg-blue-100', text: 'text-blue-600', icon: '🔵' }, PO: { bg: 'bg-green-100', text: 'text-green-600', icon: '🟢' }, Direct: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: '🟡' } }[type] || { bg: 'bg-gray-100', text: 'text-gray-600', icon: '⚪' }
+    return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${cfg.bg} ${cfg.text}`}>{cfg.icon} {type}</span>
+  }
+
+  const ProductionPath = ({ scenario, currentDept }) => {
+    const cfg = productionScenarios[scenario] || productionScenarios['PLN 1']
+    const currentIdx = cfg.path.indexOf(currentDept)
+    return (
+      <div className="flex items-center gap-1 flex-wrap text-xs">
+        {cfg.path.map((dept, idx) => (
+          <React.Fragment key={idx}>
+            {idx > 0 && <span className="text-gray-300">→</span>}
+            <span className={`px-1.5 py-0.5 rounded ${idx < currentIdx ? 'bg-green-100 text-green-700' : idx === currentIdx ? 'bg-yellow-100 text-yellow-700 font-medium' : 'bg-gray-100 text-gray-500'}`}>
+              {idx < currentIdx ? '✅' : idx === currentIdx ? '🟡' : '⚪'} {dept}
+            </span>
+          </React.Fragment>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <Package className="w-6 h-6 text-blue-600" />
+            {lang === 'th' ? 'ติดตามออเดอร์ถึงการส่ง' : 'Order-to-Delivery Tracker'}
+          </h2>
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button onClick={() => setActiveView('tracker')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeView === 'tracker' ? 'bg-white shadow text-blue-600' : 'text-gray-600'}`}>
+              <List className="w-4 h-4 inline mr-1" /> {lang === 'th' ? 'รายการ' : 'Tracker'}
+            </button>
+            <button onClick={() => setActiveView('calendar')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeView === 'calendar' ? 'bg-white shadow text-blue-600' : 'text-gray-600'}`}>
+              <CalendarDays className="w-4 h-4 inline mr-1" /> {lang === 'th' ? 'ปฏิทิน' : 'Calendar'}
+            </button>
+          </div>
+        </div>
+        <Button className="gap-2"><Plus className="w-4 h-4" /> {lang === 'th' ? 'ออเดอร์ใหม่' : 'New Order'}</Button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-5 gap-4">
+        <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <div className="flex justify-between"><div><p className="text-sm text-blue-600">{lang === 'th' ? 'ทั้งหมด' : 'Total'}</p><p className="text-2xl font-bold text-blue-700">{stats.total}</p></div><ClipboardList className="w-8 h-8 text-blue-400" /></div>
+        </Card>
+        <Card className="p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
+          <div className="flex justify-between"><div><p className="text-sm text-yellow-600">{lang === 'th' ? 'กำลังผลิต' : 'Producing'}</p><p className="text-2xl font-bold text-yellow-700">{stats.producing}</p></div><Settings className="w-8 h-8 text-yellow-400" /></div>
+        </Card>
+        <Card className="p-4 bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200">
+          <div className="flex justify-between"><div><p className="text-sm text-cyan-600">{lang === 'th' ? 'พร้อมส่ง' : 'Ready'}</p><p className="text-2xl font-bold text-cyan-700">{stats.ready}</p></div><CheckCircle2 className="w-8 h-8 text-cyan-400" /></div>
+        </Card>
+        <Card className="p-4 bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+          <div className="flex justify-between"><div><p className="text-sm text-orange-600">{lang === 'th' ? 'ส่งบางส่วน' : 'Partial'}</p><p className="text-2xl font-bold text-orange-700">{stats.partial}</p></div><Truck className="w-8 h-8 text-orange-400" /></div>
+        </Card>
+        <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+          <div className="flex justify-between"><div><p className="text-sm text-green-600">{lang === 'th' ? 'เสร็จสิ้น' : 'Complete'}</p><p className="text-2xl font-bold text-green-700">{stats.complete}</p></div><CheckCircle className="w-8 h-8 text-green-400" /></div>
+        </Card>
+      </div>
+
+      {/* TRACKER VIEW */}
+      {activeView === 'tracker' && (
+        <Card className="overflow-hidden">
+          {/* Filters */}
+          <div className="p-4 border-b bg-gray-50 flex flex-wrap gap-3 items-center">
+            <div className="flex items-center gap-2">
+              <Search className="w-4 h-4 text-gray-400" />
+              <input type="text" placeholder={lang === 'th' ? 'ค้นหา...' : 'Search...'} className="px-3 py-2 border rounded-lg text-sm w-48" />
+            </div>
+            <select value={filterCustomer} onChange={(e) => setFilterCustomer(e.target.value)} className="px-3 py-2 border rounded-lg text-sm">
+              <option value="all">{lang === 'th' ? 'ทุกลูกค้า' : 'All Customers'}</option>
+              {customers?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-3 py-2 border rounded-lg text-sm">
+              <option value="all">{lang === 'th' ? 'ทุกสถานะ' : 'All Status'}</option>
+              <option value="in_production">{lang === 'th' ? 'กำลังผลิต' : 'Producing'}</option>
+              <option value="ready">{lang === 'th' ? 'พร้อมส่ง' : 'Ready'}</option>
+              <option value="partial">{lang === 'th' ? 'ส่งบางส่วน' : 'Partial'}</option>
+              <option value="complete">{lang === 'th' ? 'เสร็จสิ้น' : 'Complete'}</option>
+            </select>
+            <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="px-3 py-2 border rounded-lg text-sm">
+              <option value="all">{lang === 'th' ? 'ทุกประเภท' : 'All Types'}</option>
+              <option value="PR">PR (Forecast)</option>
+              <option value="PO">PO (Confirmed)</option>
+              <option value="Direct">Direct Order</option>
+            </select>
+          </div>
+
+          {/* Running Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100 sticky top-0">
+                <tr>
+                  <th className="w-10 px-2 py-3"></th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">{lang === 'th' ? 'เลขที่ PO' : 'Customer PO'}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'รวม' : 'Total'}</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'ผลิต' : 'Produced'}</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'ส่ง' : 'Delivered'}</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Balance'}</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filteredOrders.map(order => (
+                  <React.Fragment key={order.id}>
+                    {/* Level 1: Order Row */}
+                    <tr className={`hover:bg-gray-50 cursor-pointer ${expandedOrders[order.id] ? 'bg-blue-50' : ''}`} onClick={() => toggleOrder(order.id)}>
+                      <td className="px-2 py-3 text-center"><ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedOrders[order.id] ? 'rotate-90' : ''}`} /></td>
+                      <td className="px-4 py-3"><div className="font-mono text-blue-600 font-medium">{order.customerPO || order.id}</div><div className="text-xs text-gray-400">SO: {order.id}</div></td>
+                      <td className="px-4 py-3"><div className="font-medium">{order.customer?.name}</div><div className="text-xs text-gray-400">{order.customer?.code}</div></td>
+                      <td className="px-4 py-3 text-center"><OrderTypeBadge type={order.orderType || 'PO'} /></td>
+                      <td className="px-4 py-3 text-right font-medium">{order.totalQty?.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right"><span className={order.totalProduced > 0 ? 'text-green-600' : 'text-gray-400'}>{order.totalProduced?.toLocaleString()}</span></td>
+                      <td className="px-4 py-3 text-right"><span className={order.totalDelivered > 0 ? 'text-blue-600 font-medium' : 'text-gray-400'}>{order.totalDelivered?.toLocaleString()}</span></td>
+                      <td className="px-4 py-3 text-right"><span className={order.totalBalance > 0 ? 'text-orange-600 font-medium' : 'text-green-600'}>{order.totalBalance?.toLocaleString()}</span></td>
+                      <td className="px-4 py-3 text-center"><StatusBadge status={order.overallStatus} /></td>
+                    </tr>
+
+                    {/* Level 2: Expanded - Line Items */}
+                    {expandedOrders[order.id] && (
+                      <tr><td colSpan="9" className="p-0">
+                        <div className="bg-blue-50/50 border-l-4 border-blue-400 ml-4">
+                          {/* Header Info */}
+                          <div className="p-3 bg-white/80 border-b flex flex-wrap gap-6 text-sm">
+                            <div><span className="text-gray-500">PO Date:</span> <span className="font-medium">{order.poDate || order.orderDate || '-'}</span></div>
+                            <div><span className="text-gray-500">Location:</span> <span className="font-medium text-orange-600">{order.deliveryLocation || '-'}</span></div>
+                            <div><span className="text-gray-500">Terms:</span> <span className="font-medium">{order.paymentTerms || 30} days</span></div>
+                          </div>
+                          
+                          {/* Line Items */}
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-100/80"><tr>
+                              <th className="w-8 px-2 py-2"></th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">#</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">Item</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">Description</th>
+                              <th className="px-3 py-2 text-right font-medium text-gray-600">Qty</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-600">WO#</th>
+                              <th className="px-3 py-2 text-center font-medium text-gray-600">Status</th>
+                              <th className="px-3 py-2 text-right font-medium text-gray-600">Amount</th>
+                            </tr></thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {order.items?.map((item, itemIdx) => {
+                                const lineKey = `${order.id}-${itemIdx}`
+                                const wo = workOrders?.find(w => w.soId === order.id)
+                                return (
+                                  <React.Fragment key={itemIdx}>
+                                    <tr className={`hover:bg-white/80 cursor-pointer ${expandedLines[lineKey] ? 'bg-white' : ''}`} onClick={(e) => { e.stopPropagation(); toggleLine(order.id, itemIdx) }}>
+                                      <td className="px-2 py-2 text-center"><ChevronRight className={`w-3 h-3 text-gray-400 ${expandedLines[lineKey] ? 'rotate-90' : ''}`} /></td>
+                                      <td className="px-3 py-2 font-medium text-gray-500">{itemIdx + 1}</td>
+                                      <td className="px-3 py-2 font-mono text-blue-600 text-xs">{item.itemCode || item.productId}</td>
+                                      <td className="px-3 py-2">{item.productName || item.description}</td>
+                                      <td className="px-3 py-2 text-right font-medium">{item.qty?.toLocaleString()} {item.unit}</td>
+                                      <td className="px-3 py-2 font-mono text-purple-600 text-xs">{wo?.woNumber || item.woNumber || '-'}</td>
+                                      <td className="px-3 py-2 text-center">{wo ? <StatusBadge status={wo.status === 'completed' ? 'complete' : 'in_production'} /> : <span className="text-gray-400 text-xs">No WO</span>}</td>
+                                      <td className="px-3 py-2 text-right font-medium">฿{((item.qty || 0) * (item.unitPrice || 0)).toLocaleString()}</td>
+                                    </tr>
+
+                                    {/* Level 3: Expanded Line - Schedule */}
+                                    {expandedLines[lineKey] && (
+                                      <tr><td colSpan="8" className="p-0">
+                                        <div className="bg-white border-l-4 border-purple-400 ml-6 p-3 space-y-3">
+                                          {/* Production Path */}
+                                          <div className="p-2 bg-gray-50 rounded-lg">
+                                            <div className="text-xs font-medium text-gray-500 mb-1">Production: {item.productionScenario || 'PLN 1'}</div>
+                                            <ProductionPath scenario={item.productionScenario || 'PLN 1'} currentDept={wo?.currentDept || 'FG'} />
+                                          </div>
+
+                                          {/* Delivery Schedule */}
+                                          <div>
+                                            <div className="flex justify-between items-center mb-2">
+                                              <h4 className="font-medium text-gray-700 text-sm">Delivery Schedule</h4>
+                                              <Button size="sm" variant="outline" className="gap-1 text-xs"><Plus className="w-3 h-3" /> Add</Button>
+                                            </div>
+                                            <table className="w-full text-xs border rounded overflow-hidden">
+                                              <thead className="bg-gray-100"><tr>
+                                                <th className="w-6 px-1 py-1.5"></th>
+                                                <th className="px-2 py-1.5 text-left">Sch#</th>
+                                                <th className="px-2 py-1.5 text-right">Qty</th>
+                                                <th className="px-2 py-1.5 text-center">Date</th>
+                                                <th className="px-2 py-1.5 text-left">Location</th>
+                                                <th className="px-2 py-1.5 text-left">DO#</th>
+                                                <th className="px-2 py-1.5 text-center">Status</th>
+                                                <th className="px-2 py-1.5 text-center">Rev</th>
+                                                <th className="px-2 py-1.5 text-center">Actions</th>
+                                              </tr></thead>
+                                              <tbody>
+                                                {item.deliverySchedule?.length > 0 ? item.deliverySchedule.map((sched, schedIdx) => {
+                                                  const schedKey = `${order.id}-${itemIdx}-${schedIdx}`
+                                                  return (
+                                                    <React.Fragment key={schedIdx}>
+                                                      <tr className={`hover:bg-gray-50 ${sched.status === 'revised' ? 'bg-amber-50' : ''}`}>
+                                                        <td className="px-1 py-1.5 text-center">
+                                                          {sched.revisionHistory?.length > 0 && (
+                                                            <button onClick={(e) => { e.stopPropagation(); toggleSchedule(order.id, itemIdx, schedIdx) }}>
+                                                              <ChevronRight className={`w-3 h-3 text-gray-400 ${expandedSchedules[schedKey] ? 'rotate-90' : ''}`} />
+                                                            </button>
+                                                          )}
+                                                        </td>
+                                                        <td className="px-2 py-1.5 font-medium">{schedIdx + 1}</td>
+                                                        <td className="px-2 py-1.5 text-right font-medium">{sched.qty?.toLocaleString()}</td>
+                                                        <td className="px-2 py-1.5 text-center">
+                                                          {sched.revisedDate ? (
+                                                            <div><div className="line-through text-gray-400" style={{fontSize: '9px'}}>{sched.originalDate}</div><div className="text-blue-600 font-medium">{sched.revisedDate}</div></div>
+                                                          ) : <span>{sched.deliveryDate}</span>}
+                                                        </td>
+                                                        <td className="px-2 py-1.5 text-orange-600">{sched.locationName || sched.location || '-'}</td>
+                                                        <td className="px-2 py-1.5 font-mono text-green-600">{sched.doNumber || '-'}</td>
+                                                        <td className="px-2 py-1.5 text-center"><StatusBadge status={sched.status || 'planned'} /></td>
+                                                        <td className="px-2 py-1.5 text-center text-gray-500">{sched.revisionHistory?.length > 0 ? `v${sched.currentVersion || sched.revisionHistory.length}` : '-'}</td>
+                                                        <td className="px-2 py-1.5 text-center">
+                                                          <button className="p-1 hover:bg-blue-100 rounded text-blue-600" title="Revise"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation()
+                                                              const newDate = prompt('New date (YYYY-MM-DD):', sched.revisedDate || sched.deliveryDate)
+                                                              const reason = prompt('Reason:')
+                                                              if (newDate && reason) handleReviseSchedule(order.id, itemIdx, schedIdx, { deliveryDate: newDate }, reason)
+                                                            }}>
+                                                            <Edit3 className="w-3 h-3" />
+                                                          </button>
+                                                        </td>
+                                                      </tr>
+                                                      
+                                                      {/* Level 4: Revision History */}
+                                                      {expandedSchedules[schedKey] && sched.revisionHistory?.length > 0 && (
+                                                        <tr><td colSpan="9" className="p-0">
+                                                          <div className="bg-amber-50 border-l-4 border-amber-400 ml-4 p-2">
+                                                            <div className="text-xs font-medium text-amber-700 mb-1 flex items-center gap-1"><History className="w-3 h-3" /> Revision History</div>
+                                                            <table className="w-full text-xs">
+                                                              <thead className="bg-amber-100/50"><tr>
+                                                                <th className="px-2 py-1 text-left">Ver</th>
+                                                                <th className="px-2 py-1 text-left">Date</th>
+                                                                <th className="px-2 py-1 text-left">By</th>
+                                                                <th className="px-2 py-1 text-left">Change</th>
+                                                                <th className="px-2 py-1 text-left">Reason</th>
+                                                              </tr></thead>
+                                                              <tbody>
+                                                                {sched.revisionHistory.map((rev, revIdx) => (
+                                                                  <tr key={revIdx} className="border-t border-amber-200">
+                                                                    <td className="px-2 py-1 font-medium">v{rev.version}</td>
+                                                                    <td className="px-2 py-1 text-gray-600">{rev.timestamp?.split('T')[0]}</td>
+                                                                    <td className="px-2 py-1">{rev.changedBy}</td>
+                                                                    <td className="px-2 py-1">{rev.changes?.from} → <span className="text-blue-600 font-medium">{rev.changes?.to}</span></td>
+                                                                    <td className="px-2 py-1 text-gray-600 italic">{rev.changes?.reason}</td>
+                                                                  </tr>
+                                                                ))}
+                                                              </tbody>
+                                                            </table>
+                                                          </div>
+                                                        </td></tr>
+                                                      )}
+                                                    </React.Fragment>
+                                                  )
+                                                }) : (
+                                                  <tr><td colSpan="9" className="px-3 py-4 text-center text-gray-400">No schedule yet</td></tr>
+                                                )}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </div>
+                                      </td></tr>
+                                    )}
+                                  </React.Fragment>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                          
+                          {/* Actions */}
+                          <div className="p-2 bg-gray-50/80 border-t flex gap-2">
+                            <Button size="sm" variant="outline" className="gap-1 text-xs"><Plus className="w-3 h-3" /> Add Line</Button>
+                            <Button size="sm" variant="outline" className="gap-1 text-xs"><History className="w-3 h-3" /> History</Button>
+                            <Button size="sm" variant="outline" className="gap-1 text-xs"><Printer className="w-3 h-3" /> Print</Button>
+                          </div>
+                        </div>
+                      </td></tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {filteredOrders.length === 0 && (
+            <div className="p-12 text-center text-gray-500"><Package className="w-12 h-12 mx-auto mb-4 text-gray-300" /><p>{lang === 'th' ? 'ไม่พบออเดอร์' : 'No orders found'}</p></div>
+          )}
+        </Card>
+      )}
+
+      {/* CALENDAR VIEW */}
+      {activeView === 'calendar' && (
+        <div className="space-y-4">
+          {/* Calendar View Tabs */}
+          <div className="flex items-center gap-4">
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              {[{ id: 'monthly', label: lang === 'th' ? 'เดือน' : 'Monthly', icon: CalendarDays }, { id: 'weekly', label: lang === 'th' ? 'สัปดาห์' : 'Weekly', icon: Calendar }, { id: 'customer', label: lang === 'th' ? 'ลูกค้า' : 'Customer', icon: Building2 }].map(v => (
+                <button key={v.id} onClick={() => setCalendarView(v.id)} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1 ${calendarView === v.id ? 'bg-white shadow text-blue-600' : 'text-gray-600'}`}>
+                  <v.icon className="w-4 h-4" /> {v.label}
+                </button>
+              ))}
+            </div>
+            {calendarView === 'customer' && (
+              <select value={selectedCustomerView} onChange={(e) => setSelectedCustomerView(e.target.value)} className="px-3 py-2 border rounded-lg text-sm">
+                <option value="">{lang === 'th' ? 'เลือกลูกค้า' : 'Select Customer'}</option>
+                {customers?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            )}
+          </div>
+
+          {/* Monthly Calendar */}
+          {calendarView === 'monthly' && (
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b flex justify-between items-center">
+                <button onClick={() => setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1))} className="p-2 hover:bg-gray-100 rounded"><ChevronLeft className="w-5 h-5" /></button>
+                <h3 className="text-lg font-bold">{calendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h3>
+                <button onClick={() => setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1))} className="p-2 hover:bg-gray-100 rounded"><ChevronRight className="w-5 h-5" /></button>
+              </div>
+              <div className="grid grid-cols-7">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => <div key={day} className="p-2 text-center text-sm font-medium text-gray-500 bg-gray-50 border-b">{day}</div>)}
+                {getDaysInMonth(calendarDate).map((date, idx) => {
+                  const schedules = date ? getSchedulesForDate(date) : []
+                  const isToday = date?.toDateString() === new Date().toDateString()
+                  return (
+                    <div key={idx} className={`min-h-[90px] p-1 border-b border-r ${!date ? 'bg-gray-50' : isToday ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                      {date && (
+                        <>
+                          <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-600' : ''}`}>{date.getDate()}</div>
+                          <div className="space-y-0.5">
+                            {schedules.slice(0, 3).map((s, i) => {
+                              const cfg = statusConfig[s.status] || statusConfig.planned
+                              return <div key={i} className={`text-[10px] px-1 py-0.5 rounded truncate ${cfg.bg} ${cfg.text}`} title={`${s.customer?.name}: ${s.qty}`}>{cfg.icon} {s.customer?.name?.slice(0, 8)}</div>
+                            })}
+                            {schedules.length > 3 && <div className="text-[10px] text-gray-500 px-1">+{schedules.length - 3}</div>}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="p-2 bg-gray-50 border-t flex flex-wrap gap-3 text-xs">
+                {Object.entries(statusConfig).slice(0, 6).map(([k, v]) => <div key={k} className="flex items-center gap-1"><span className={`w-3 h-3 rounded ${v.bg}`}></span> {v.label}</div>)}
+              </div>
+            </Card>
+          )}
+
+          {/* Weekly Calendar */}
+          {calendarView === 'weekly' && (
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b flex justify-between items-center">
+                <button onClick={() => setCalendarDate(new Date(calendarDate.getTime() - 7 * 24 * 60 * 60 * 1000))} className="p-2 hover:bg-gray-100 rounded flex items-center gap-1"><ChevronLeft className="w-5 h-5" /> Prev</button>
+                <h3 className="text-lg font-bold">Week of {getWeekDates(calendarDate)[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</h3>
+                <button onClick={() => setCalendarDate(new Date(calendarDate.getTime() + 7 * 24 * 60 * 60 * 1000))} className="p-2 hover:bg-gray-100 rounded flex items-center gap-1">Next <ChevronRight className="w-5 h-5" /></button>
+              </div>
+              <div className="divide-y">
+                {getWeekDates(calendarDate).map((date, idx) => {
+                  const schedules = getSchedulesForDate(date)
+                  const isToday = date.toDateString() === new Date().toDateString()
+                  const isWeekend = date.getDay() === 0 || date.getDay() === 6
+                  return (
+                    <div key={idx} className={`flex ${isWeekend ? 'bg-gray-50' : ''}`}>
+                      <div className={`w-20 p-3 border-r flex-shrink-0 ${isToday ? 'bg-blue-100' : ''}`}>
+                        <div className={`font-medium text-sm ${isToday ? 'text-blue-600' : ''}`}>{date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                        <div className={`text-xl font-bold ${isToday ? 'text-blue-600' : ''}`}>{date.getDate()}</div>
+                      </div>
+                      <div className="flex-1 p-2 space-y-1 min-h-[70px]">
+                        {schedules.length > 0 ? schedules.map((s, i) => {
+                          const cfg = statusConfig[s.status] || statusConfig.planned
+                          return (
+                            <div key={i} className={`p-2 rounded border text-sm ${cfg.bg}`}>
+                              <div className="font-medium">{cfg.icon} {s.customer?.name}</div>
+                              <div className="text-xs text-gray-600">{s.item?.productName} │ {s.qty} {s.item?.unit}</div>
+                            </div>
+                          )
+                        }) : <div className="text-gray-400 text-sm italic">{isWeekend ? 'Weekend' : 'No deliveries'}</div>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </Card>
+          )}
+
+          {/* Customer View */}
+          {calendarView === 'customer' && selectedCustomerView && (() => {
+            const customer = customers?.find(c => c.id === selectedCustomerView)
+            const customerSchedules = allSchedules.filter(s => s.customer?.id === selectedCustomerView)
+            const customerOrders = orderData.filter(o => o.customerId === selectedCustomerView)
+            return (
+              <Card className="overflow-hidden">
+                <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-cyan-50">
+                  <h3 className="text-xl font-bold flex items-center gap-2"><Building2 className="w-5 h-5 text-blue-600" /> {customer?.name}</h3>
+                  <p className="text-sm text-gray-600">{customer?.code} │ Active: {customerOrders.filter(o => o.overallStatus !== 'complete').length} │ Pending: {customerOrders.reduce((s, o) => s + o.totalBalance, 0).toLocaleString()}</p>
+                </div>
+                <div className="p-4 border-b">
+                  <h4 className="font-medium mb-2">Delivery Timeline</h4>
+                  <div className="flex items-center gap-1 overflow-x-auto pb-2">
+                    {customerSchedules.sort((a, b) => new Date(a.deliveryDate) - new Date(b.deliveryDate)).slice(0, 10).map((s, i) => {
+                      const cfg = statusConfig[s.status] || statusConfig.planned
+                      return (
+                        <div key={i} className="flex-shrink-0 text-center">
+                          <div className="flex items-center">{i > 0 && <div className="w-6 h-0.5 bg-gray-200"></div>}<div className={`w-3 h-3 rounded-full ${cfg.bg} border-2`}></div></div>
+                          <div className="text-[10px] font-medium mt-1">{s.deliveryDate?.slice(5)}</div>
+                          <div className="text-[10px] text-gray-500">{s.qty}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50"><tr>
+                    <th className="px-4 py-2 text-left">PO#</th><th className="px-4 py-2 text-left">Product</th><th className="px-4 py-2 text-right">Total</th><th className="px-4 py-2 text-right">Delivered</th><th className="px-4 py-2 text-right">Balance</th><th className="px-4 py-2 text-center">Next</th><th className="px-4 py-2 text-center">Status</th>
+                  </tr></thead>
+                  <tbody className="divide-y">
+                    {customerOrders.flatMap(o => o.items?.map((item, idx) => {
+                      const delivered = item.deliverySchedule?.filter(s => s.status === 'delivered').reduce((sum, s) => sum + (s.qty || 0), 0) || 0
+                      const next = item.deliverySchedule?.find(s => s.status !== 'delivered' && s.status !== 'cancelled')
+                      return (
+                        <tr key={`${o.id}-${idx}`} className="hover:bg-gray-50">
+                          <td className="px-4 py-2 font-mono text-blue-600">{o.customerPO || o.id}</td>
+                          <td className="px-4 py-2">{item.productName}</td>
+                          <td className="px-4 py-2 text-right">{item.qty?.toLocaleString()}</td>
+                          <td className="px-4 py-2 text-right text-green-600">{delivered.toLocaleString()}</td>
+                          <td className="px-4 py-2 text-right text-orange-600 font-medium">{(item.qty - delivered).toLocaleString()}</td>
+                          <td className="px-4 py-2 text-center text-blue-600">{next?.deliveryDate || '-'}</td>
+                          <td className="px-4 py-2 text-center"><StatusBadge status={delivered >= item.qty ? 'complete' : delivered > 0 ? 'partial' : 'planned'} /></td>
+                        </tr>
+                      )
+                    }))}
+                  </tbody>
+                </table>
+              </Card>
+            )
+          })()}
+          
+          {calendarView === 'customer' && !selectedCustomerView && (
+            <Card className="p-12 text-center text-gray-500"><Building2 className="w-12 h-12 mx-auto mb-4 text-gray-300" /><p>{lang === 'th' ? 'เลือกลูกค้า' : 'Select a customer'}</p></Card>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
 // ENHANCED SALES MODULE
 // ============================================
 const SalesModuleFull = ({ 
@@ -12113,6 +13031,7 @@ const SalesModuleFull = ({
     { id: 'dashboard', label: lang === 'th' ? 'ภาพรวม' : 'Dashboard', icon: BarChart3 },
     { id: 'quotations', label: lang === 'th' ? 'ใบเสนอราคา' : 'Quotations', icon: FileText },
     { id: 'orders', label: lang === 'th' ? 'ใบสั่งขาย' : 'Sales Orders', icon: ClipboardList },
+    { id: 'tracker', label: lang === 'th' ? 'ติดตามออเดอร์' : 'Order Tracker', icon: Package },
     { id: 'delivery', label: lang === 'th' ? 'ใบส่งสินค้า' : 'Delivery', icon: Truck },
     { id: 'invoices', label: lang === 'th' ? 'ใบแจ้งหนี้' : 'Invoices', icon: Receipt },
     { id: 'payments', label: lang === 'th' ? 'การชำระ' : 'Payments', icon: CreditCard },
@@ -12956,17 +13875,7 @@ const SalesModuleFull = ({
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          {/* Create WO from SO - core business flow */}
-                          {!linkedWO && so.status !== 'delivered' && (
-                            <Button 
-                              size="sm" 
-                              variant="info" 
-                              title={lang === 'th' ? 'สร้าง Work Order' : 'Create Work Order'}
-                              onClick={() => alert(`WO will be created for ${so.id}. Connect to Production module.`)}
-                            >
-                              → WO
-                            </Button>
-                          )}
+                          {/* WO is created by PRODUCTION, not Sales - Sales only views linked WO */}
                           {deliveredQty < totalQty && (
                             <Button size="sm" variant="outline" onClick={() => handleCreateDO(so)}>
                               {lang === 'th' ? '→ DO' : '→ DO'}
@@ -12984,6 +13893,295 @@ const SalesModuleFull = ({
             </table>
           </div>
         </Card>
+      )}
+
+      {/* ========== ORDER TRACKER TAB (Full Order-to-Delivery Tracking v9.0) ========== */}
+      {activeTab === 'tracker' && (
+        <OrderTrackerComponent 
+          salesOrders={salesOrders}
+          setSalesOrders={setSalesOrders}
+          customers={customers}
+          workOrders={workOrders}
+          products={products}
+          deliveryOrders={deliveryOrders}
+          invoices={invoices}
+          trucks={trucks}
+          employees={employees}
+          lang={lang}
+        />
+      )}
+
+      {/* Legacy Delivery Schedule Table - kept for reference */}
+      {activeTab === 'schedule_legacy' && (
+        <div className="space-y-4">
+          <Card className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200">
+            <div className="flex items-start gap-3">
+              <CalendarDays className="w-6 h-6 text-blue-600 mt-1" />
+              <div>
+                <h3 className="font-bold text-blue-800">{lang === 'th' ? 'แผนส่งสินค้า - แก้ไขตามคำขอลูกค้า' : 'Delivery Schedule - Customer Request Based'}</h3>
+                <p className="text-sm text-blue-600 mt-1">
+                  {lang === 'th' 
+                    ? 'ปรับแก้ไขแผนการส่งสินค้าตามที่ลูกค้าร้องขอ พร้อมบันทึกประวัติการเปลี่ยนแปลง' 
+                    : 'Revise delivery schedules based on customer requests. All changes are logged.'}
+                </p>
+              </div>
+            </div>
+          </Card>
+          <Card className="overflow-hidden">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="font-bold">{lang === 'th' ? 'แผนส่งที่รอดำเนินการ' : 'Pending Deliveries'}</h3>
+              <div className="flex gap-2">
+                <select className="px-3 py-2 border rounded-lg text-sm">
+                  <option value="all">{lang === 'th' ? 'ทุกลูกค้า' : 'All Customers'}</option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <select className="px-3 py-2 border rounded-lg text-sm">
+                  <option value="all">{lang === 'th' ? 'ทุกสถานะ' : 'All Status'}</option>
+                  <option value="planned">{lang === 'th' ? 'วางแผนแล้ว' : 'Planned'}</option>
+                  <option value="revised">{lang === 'th' ? 'แก้ไขแล้ว' : 'Revised'}</option>
+                  <option value="confirmed">{lang === 'th' ? 'ยืนยันแล้ว' : 'Confirmed'}</option>
+                </select>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">{lang === 'th' ? 'SO #' : 'SO #'}</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
+                    <th className="px-4 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">{lang === 'th' ? 'สถานที่ส่ง' : 'Location'}</th>
+                    <th className="px-4 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'วันส่งเดิม' : 'Original Date'}</th>
+                    <th className="px-4 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'วันส่งใหม่' : 'New Date'}</th>
+                    <th className="px-4 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                    <th className="px-4 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {salesOrders?.flatMap(so => {
+                    const customer = customers.find(c => c.id === so.customerId)
+                    return so.items?.flatMap((item, itemIdx) => {
+                      if (!item.deliverySchedule || item.deliverySchedule.length === 0) {
+                        // Show items without schedule
+                        return [{
+                          soId: so.id,
+                          customerPO: so.customerPO,
+                          customer,
+                          item,
+                          itemIdx,
+                          schedule: null,
+                          schedIdx: -1
+                        }]
+                      }
+                      return item.deliverySchedule.map((sched, schedIdx) => ({
+                        soId: so.id,
+                        customerPO: so.customerPO,
+                        customer,
+                        item,
+                        itemIdx,
+                        schedule: sched,
+                        schedIdx
+                      }))
+                    }) || []
+                  }).map((row, idx) => (
+                    <tr key={idx} className={`hover:bg-gray-50 ${row.schedule?.status === 'revised' ? 'bg-yellow-50' : ''}`}>
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-blue-600">{row.soId}</span>
+                        <div className="text-xs text-gray-400">{row.customerPO}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{row.customer?.name}</div>
+                        <div className="text-xs text-gray-400">{row.customer?.orderType || 'PO'}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{row.item.productName}</div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="font-medium">{row.schedule?.qty || row.item.qty}</span>
+                        <span className="text-gray-400 text-xs ml-1">{row.item.unit}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {row.schedule?.locationName ? (
+                          <div>
+                            <div className="font-medium text-orange-600">{row.schedule.locationName}</div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-xs">{lang === 'th' ? 'ยังไม่กำหนด' : 'Not set'}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {row.schedule?.originalDate ? (
+                          <span className="text-gray-500 line-through text-xs">{formatDate(row.schedule.originalDate)}</span>
+                        ) : row.schedule?.deliveryDate ? (
+                          <span className="text-gray-600">{formatDate(row.schedule.deliveryDate)}</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {row.schedule?.revisedDate ? (
+                          <span className="font-medium text-blue-600">{formatDate(row.schedule.revisedDate)}</span>
+                        ) : row.schedule?.deliveryDate ? (
+                          <span className="text-gray-600">{formatDate(row.schedule.deliveryDate)}</span>
+                        ) : (
+                          <span className="text-red-400">{lang === 'th' ? 'ไม่มี' : 'None'}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={
+                          row.schedule?.status === 'confirmed' ? 'success' :
+                          row.schedule?.status === 'revised' ? 'warning' :
+                          row.schedule?.status === 'planned' ? 'info' :
+                          'default'
+                        }>
+                          {row.schedule?.status || (lang === 'th' ? 'ไม่มีแผน' : 'No Plan')}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              const newDate = prompt(lang === 'th' ? 'กำหนดวันส่งใหม่ (YYYY-MM-DD):' : 'Enter new delivery date (YYYY-MM-DD):')
+                              const reason = prompt(lang === 'th' ? 'เหตุผลในการเปลี่ยน (ระบุคำขอลูกค้า):' : 'Reason for change (customer request):')
+                              if (newDate && reason) {
+                                setSalesOrders(salesOrders.map(so => {
+                                  if (so.id === row.soId) {
+                                    return {
+                                      ...so,
+                                      items: so.items.map((item, iIdx) => {
+                                        if (iIdx === row.itemIdx && item.deliverySchedule) {
+                                          return {
+                                            ...item,
+                                            deliverySchedule: item.deliverySchedule.map((sched, sIdx) => {
+                                              if (sIdx === row.schedIdx) {
+                                                return {
+                                                  ...sched,
+                                                  originalDate: sched.originalDate || sched.deliveryDate,
+                                                  revisedDate: newDate,
+                                                  deliveryDate: newDate,
+                                                  status: 'revised',
+                                                  revisionHistory: [
+                                                    ...(sched.revisionHistory || []),
+                                                    {
+                                                      date: new Date().toISOString(),
+                                                      from: sched.deliveryDate,
+                                                      to: newDate,
+                                                      reason: reason,
+                                                      requestedBy: 'Customer',
+                                                      changedBy: 'Sales'
+                                                    }
+                                                  ]
+                                                }
+                                              }
+                                              return sched
+                                            })
+                                          }
+                                        }
+                                        return item
+                                      })
+                                    }
+                                  }
+                                  return so
+                                }))
+                                alert(lang === 'th' ? 'บันทึกการเปลี่ยนแปลงแล้ว' : 'Change saved!')
+                              }
+                            }}
+                            title={lang === 'th' ? 'เปลี่ยนวันส่ง' : 'Change Date'}
+                          >
+                            <Edit3 className="w-3 h-3" />
+                          </Button>
+                          {row.schedule?.status === 'revised' && (
+                            <Button 
+                              size="sm" 
+                              variant="success"
+                              onClick={() => {
+                                setSalesOrders(salesOrders.map(so => {
+                                  if (so.id === row.soId) {
+                                    return {
+                                      ...so,
+                                      items: so.items.map((item, iIdx) => {
+                                        if (iIdx === row.itemIdx && item.deliverySchedule) {
+                                          return {
+                                            ...item,
+                                            deliverySchedule: item.deliverySchedule.map((sched, sIdx) => {
+                                              if (sIdx === row.schedIdx) {
+                                                return { ...sched, status: 'confirmed' }
+                                              }
+                                              return sched
+                                            })
+                                          }
+                                        }
+                                        return item
+                                      })
+                                    }
+                                  }
+                                  return so
+                                }))
+                              }}
+                              title={lang === 'th' ? 'ยืนยัน' : 'Confirm'}
+                            >
+                              <Check className="w-3 h-3" />
+                            </Button>
+                          )}
+                          {row.schedule?.revisionHistory?.length > 0 && (
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={() => {
+                                const history = row.schedule.revisionHistory.map(h => 
+                                  `${h.date.split('T')[0]}: ${h.from} → ${h.to}\nReason: ${h.reason}`
+                                ).join('\n\n')
+                                alert(`Revision History:\n\n${history}`)
+                              }}
+                              title={lang === 'th' ? 'ประวัติการเปลี่ยน' : 'History'}
+                            >
+                              <History className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-4 gap-4">
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'แผนทั้งหมด' : 'Total Scheduled'}</div>
+              <div className="text-2xl font-bold text-blue-600">
+                {salesOrders?.reduce((sum, so) => sum + (so.items?.reduce((iSum, item) => iSum + (item.deliverySchedule?.length || 0), 0) || 0), 0) || 0}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-yellow-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'รอแก้ไข' : 'Pending Revision'}</div>
+              <div className="text-2xl font-bold text-yellow-600">
+                {salesOrders?.reduce((sum, so) => sum + (so.items?.reduce((iSum, item) => 
+                  iSum + (item.deliverySchedule?.filter(s => s.status === 'revised').length || 0), 0) || 0), 0) || 0}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-green-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ยืนยันแล้ว' : 'Confirmed'}</div>
+              <div className="text-2xl font-bold text-green-600">
+                {salesOrders?.reduce((sum, so) => sum + (so.items?.reduce((iSum, item) => 
+                  iSum + (item.deliverySchedule?.filter(s => s.status === 'confirmed').length || 0), 0) || 0), 0) || 0}
+              </div>
+            </Card>
+            <Card className="p-4 border-l-4 border-l-red-500">
+              <div className="text-sm text-gray-500">{lang === 'th' ? 'ไม่มีแผน' : 'No Schedule'}</div>
+              <div className="text-2xl font-bold text-red-600">
+                {salesOrders?.reduce((sum, so) => sum + (so.items?.filter(item => !item.deliverySchedule || item.deliverySchedule.length === 0).length || 0), 0) || 0}
+              </div>
+            </Card>
+          </div>
+        </div>
       )}
 
       {/* ========== DELIVERY ORDERS TAB ========== */}
@@ -17234,6 +18432,7 @@ const AppFull = () => {
                         setInventory={setInventory}
                         categories={categories}
                         stores={stores}
+                        salesOrders={salesOrders}
                         lang={lang}
                       />
                     )}
