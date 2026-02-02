@@ -12360,7 +12360,9 @@ const HRModuleFull = ({ employees, setEmployees, lang }) => {
 const OrderTrackerComponent = ({ 
   salesOrders, setSalesOrders, 
   customers, workOrders, products, 
-  deliveryOrders, invoices, trucks, employees,
+  deliveryOrders, setDeliveryOrders,
+  invoices, setInvoices, 
+  trucks, employees,
   lang = 'en' 
 }) => {
   const [activeView, setActiveView] = useState('tracker')
@@ -12373,6 +12375,146 @@ const OrderTrackerComponent = ({
   const [filterType, setFilterType] = useState('all')
   const [selectedCustomerView, setSelectedCustomerView] = useState('')
   const [calendarDate, setCalendarDate] = useState(new Date())
+  const [showUpdateModal, setShowUpdateModal] = useState(false)
+  const [selectedOrderForUpdate, setSelectedOrderForUpdate] = useState(null)
+  const [showAddScheduleModal, setShowAddScheduleModal] = useState(false)
+  const [selectedLineForSchedule, setSelectedLineForSchedule] = useState(null)
+
+  // Generate DO from schedule
+  const handleCreateDO = (order, item, sched, schedIdx) => {
+    const customer = customers?.find(c => c.id === order.customerId)
+    const newDONumber = `${customer?.code || 'DO'}-${new Date().getFullYear().toString().slice(-2)}-${String((deliveryOrders?.length || 0) + 1).padStart(3, '0')}`
+    
+    const newDO = {
+      id: newDONumber,
+      soId: order.id,
+      customerId: order.customerId,
+      deliveryDate: sched.revisedDate || sched.deliveryDate,
+      location: sched.locationName || sched.location,
+      items: [{ ...item, qty: sched.qty }],
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      createdBy: 'Sales'
+    }
+    
+    setDeliveryOrders([...(deliveryOrders || []), newDO])
+    
+    // Update schedule with DO number
+    setSalesOrders(salesOrders.map(so => {
+      if (so.id !== order.id) return so
+      return {
+        ...so,
+        items: so.items.map((itm, iIdx) => {
+          if (itm.productId !== item.productId) return itm
+          return {
+            ...itm,
+            deliverySchedule: itm.deliverySchedule.map((s, sIdx) => {
+              if (sIdx !== schedIdx) return s
+              return { ...s, doNumber: newDONumber, status: 'dispatched' }
+            })
+          }
+        })
+      }
+    }))
+    
+    alert(`DO Created: ${newDONumber}`)
+  }
+
+  // Generate Invoice from DO
+  const handleCreateInvoice = (order, item, sched) => {
+    if (!sched.doNumber) {
+      alert('Please create DO first')
+      return
+    }
+    
+    const newInvoiceNumber = `IV-${new Date().toISOString().slice(2, 7).replace('-', '')}-${String((invoices?.length || 0) + 1).padStart(3, '0')}`
+    const amount = (sched.qty || 0) * (item.unitPrice || 0)
+    const vat = amount * 0.07
+    
+    const newInvoice = {
+      id: newInvoiceNumber,
+      doId: sched.doNumber,
+      soId: order.id,
+      customerId: order.customerId,
+      invoiceDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + (order.paymentTerms || 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      items: [{ ...item, qty: sched.qty, amount }],
+      subtotal: amount,
+      vatAmount: vat,
+      grandTotal: amount + vat,
+      balance: amount + vat,
+      paidAmount: 0,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    }
+    
+    setInvoices([...(invoices || []), newInvoice])
+    
+    // Update schedule with invoice number
+    setSalesOrders(salesOrders.map(so => {
+      if (so.id !== order.id) return so
+      return {
+        ...so,
+        items: so.items.map((itm, iIdx) => {
+          if (itm.productId !== item.productId) return itm
+          return {
+            ...itm,
+            deliverySchedule: itm.deliverySchedule.map((s, sIdx) => {
+              if (s.doNumber !== sched.doNumber) return s
+              return { ...s, invoiceNumber: newInvoiceNumber }
+            })
+          }
+        })
+      }
+    }))
+    
+    alert(`Invoice Created: ${newInvoiceNumber}`)
+  }
+
+  // Update order dates
+  const handleUpdateOrder = (orderId, updates) => {
+    setSalesOrders(salesOrders.map(so => {
+      if (so.id !== orderId) return so
+      return {
+        ...so,
+        ...updates,
+        lastUpdated: new Date().toISOString(),
+        updateHistory: [
+          ...(so.updateHistory || []),
+          { timestamp: new Date().toISOString(), updatedBy: 'Sales', changes: updates }
+        ]
+      }
+    }))
+    setShowUpdateModal(false)
+  }
+
+  // Add delivery schedule
+  const handleAddSchedule = (orderId, itemIdx, scheduleData) => {
+    setSalesOrders(salesOrders.map(so => {
+      if (so.id !== orderId) return so
+      return {
+        ...so,
+        lastUpdated: new Date().toISOString(),
+        items: so.items.map((item, iIdx) => {
+          if (iIdx !== itemIdx) return item
+          return {
+            ...item,
+            deliverySchedule: [
+              ...(item.deliverySchedule || []),
+              {
+                ...scheduleData,
+                status: 'planned',
+                currentVersion: 1,
+                createdAt: new Date().toISOString(),
+                revisionHistory: [{ version: 1, timestamp: new Date().toISOString(), changedBy: 'Sales', changeType: 'create', changes: { action: 'Schedule created' } }]
+              }
+            ]
+          }
+        })
+      }
+    }))
+    setShowAddScheduleModal(false)
+  }
 
   // Production scenarios (from Production Mapping tab)
   const productionScenarios = {
@@ -12626,14 +12768,16 @@ const OrderTrackerComponent = ({
               <thead className="bg-gray-100 sticky top-0">
                 <tr>
                   <th className="w-10 px-2 py-3"></th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">{lang === 'th' ? 'เลขที่ PO' : 'Customer PO'}</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'รวม' : 'Total'}</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'ผลิต' : 'Produced'}</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'ส่ง' : 'Delivered'}</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'คงเหลือ' : 'Balance'}</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+                  <th className="px-3 py-3 text-left font-medium text-gray-600">{lang === 'th' ? 'เลขที่ PO' : 'Customer PO'}</th>
+                  <th className="px-3 py-3 text-left font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
+                  <th className="px-3 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'ประเภท' : 'Type'}</th>
+                  <th className="px-3 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'รับเมื่อ' : 'Received'}</th>
+                  <th className="px-3 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'ต้องการ' : 'Req. Del'}</th>
+                  <th className="px-3 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'รวม' : 'Total'}</th>
+                  <th className="px-3 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'ผลิต' : 'Prod'}</th>
+                  <th className="px-3 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'ส่ง' : 'Del'}</th>
+                  <th className="px-3 py-3 text-right font-medium text-gray-600">{lang === 'th' ? 'เหลือ' : 'Bal'}</th>
+                  <th className="px-3 py-3 text-center font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -12642,25 +12786,61 @@ const OrderTrackerComponent = ({
                     {/* Level 1: Order Row */}
                     <tr className={`hover:bg-gray-50 cursor-pointer ${expandedOrders[order.id] ? 'bg-blue-50' : ''}`} onClick={() => toggleOrder(order.id)}>
                       <td className="px-2 py-3 text-center"><ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedOrders[order.id] ? 'rotate-90' : ''}`} /></td>
-                      <td className="px-4 py-3"><div className="font-mono text-blue-600 font-medium">{order.customerPO || order.id}</div><div className="text-xs text-gray-400">SO: {order.id}</div></td>
-                      <td className="px-4 py-3"><div className="font-medium">{order.customer?.name}</div><div className="text-xs text-gray-400">{order.customer?.code}</div></td>
-                      <td className="px-4 py-3 text-center"><OrderTypeBadge type={order.orderType || 'PO'} /></td>
-                      <td className="px-4 py-3 text-right font-medium">{order.totalQty?.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right"><span className={order.totalProduced > 0 ? 'text-green-600' : 'text-gray-400'}>{order.totalProduced?.toLocaleString()}</span></td>
-                      <td className="px-4 py-3 text-right"><span className={order.totalDelivered > 0 ? 'text-blue-600 font-medium' : 'text-gray-400'}>{order.totalDelivered?.toLocaleString()}</span></td>
-                      <td className="px-4 py-3 text-right"><span className={order.totalBalance > 0 ? 'text-orange-600 font-medium' : 'text-green-600'}>{order.totalBalance?.toLocaleString()}</span></td>
-                      <td className="px-4 py-3 text-center"><StatusBadge status={order.overallStatus} /></td>
+                      <td className="px-3 py-3"><div className="font-mono text-blue-600 font-medium text-xs">{order.customerPO || order.id}</div><div className="text-[10px] text-gray-400">SO: {order.id}</div></td>
+                      <td className="px-3 py-3"><div className="font-medium text-sm">{order.customer?.name}</div><div className="text-[10px] text-gray-400">{order.customer?.code}</div></td>
+                      <td className="px-3 py-3 text-center"><OrderTypeBadge type={order.orderType || 'PO'} /></td>
+                      <td className="px-3 py-3 text-center text-xs text-green-600">{order.receivedDate?.slice(5) || order.orderDate?.slice(5) || '-'}</td>
+                      <td className="px-3 py-3 text-center text-xs text-orange-600 font-medium">{order.requestedDeliveryDate?.slice(5) || order.deliveryDate?.slice(5) || '-'}</td>
+                      <td className="px-3 py-3 text-right font-medium text-sm">{order.totalQty?.toLocaleString()}</td>
+                      <td className="px-3 py-3 text-right text-sm"><span className={order.totalProduced > 0 ? 'text-green-600' : 'text-gray-400'}>{order.totalProduced?.toLocaleString()}</span></td>
+                      <td className="px-3 py-3 text-right text-sm"><span className={order.totalDelivered > 0 ? 'text-blue-600 font-medium' : 'text-gray-400'}>{order.totalDelivered?.toLocaleString()}</span></td>
+                      <td className="px-3 py-3 text-right text-sm"><span className={order.totalBalance > 0 ? 'text-orange-600 font-medium' : 'text-green-600'}>{order.totalBalance?.toLocaleString()}</span></td>
+                      <td className="px-3 py-3 text-center"><StatusBadge status={order.overallStatus} /></td>
                     </tr>
 
                     {/* Level 2: Expanded - Line Items */}
                     {expandedOrders[order.id] && (
-                      <tr><td colSpan="9" className="p-0">
+                      <tr><td colSpan="11" className="p-0">
                         <div className="bg-blue-50/50 border-l-4 border-blue-400 ml-4">
-                          {/* Header Info */}
-                          <div className="p-3 bg-white/80 border-b flex flex-wrap gap-6 text-sm">
-                            <div><span className="text-gray-500">PO Date:</span> <span className="font-medium">{order.poDate || order.orderDate || '-'}</span></div>
-                            <div><span className="text-gray-500">Location:</span> <span className="font-medium text-orange-600">{order.deliveryLocation || '-'}</span></div>
-                            <div><span className="text-gray-500">Terms:</span> <span className="font-medium">{order.paymentTerms || 30} days</span></div>
+                          {/* Header Info - Enhanced with Received/Updated dates */}
+                          <div className="p-3 bg-white/80 border-b">
+                            <div className="flex flex-wrap gap-4 text-sm mb-2">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3 text-gray-400" />
+                                <span className="text-gray-500">Received:</span> 
+                                <span className="font-medium text-green-600">{order.receivedDate || order.orderDate || order.createdAt?.split('T')[0] || '-'}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-gray-400" />
+                                <span className="text-gray-500">Updated:</span> 
+                                <span className="font-medium text-blue-600">{order.lastUpdated?.split('T')[0] || order.updatedAt?.split('T')[0] || '-'}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Target className="w-3 h-3 text-gray-400" />
+                                <span className="text-gray-500">Req. Delivery:</span> 
+                                <span className="font-medium text-orange-600">{order.requestedDeliveryDate || order.deliveryDate || '-'}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-gray-400" />
+                                <span className="text-gray-500">Location:</span> 
+                                <span className="font-medium">{order.deliveryLocation || order.customer?.deliveryLocations?.[0]?.name || '-'}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <CreditCard className="w-3 h-3 text-gray-400" />
+                                <span className="text-gray-500">Terms:</span> 
+                                <span className="font-medium">{order.paymentTerms || 30} days</span>
+                              </div>
+                            </div>
+                            {/* Quick Actions for Order */}
+                            <div className="flex gap-2 mt-2">
+                              <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={(e) => {
+                                e.stopPropagation()
+                                setSelectedOrderForUpdate(order)
+                                setShowUpdateModal(true)
+                              }}>
+                                <Edit3 className="w-3 h-3" /> Update Order
+                              </Button>
+                            </div>
                           </div>
                           
                           {/* Line Items */}
@@ -12706,16 +12886,26 @@ const OrderTrackerComponent = ({
                                           <div>
                                             <div className="flex justify-between items-center mb-2">
                                               <h4 className="font-medium text-gray-700 text-sm">Delivery Schedule</h4>
-                                              <Button size="sm" variant="outline" className="gap-1 text-xs"><Plus className="w-3 h-3" /> Add</Button>
+                                              <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={(e) => {
+                                                e.stopPropagation()
+                                                const qty = prompt('Quantity to schedule:', item.qty - (item.deliverySchedule?.reduce((s, d) => s + (d.qty || 0), 0) || 0))
+                                                const date = prompt('Delivery date (YYYY-MM-DD):')
+                                                const location = prompt('Location:')
+                                                if (qty && date) {
+                                                  handleAddSchedule(order.id, itemIdx, { qty: parseInt(qty), deliveryDate: date, locationName: location })
+                                                }
+                                              }}><Plus className="w-3 h-3" /> Add Schedule</Button>
                                             </div>
                                             <table className="w-full text-xs border rounded overflow-hidden">
                                               <thead className="bg-gray-100"><tr>
                                                 <th className="w-6 px-1 py-1.5"></th>
                                                 <th className="px-2 py-1.5 text-left">Sch#</th>
                                                 <th className="px-2 py-1.5 text-right">Qty</th>
-                                                <th className="px-2 py-1.5 text-center">Date</th>
+                                                <th className="px-2 py-1.5 text-center">Req. Date</th>
+                                                <th className="px-2 py-1.5 text-center">Plan Date</th>
                                                 <th className="px-2 py-1.5 text-left">Location</th>
                                                 <th className="px-2 py-1.5 text-left">DO#</th>
+                                                <th className="px-2 py-1.5 text-left">INV#</th>
                                                 <th className="px-2 py-1.5 text-center">Status</th>
                                                 <th className="px-2 py-1.5 text-center">Rev</th>
                                                 <th className="px-2 py-1.5 text-center">Actions</th>
@@ -12735,6 +12925,7 @@ const OrderTrackerComponent = ({
                                                         </td>
                                                         <td className="px-2 py-1.5 font-medium">{schedIdx + 1}</td>
                                                         <td className="px-2 py-1.5 text-right font-medium">{sched.qty?.toLocaleString()}</td>
+                                                        <td className="px-2 py-1.5 text-center text-orange-600 text-[10px]">{sched.requestedDate || sched.originalDate || sched.deliveryDate}</td>
                                                         <td className="px-2 py-1.5 text-center">
                                                           {sched.revisedDate ? (
                                                             <div><div className="line-through text-gray-400" style={{fontSize: '9px'}}>{sched.originalDate}</div><div className="text-blue-600 font-medium">{sched.revisedDate}</div></div>
@@ -12742,24 +12933,64 @@ const OrderTrackerComponent = ({
                                                         </td>
                                                         <td className="px-2 py-1.5 text-orange-600">{sched.locationName || sched.location || '-'}</td>
                                                         <td className="px-2 py-1.5 font-mono text-green-600">{sched.doNumber || '-'}</td>
+                                                        <td className="px-2 py-1.5 font-mono text-purple-600">{sched.invoiceNumber || '-'}</td>
                                                         <td className="px-2 py-1.5 text-center"><StatusBadge status={sched.status || 'planned'} /></td>
                                                         <td className="px-2 py-1.5 text-center text-gray-500">{sched.revisionHistory?.length > 0 ? `v${sched.currentVersion || sched.revisionHistory.length}` : '-'}</td>
                                                         <td className="px-2 py-1.5 text-center">
-                                                          <button className="p-1 hover:bg-blue-100 rounded text-blue-600" title="Revise"
-                                                            onClick={(e) => {
-                                                              e.stopPropagation()
-                                                              const newDate = prompt('New date (YYYY-MM-DD):', sched.revisedDate || sched.deliveryDate)
-                                                              const reason = prompt('Reason:')
-                                                              if (newDate && reason) handleReviseSchedule(order.id, itemIdx, schedIdx, { deliveryDate: newDate }, reason)
-                                                            }}>
-                                                            <Edit3 className="w-3 h-3" />
-                                                          </button>
+                                                          <div className="flex items-center justify-center gap-0.5">
+                                                            {/* Revise Date */}
+                                                            <button className="p-1 hover:bg-blue-100 rounded text-blue-600" title="Revise Date"
+                                                              onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                const newDate = prompt('New delivery date (YYYY-MM-DD):', sched.revisedDate || sched.deliveryDate)
+                                                                const reason = prompt('Reason for change:')
+                                                                if (newDate && reason) handleReviseSchedule(order.id, itemIdx, schedIdx, { deliveryDate: newDate }, reason)
+                                                              }}>
+                                                              <Edit3 className="w-3 h-3" />
+                                                            </button>
+                                                            {/* Create DO - only if ready and no DO yet */}
+                                                            {(sched.status === 'planned' || sched.status === 'revised' || sched.status === 'ready') && !sched.doNumber && (
+                                                              <button className="p-1 hover:bg-green-100 rounded text-green-600" title="Create DO"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation()
+                                                                  if (confirm(`Create DO for ${sched.qty} ${item.unit} delivery on ${sched.revisedDate || sched.deliveryDate}?`)) {
+                                                                    handleCreateDO(order, item, sched, schedIdx)
+                                                                  }
+                                                                }}>
+                                                                <Truck className="w-3 h-3" />
+                                                              </button>
+                                                            )}
+                                                            {/* Create Invoice - only if DO exists and no invoice */}
+                                                            {sched.doNumber && !sched.invoiceNumber && (
+                                                              <button className="p-1 hover:bg-purple-100 rounded text-purple-600" title="Create Invoice"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation()
+                                                                  if (confirm(`Create Invoice for DO ${sched.doNumber}?`)) {
+                                                                    handleCreateInvoice(order, item, sched)
+                                                                  }
+                                                                }}>
+                                                                <Receipt className="w-3 h-3" />
+                                                              </button>
+                                                            )}
+                                                            {/* Mark Delivered */}
+                                                            {sched.doNumber && sched.status !== 'delivered' && (
+                                                              <button className="p-1 hover:bg-green-100 rounded text-green-700" title="Mark Delivered"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation()
+                                                                  if (confirm('Mark as delivered?')) {
+                                                                    handleReviseSchedule(order.id, itemIdx, schedIdx, { status: 'delivered', actualQty: sched.qty, actualDate: new Date().toISOString().split('T')[0] }, 'Delivery confirmed')
+                                                                  }
+                                                                }}>
+                                                                <CheckCircle className="w-3 h-3" />
+                                                              </button>
+                                                            )}
+                                                          </div>
                                                         </td>
                                                       </tr>
                                                       
                                                       {/* Level 4: Revision History */}
                                                       {expandedSchedules[schedKey] && sched.revisionHistory?.length > 0 && (
-                                                        <tr><td colSpan="9" className="p-0">
+                                                        <tr><td colSpan="11" className="p-0">
                                                           <div className="bg-amber-50 border-l-4 border-amber-400 ml-4 p-2">
                                                             <div className="text-xs font-medium text-amber-700 mb-1 flex items-center gap-1"><History className="w-3 h-3" /> Revision History</div>
                                                             <table className="w-full text-xs">
@@ -12788,10 +13019,17 @@ const OrderTrackerComponent = ({
                                                     </React.Fragment>
                                                   )
                                                 }) : (
-                                                  <tr><td colSpan="9" className="px-3 py-4 text-center text-gray-400">No schedule yet</td></tr>
+                                                  <tr><td colSpan="11" className="px-3 py-4 text-center text-gray-400">No schedule yet. Click "+ Add Schedule" to create one.</td></tr>
                                                 )}
                                               </tbody>
                                             </table>
+                                            {/* Remaining qty */}
+                                            <div className="mt-2 text-xs">
+                                              <span className="text-gray-500">Scheduled:</span> <span className="font-medium">{item.deliverySchedule?.reduce((s, d) => s + (d.qty || 0), 0) || 0}</span> / {item.qty} {item.unit}
+                                              {item.qty - (item.deliverySchedule?.reduce((s, d) => s + (d.qty || 0), 0) || 0) > 0 && (
+                                                <span className="text-orange-600 ml-2">({item.qty - (item.deliverySchedule?.reduce((s, d) => s + (d.qty || 0), 0) || 0)} remaining)</span>
+                                              )}
+                                            </div>
                                           </div>
                                         </div>
                                       </td></tr>
@@ -12972,6 +13210,130 @@ const OrderTrackerComponent = ({
           {calendarView === 'customer' && !selectedCustomerView && (
             <Card className="p-12 text-center text-gray-500"><Building2 className="w-12 h-12 mx-auto mb-4 text-gray-300" /><p>{lang === 'th' ? 'เลือกลูกค้า' : 'Select a customer'}</p></Card>
           )}
+        </div>
+      )}
+
+      {/* ========== UPDATE ORDER MODAL ========== */}
+      {showUpdateModal && selectedOrderForUpdate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowUpdateModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-blue-600" />
+                {lang === 'th' ? 'แก้ไขออเดอร์' : 'Update Order'}
+              </h3>
+              <button onClick={() => setShowUpdateModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <div className="text-sm text-blue-600">Order: <span className="font-bold">{selectedOrderForUpdate.customerPO || selectedOrderForUpdate.id}</span></div>
+                <div className="text-sm text-blue-600">Customer: <span className="font-medium">{selectedOrderForUpdate.customer?.name}</span></div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {lang === 'th' ? 'วันที่รับออเดอร์' : 'Order Received Date'}
+                  </label>
+                  <input 
+                    type="date" 
+                    defaultValue={selectedOrderForUpdate.receivedDate || selectedOrderForUpdate.orderDate || ''}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    id="updateReceivedDate"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {lang === 'th' ? 'วันที่ลูกค้าต้องการ' : 'Requested Delivery Date'}
+                  </label>
+                  <input 
+                    type="date" 
+                    defaultValue={selectedOrderForUpdate.requestedDeliveryDate || selectedOrderForUpdate.deliveryDate || ''}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    id="updateRequestedDate"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {lang === 'th' ? 'สถานที่ส่ง' : 'Delivery Location'}
+                </label>
+                <input 
+                  type="text" 
+                  defaultValue={selectedOrderForUpdate.deliveryLocation || ''}
+                  placeholder="e.g., PLOT 1, Factory A"
+                  className="w-full px-3 py-2 border rounded-lg"
+                  id="updateLocation"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {lang === 'th' ? 'เงื่อนไขชำระ' : 'Payment Terms (days)'}
+                  </label>
+                  <select 
+                    defaultValue={selectedOrderForUpdate.paymentTerms || 30}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    id="updateTerms"
+                  >
+                    <option value={15}>15 days</option>
+                    <option value={30}>30 days</option>
+                    <option value={45}>45 days</option>
+                    <option value={60}>60 days</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {lang === 'th' ? 'ประเภทออเดอร์' : 'Order Type'}
+                  </label>
+                  <select 
+                    defaultValue={selectedOrderForUpdate.orderType || 'PO'}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    id="updateType"
+                  >
+                    <option value="PR">PR (Forecast)</option>
+                    <option value="PO">PO (Confirmed)</option>
+                    <option value="Direct">Direct Order</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {lang === 'th' ? 'หมายเหตุ' : 'Notes / Remarks'}
+                </label>
+                <textarea 
+                  defaultValue={selectedOrderForUpdate.notes || ''}
+                  rows={2}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  id="updateNotes"
+                  placeholder="Any special instructions..."
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t bg-gray-50 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowUpdateModal(false)}>
+                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+              </Button>
+              <Button onClick={() => {
+                const updates = {
+                  receivedDate: document.getElementById('updateReceivedDate').value,
+                  requestedDeliveryDate: document.getElementById('updateRequestedDate').value,
+                  deliveryLocation: document.getElementById('updateLocation').value,
+                  paymentTerms: parseInt(document.getElementById('updateTerms').value),
+                  orderType: document.getElementById('updateType').value,
+                  notes: document.getElementById('updateNotes').value,
+                }
+                handleUpdateOrder(selectedOrderForUpdate.id, updates)
+                alert(lang === 'th' ? 'บันทึกเรียบร้อย' : 'Order updated successfully!')
+              }}>
+                <Save className="w-4 h-4 mr-1" />
+                {lang === 'th' ? 'บันทึก' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -13904,7 +14266,9 @@ const SalesModuleFull = ({
           workOrders={workOrders}
           products={products}
           deliveryOrders={deliveryOrders}
+          setDeliveryOrders={setDeliveryOrders}
           invoices={invoices}
+          setInvoices={setInvoices}
           trucks={trucks}
           employees={employees}
           lang={lang}
