@@ -20,8 +20,23 @@ import {
 // ============================================
 // VERSION INFO
 // ============================================
-const VERSION = '9.5'
+const VERSION = '10.0'
 const VERSION_DATE = '2026-02-02'
+
+// v10.0 SALES COMPLETE + PRODUCTION ENHANCED:
+// 1. SALES MODULE FINALIZED - All 13 tabs working with forms
+// 2. CUSTOMER ADD/EDIT - Works with all special requirements
+// 3. RETURN/CLAIM WINDOW - Buttons disabled after 15/30 days (local) or 30/60 days (export)
+// 4. PRODUCTION OUTPUT - Record output with shift, operator, machine
+// 5. PRODUCTION QC - Quality control inspection with pass/fail/hold
+// 6. PRODUCTION TABS - Dashboard, Work Orders, Output, QC, Floor View, Costing
+
+// v9.6 SALES MODULE FINALIZED:
+// 1. RETURN WINDOW VALIDATION - Rejection button with 15/30 day limit based on customer type
+// 2. CLAIM WINDOW VALIDATION - Claim button with 30/60 day limit based on customer type
+// 3. CUSTOMER ADD/EDIT FIXED - setCustomers passed to both SalesModuleFull instances
+// 4. EXPIRED PERIOD ALERT - "Order has passed return/claim period, contact Sales"
+// 5. INVOICE ACTION BUTTONS - Added Return and Claim buttons with window validation
 
 // v9.5 ENHANCEMENTS - SIGNATURE & OCR FEATURES:
 // 1. SIGNATURE CAPTURE - Draw or upload scanned signature for delivery receipt
@@ -7378,12 +7393,17 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
   const [activeTab, setActiveTab] = useState('dashboard')
   const [showWOModal, setShowWOModal] = useState(false)
   const [showIssueModal, setShowIssueModal] = useState(false)
+  const [showOutputModal, setShowOutputModal] = useState(false)
+  const [showQCModal, setShowQCModal] = useState(false)
   const [selectedWO, setSelectedWO] = useState(null)
   const [filterDept, setFilterDept] = useState('all')
+  const [filterStatus, setFilterStatus] = useState('all')
 
   const tabs = [
     { id: 'dashboard', label: lang === 'th' ? 'ภาพรวม' : 'Dashboard', icon: BarChart3 },
     { id: 'orders', label: lang === 'th' ? 'ใบสั่งผลิต' : 'Work Orders', icon: ClipboardList },
+    { id: 'output', label: lang === 'th' ? 'บันทึกผลผลิต' : 'Output', icon: Package },
+    { id: 'qc', label: lang === 'th' ? 'ควบคุมคุณภาพ' : 'QC', icon: CheckCircle2 },
     { id: 'floor', label: lang === 'th' ? 'หน้างาน' : 'Floor View', icon: Factory },
     { id: 'costing', label: lang === 'th' ? 'ต้นทุน' : 'Costing', icon: Calculator },
   ]
@@ -7430,6 +7450,67 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
   const handleIssue = (wo) => {
     setSelectedWO(wo)
     setShowIssueModal(true)
+  }
+
+  const handleRecordOutput = (wo) => {
+    setSelectedWO(wo)
+    setShowOutputModal(true)
+  }
+
+  const handleQCInspection = (wo) => {
+    setSelectedWO(wo)
+    setShowQCModal(true)
+  }
+
+  const handleSaveOutput = (outputData) => {
+    setWorkOrders(workOrders.map(wo => {
+      if (wo.id !== selectedWO.id) return wo
+      const newCompleted = (wo.completedQty || 0) + outputData.goodQty
+      const newScrap = (wo.scrapQty || 0) + outputData.scrapQty
+      const newStatus = newCompleted >= wo.quantity ? 'completed' : 'in_progress'
+      
+      // Update labor cost based on hours
+      const laborCost = (wo.costs?.labor || 0) + (outputData.hours * 150) // 150 baht/hour
+      const totalCost = (wo.costs?.material || 0) + laborCost + (wo.costs?.overhead || 0)
+      
+      return {
+        ...wo,
+        completedQty: newCompleted,
+        scrapQty: newScrap,
+        status: newStatus,
+        costs: {
+          ...wo.costs,
+          labor: laborCost,
+          total: totalCost,
+          perUnit: newCompleted > 0 ? totalCost / newCompleted : 0,
+        },
+        outputRecords: [...(wo.outputRecords || []), {
+          ...outputData,
+          recordedAt: new Date().toISOString(),
+          recordedBy: 'Production Staff',
+        }],
+      }
+    }))
+    setShowOutputModal(false)
+    setSelectedWO(null)
+  }
+
+  const handleSaveQC = (qcData) => {
+    setWorkOrders(workOrders.map(wo => {
+      if (wo.id !== selectedWO.id) return wo
+      return {
+        ...wo,
+        qcRecords: [...(wo.qcRecords || []), {
+          ...qcData,
+          inspectedAt: new Date().toISOString(),
+          inspector: 'QC Staff',
+        }],
+        qcStatus: qcData.result,
+        lastQCDate: new Date().toISOString().split('T')[0],
+      }
+    }))
+    setShowQCModal(false)
+    setSelectedWO(null)
   }
 
   const handleMaterialIssue = (issueData) => {
@@ -7673,6 +7754,223 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
         </Card>
       )}
 
+      {/* ========== OUTPUT TAB - Record Production Output ========== */}
+      {activeTab === 'output' && (
+        <div className="space-y-6">
+          {/* Quick Output Entry */}
+          <Card className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-green-100 rounded-full">
+                <Package className="w-8 h-8 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-green-800 text-lg">{lang === 'th' ? 'บันทึกผลการผลิต' : 'Record Production Output'}</h3>
+                <p className="text-green-600 text-sm mt-1">
+                  {lang === 'th' ? 'บันทึกจำนวนผลิตสำเร็จ, ของเสีย, และชั่วโมงทำงาน' : 'Record completed quantity, scrap, and work hours'}
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Active Work Orders for Output Entry */}
+          <Card className="overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
+              <h4 className="font-bold text-gray-700">{lang === 'th' ? 'งานที่กำลังผลิต' : 'Work Orders In Progress'}</h4>
+              <div className="flex gap-2">
+                <select 
+                  value={filterDept} 
+                  onChange={(e) => setFilterDept(e.target.value)}
+                  className="text-sm border rounded px-2 py-1"
+                >
+                  <option value="all">{lang === 'th' ? 'ทุกแผนก' : 'All Departments'}</option>
+                  {departments.filter(d => d.isActive).map(d => (
+                    <option key={d.id} value={d.id}>{d.code}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="divide-y">
+              {workOrders
+                .filter(wo => wo.status === 'in_progress' || wo.status === 'pending')
+                .filter(wo => filterDept === 'all' || wo.department === filterDept)
+                .map(wo => {
+                  const customer = customers.find(c => c.id === wo.customerId)
+                  const progress = wo.quantity > 0 ? ((wo.completedQty || 0) / wo.quantity * 100) : 0
+                  const remaining = wo.quantity - (wo.completedQty || 0)
+                  
+                  return (
+                    <div key={wo.id} className="p-4 hover:bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <div className="font-mono text-blue-600 font-bold">{wo.id}</div>
+                            <Badge variant={wo.status === 'in_progress' ? 'info' : 'warning'}>{wo.status}</Badge>
+                            <Badge variant="default">{wo.department}</Badge>
+                          </div>
+                          <div className="text-sm font-medium mt-1">{wo.productName}</div>
+                          <div className="text-xs text-gray-500">{customer?.name} • SO: {wo.soId}</div>
+                        </div>
+                        
+                        <div className="text-right mr-4">
+                          <div className="text-2xl font-bold text-gray-800">{wo.completedQty || 0} / {wo.quantity}</div>
+                          <div className="text-sm text-gray-500">{lang === 'th' ? 'เหลือ' : 'Remaining'}: <span className="font-bold text-orange-600">{remaining}</span></div>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="success" 
+                            onClick={() => handleRecordOutput(wo)}
+                            disabled={wo.status === 'completed'}
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            {lang === 'th' ? 'บันทึกผลผลิต' : 'Record Output'}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* Progress Bar */}
+                      <div className="mt-3">
+                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                          <span>{lang === 'th' ? 'ความคืบหน้า' : 'Progress'}</span>
+                          <span>{progress.toFixed(1)}%</span>
+                        </div>
+                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all"
+                            style={{ width: `${Math.min(progress, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Recent Output Records */}
+                      {wo.outputRecords?.length > 0 && (
+                        <div className="mt-3 pt-3 border-t">
+                          <div className="text-xs text-gray-500 mb-2">{lang === 'th' ? 'บันทึกล่าสุด:' : 'Recent Records:'}</div>
+                          <div className="flex flex-wrap gap-2">
+                            {wo.outputRecords.slice(-3).map((rec, idx) => (
+                              <span key={idx} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                                +{rec.goodQty} {rec.scrapQty > 0 && <span className="text-red-500">(-{rec.scrapQty} scrap)</span>} • {rec.shift}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ========== QC TAB - Quality Control ========== */}
+      {activeTab === 'qc' && (
+        <div className="space-y-6">
+          {/* QC Summary Cards */}
+          <div className="grid grid-cols-4 gap-4">
+            <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-green-700">{workOrders.filter(wo => wo.qcStatus === 'passed').length}</div>
+                  <div className="text-sm text-green-600">{lang === 'th' ? 'ผ่าน QC' : 'Passed'}</div>
+                </div>
+                <CheckCircle className="w-8 h-8 text-green-400" />
+              </div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-red-700">{workOrders.filter(wo => wo.qcStatus === 'failed').length}</div>
+                  <div className="text-sm text-red-600">{lang === 'th' ? 'ไม่ผ่าน QC' : 'Failed'}</div>
+                </div>
+                <AlertCircle className="w-8 h-8 text-red-400" />
+              </div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-yellow-700">{workOrders.filter(wo => wo.qcStatus === 'hold').length}</div>
+                  <div className="text-sm text-yellow-600">{lang === 'th' ? 'รอตรวจ' : 'On Hold'}</div>
+                </div>
+                <Clock className="w-8 h-8 text-yellow-400" />
+              </div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-blue-700">
+                    {workOrders.filter(wo => wo.status === 'completed' && !wo.qcStatus).length}
+                  </div>
+                  <div className="text-sm text-blue-600">{lang === 'th' ? 'รอ QC' : 'Pending QC'}</div>
+                </div>
+                <ClipboardCheck className="w-8 h-8 text-blue-400" />
+              </div>
+            </Card>
+          </div>
+
+          {/* Pending QC Inspections */}
+          <Card className="overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 border-b">
+              <h4 className="font-bold text-gray-700">{lang === 'th' ? 'งานรอตรวจ QC' : 'Pending QC Inspections'}</h4>
+            </div>
+            <div className="divide-y">
+              {workOrders
+                .filter(wo => (wo.status === 'completed' || wo.completedQty > 0) && (!wo.qcStatus || wo.qcStatus === 'hold'))
+                .map(wo => {
+                  const customer = customers.find(c => c.id === wo.customerId)
+                  return (
+                    <div key={wo.id} className="p-4 hover:bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <div className="font-mono text-blue-600 font-bold">{wo.id}</div>
+                            <Badge variant={wo.qcStatus === 'hold' ? 'warning' : 'info'}>
+                              {wo.qcStatus || (lang === 'th' ? 'รอตรวจ' : 'Pending')}
+                            </Badge>
+                          </div>
+                          <div className="text-sm font-medium mt-1">{wo.productName}</div>
+                          <div className="text-xs text-gray-500">{customer?.name} • Qty: {wo.completedQty || wo.quantity}</div>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button variant="success" onClick={() => handleQCInspection(wo)}>
+                            <ClipboardCheck className="w-4 h-4 mr-1" />
+                            {lang === 'th' ? 'ตรวจ QC' : 'Inspect'}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* Previous QC Records */}
+                      {wo.qcRecords?.length > 0 && (
+                        <div className="mt-3 pt-3 border-t">
+                          <div className="text-xs text-gray-500 mb-2">{lang === 'th' ? 'ประวัติ QC:' : 'QC History:'}</div>
+                          <div className="space-y-1">
+                            {wo.qcRecords.slice(-2).map((rec, idx) => (
+                              <div key={idx} className={`text-xs px-2 py-1 rounded ${
+                                rec.result === 'passed' ? 'bg-green-100 text-green-700' :
+                                rec.result === 'failed' ? 'bg-red-100 text-red-700' :
+                                'bg-yellow-100 text-yellow-700'
+                              }`}>
+                                {rec.result.toUpperCase()} - {rec.notes} ({rec.inspectedAt?.split('T')[0]})
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              {workOrders.filter(wo => (wo.status === 'completed' || wo.completedQty > 0) && (!wo.qcStatus || wo.qcStatus === 'hold')).length === 0 && (
+                <div className="p-8 text-center text-gray-500">
+                  <CheckCircle className="w-12 h-12 mx-auto text-green-300 mb-2" />
+                  {lang === 'th' ? 'ไม่มีงานรอตรวจ QC' : 'No pending QC inspections'}
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Floor View */}
       {activeTab === 'floor' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -7772,7 +8070,388 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
           />
         </Modal>
       )}
+
+      {/* Production Output Modal */}
+      {showOutputModal && selectedWO && (
+        <Modal isOpen={showOutputModal} onClose={() => { setShowOutputModal(false); setSelectedWO(null) }} 
+               title={lang === 'th' ? 'บันทึกผลการผลิต' : 'Record Production Output'} size="lg">
+          <ProductionOutputForm
+            wo={selectedWO}
+            lang={lang}
+            onSave={handleSaveOutput}
+            onCancel={() => { setShowOutputModal(false); setSelectedWO(null) }}
+          />
+        </Modal>
+      )}
+
+      {/* QC Inspection Modal */}
+      {showQCModal && selectedWO && (
+        <Modal isOpen={showQCModal} onClose={() => { setShowQCModal(false); setSelectedWO(null) }} 
+               title={lang === 'th' ? 'ตรวจสอบคุณภาพ' : 'QC Inspection'} size="lg">
+          <QCInspectionForm
+            wo={selectedWO}
+            lang={lang}
+            onSave={handleSaveQC}
+            onCancel={() => { setShowQCModal(false); setSelectedWO(null) }}
+          />
+        </Modal>
+      )}
     </div>
+  )
+}
+
+// ============================================
+// PRODUCTION OUTPUT FORM
+// ============================================
+const ProductionOutputForm = ({ wo, lang, onSave, onCancel }) => {
+  const [formData, setFormData] = useState({
+    goodQty: 0,
+    scrapQty: 0,
+    shift: 'day',
+    machine: '',
+    operator: '',
+    hours: 0,
+    notes: '',
+  })
+
+  const remaining = wo.quantity - (wo.completedQty || 0)
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (formData.goodQty <= 0) {
+      alert(lang === 'th' ? 'กรุณาระบุจำนวนที่ผลิตได้' : 'Please enter produced quantity')
+      return
+    }
+    if (formData.goodQty > remaining) {
+      alert(lang === 'th' ? `จำนวนเกินที่เหลือ (${remaining})` : `Quantity exceeds remaining (${remaining})`)
+      return
+    }
+    onSave(formData)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* WO Info */}
+      <div className="p-4 bg-blue-50 rounded-lg">
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div><span className="text-gray-500">WO:</span> <span className="font-mono font-bold text-blue-600">{wo.id}</span></div>
+          <div><span className="text-gray-500">{lang === 'th' ? 'สินค้า' : 'Product'}:</span> <span className="font-medium">{wo.productName}</span></div>
+          <div><span className="text-gray-500">{lang === 'th' ? 'ผลิตแล้ว' : 'Completed'}:</span> <span className="font-bold text-green-600">{wo.completedQty || 0}</span> / {wo.quantity}</div>
+          <div><span className="text-gray-500">{lang === 'th' ? 'เหลือ' : 'Remaining'}:</span> <span className="font-bold text-orange-600">{remaining}</span></div>
+        </div>
+      </div>
+
+      {/* Quantity Input */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'จำนวนดี *' : 'Good Qty *'}
+          </label>
+          <input
+            type="number"
+            required
+            min="1"
+            max={remaining}
+            value={formData.goodQty}
+            onChange={(e) => setFormData({ ...formData, goodQty: parseInt(e.target.value) || 0 })}
+            className="w-full px-3 py-2 border rounded-lg text-xl font-bold text-center"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'ของเสีย' : 'Scrap Qty'}
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={formData.scrapQty}
+            onChange={(e) => setFormData({ ...formData, scrapQty: parseInt(e.target.value) || 0 })}
+            className="w-full px-3 py-2 border rounded-lg text-xl text-center text-red-600"
+          />
+        </div>
+      </div>
+
+      {/* Shift and Hours */}
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'กะ' : 'Shift'}
+          </label>
+          <select
+            value={formData.shift}
+            onChange={(e) => setFormData({ ...formData, shift: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            <option value="day">{lang === 'th' ? 'กลางวัน (08:00-20:00)' : 'Day (08:00-20:00)'}</option>
+            <option value="night">{lang === 'th' ? 'กลางคืน (20:00-08:00)' : 'Night (20:00-08:00)'}</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'ชั่วโมงทำงาน' : 'Work Hours'}
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.5"
+            value={formData.hours}
+            onChange={(e) => setFormData({ ...formData, hours: parseFloat(e.target.value) || 0 })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'เครื่องจักร' : 'Machine'}
+          </label>
+          <input
+            type="text"
+            value={formData.machine}
+            onChange={(e) => setFormData({ ...formData, machine: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+            placeholder="M-01"
+          />
+        </div>
+      </div>
+
+      {/* Operator */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {lang === 'th' ? 'ผู้ปฏิบัติงาน' : 'Operator'}
+        </label>
+        <input
+          type="text"
+          value={formData.operator}
+          onChange={(e) => setFormData({ ...formData, operator: e.target.value })}
+          className="w-full px-3 py-2 border rounded-lg"
+        />
+      </div>
+
+      {/* Notes */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {lang === 'th' ? 'หมายเหตุ' : 'Notes'}
+        </label>
+        <textarea
+          value={formData.notes}
+          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          className="w-full px-3 py-2 border rounded-lg"
+          rows={2}
+        />
+      </div>
+
+      {/* Scrap Warning */}
+      {formData.scrapQty > 0 && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          ⚠️ {lang === 'th' 
+            ? `บันทึกของเสีย ${formData.scrapQty} ชิ้น - กรุณาระบุสาเหตุในหมายเหตุ`
+            : `Recording ${formData.scrapQty} scrap items - please note the reason`}
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="ghost" onClick={onCancel}>
+          {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+        </Button>
+        <Button type="submit" variant="success" icon={Save}>
+          {lang === 'th' ? 'บันทึก' : 'Save'}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+// ============================================
+// QC INSPECTION FORM
+// ============================================
+const QCInspectionForm = ({ wo, lang, onSave, onCancel }) => {
+  const [formData, setFormData] = useState({
+    result: 'passed',
+    sampleSize: 10,
+    defectsFound: 0,
+    checkpoints: {
+      dimensions: true,
+      appearance: true,
+      weight: true,
+      moisture: true,
+      strength: true,
+    },
+    notes: '',
+    correctiveAction: '',
+  })
+
+  const checkpointLabels = {
+    dimensions: lang === 'th' ? 'ขนาด/มิติ' : 'Dimensions',
+    appearance: lang === 'th' ? 'ลักษณะภายนอก' : 'Appearance',
+    weight: lang === 'th' ? 'น้ำหนัก' : 'Weight',
+    moisture: lang === 'th' ? 'ความชื้น' : 'Moisture',
+    strength: lang === 'th' ? 'ความแข็งแรง' : 'Strength',
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (formData.result === 'failed' && !formData.notes) {
+      alert(lang === 'th' ? 'กรุณาระบุสาเหตุที่ไม่ผ่าน' : 'Please specify the reason for failure')
+      return
+    }
+    onSave(formData)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* WO Info */}
+      <div className="p-4 bg-blue-50 rounded-lg">
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div><span className="text-gray-500">WO:</span> <span className="font-mono font-bold text-blue-600">{wo.id}</span></div>
+          <div><span className="text-gray-500">{lang === 'th' ? 'สินค้า' : 'Product'}:</span> <span className="font-medium">{wo.productName}</span></div>
+          <div><span className="text-gray-500">{lang === 'th' ? 'จำนวน' : 'Quantity'}:</span> <span className="font-bold">{wo.completedQty || wo.quantity}</span></div>
+          <div><span className="text-gray-500">{lang === 'th' ? 'แผนก' : 'Department'}:</span> <span>{wo.department}</span></div>
+        </div>
+      </div>
+
+      {/* QC Result */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          {lang === 'th' ? 'ผลการตรวจ *' : 'Inspection Result *'}
+        </label>
+        <div className="grid grid-cols-3 gap-3">
+          {['passed', 'failed', 'hold'].map(result => (
+            <label 
+              key={result}
+              className={`flex items-center justify-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition-colors ${
+                formData.result === result 
+                  ? result === 'passed' ? 'border-green-500 bg-green-50' 
+                    : result === 'failed' ? 'border-red-500 bg-red-50' 
+                    : 'border-yellow-500 bg-yellow-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <input
+                type="radio"
+                name="result"
+                value={result}
+                checked={formData.result === result}
+                onChange={(e) => setFormData({ ...formData, result: e.target.value })}
+                className="sr-only"
+              />
+              {result === 'passed' && <CheckCircle className="w-5 h-5 text-green-600" />}
+              {result === 'failed' && <AlertCircle className="w-5 h-5 text-red-600" />}
+              {result === 'hold' && <Clock className="w-5 h-5 text-yellow-600" />}
+              <span className={`font-medium ${
+                result === 'passed' ? 'text-green-700' :
+                result === 'failed' ? 'text-red-700' :
+                'text-yellow-700'
+              }`}>
+                {result === 'passed' ? (lang === 'th' ? 'ผ่าน' : 'PASSED') :
+                 result === 'failed' ? (lang === 'th' ? 'ไม่ผ่าน' : 'FAILED') :
+                 (lang === 'th' ? 'รอตรวจเพิ่ม' : 'HOLD')}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Sample Info */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'จำนวนตัวอย่าง' : 'Sample Size'}
+          </label>
+          <input
+            type="number"
+            min="1"
+            value={formData.sampleSize}
+            onChange={(e) => setFormData({ ...formData, sampleSize: parseInt(e.target.value) || 0 })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'พบข้อบกพร่อง' : 'Defects Found'}
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={formData.defectsFound}
+            onChange={(e) => setFormData({ ...formData, defectsFound: parseInt(e.target.value) || 0 })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+      </div>
+
+      {/* Checkpoints */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          {lang === 'th' ? 'รายการตรวจ' : 'Checkpoints'}
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          {Object.entries(formData.checkpoints).map(([key, value]) => (
+            <label key={key} className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={value}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  checkpoints: { ...formData.checkpoints, [key]: e.target.checked }
+                })}
+                className="w-4 h-4 rounded text-green-600"
+              />
+              <span className="text-sm">{checkpointLabels[key]}</span>
+              {value && <CheckCircle className="w-4 h-4 text-green-500 ml-auto" />}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {lang === 'th' ? 'หมายเหตุ / รายละเอียดข้อบกพร่อง' : 'Notes / Defect Details'}
+          {formData.result === 'failed' && <span className="text-red-500"> *</span>}
+        </label>
+        <textarea
+          value={formData.notes}
+          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          className="w-full px-3 py-2 border rounded-lg"
+          rows={2}
+          placeholder={lang === 'th' ? 'ระบุรายละเอียด...' : 'Specify details...'}
+        />
+      </div>
+
+      {/* Corrective Action for failed */}
+      {formData.result === 'failed' && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'การแก้ไข' : 'Corrective Action'}
+          </label>
+          <select
+            value={formData.correctiveAction}
+            onChange={(e) => setFormData({ ...formData, correctiveAction: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            <option value="">{lang === 'th' ? 'เลือกการดำเนินการ' : 'Select action'}</option>
+            <option value="rework">{lang === 'th' ? 'ซ่อมแซม/ทำใหม่' : 'Rework'}</option>
+            <option value="scrap">{lang === 'th' ? 'ทิ้งเป็นของเสีย' : 'Scrap'}</option>
+            <option value="downgrade">{lang === 'th' ? 'ลดเกรด' : 'Downgrade'}</option>
+            <option value="return_vendor">{lang === 'th' ? 'คืน Vendor' : 'Return to Vendor'}</option>
+          </select>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="ghost" onClick={onCancel}>
+          {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+        </Button>
+        <Button 
+          type="submit" 
+          variant={formData.result === 'passed' ? 'success' : formData.result === 'failed' ? 'danger' : 'warning'}
+          icon={ClipboardCheck}
+        >
+          {lang === 'th' ? 'บันทึกผล QC' : 'Save QC Result'}
+        </Button>
+      </div>
+    </form>
   )
 }
 
@@ -10405,6 +11084,7 @@ function AppBasicVersion() {
                   salesMeetings={salesMeetings}
                   setSalesMeetings={setSalesMeetings}
                   customers={customers}
+                  setCustomers={setCustomers}
                   workOrders={workOrders}
                   products={products}
                   trucks={trucks}
@@ -15132,6 +15812,68 @@ const SalesModuleFull = ({
                           <Button size="sm" variant="success" onClick={() => { setSelectedItem(inv); setShowReceiptAck(true) }} title={lang === 'th' ? 'ใบรับสินค้า' : 'Receipt'}>
                             <CheckCircle className="w-3 h-3" />
                           </Button>
+                          {/* Rejection Button - with return window validation */}
+                          {(() => {
+                            const customer = customers.find(c => c.id === inv.customerId)
+                            const returnWindow = customer?.type === 'export' ? 30 : 15 // 30 days for export, 15 for local
+                            const invoiceDate = new Date(inv.date || inv.createdAt)
+                            const daysSinceInvoice = Math.floor((new Date() - invoiceDate) / (1000 * 60 * 60 * 24))
+                            const isWithinReturnWindow = daysSinceInvoice <= returnWindow
+                            
+                            return (
+                              <Button 
+                                size="sm" 
+                                variant={isWithinReturnWindow ? "warning" : "ghost"}
+                                onClick={() => {
+                                  if (isWithinReturnWindow) {
+                                    setSelectedItem(inv)
+                                    setShowRejectionModal(true)
+                                  } else {
+                                    alert(lang === 'th' 
+                                      ? `คำสั่งซื้อนี้เลยระยะเวลาคืนสินค้า (${returnWindow} วัน) กรุณาติดต่อฝ่ายขาย`
+                                      : `This order has passed the return period (${returnWindow} days). Please contact Sales.`)
+                                  }
+                                }}
+                                title={isWithinReturnWindow 
+                                  ? (lang === 'th' ? `คืนสินค้า (เหลือ ${returnWindow - daysSinceInvoice} วัน)` : `Return (${returnWindow - daysSinceInvoice} days left)`)
+                                  : (lang === 'th' ? 'หมดระยะเวลาคืนสินค้า' : 'Return period expired')}
+                                className={!isWithinReturnWindow ? 'opacity-50' : ''}
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                              </Button>
+                            )
+                          })()}
+                          {/* Claim Button - with claim window validation */}
+                          {(() => {
+                            const customer = customers.find(c => c.id === inv.customerId)
+                            const claimWindow = customer?.type === 'export' ? 60 : 30 // 60 days for export, 30 for local
+                            const invoiceDate = new Date(inv.date || inv.createdAt)
+                            const daysSinceInvoice = Math.floor((new Date() - invoiceDate) / (1000 * 60 * 60 * 24))
+                            const isWithinClaimWindow = daysSinceInvoice <= claimWindow
+                            
+                            return (
+                              <Button 
+                                size="sm" 
+                                variant={isWithinClaimWindow ? "danger" : "ghost"}
+                                onClick={() => {
+                                  if (isWithinClaimWindow) {
+                                    setSelectedItem(inv)
+                                    setShowClaimModal(true)
+                                  } else {
+                                    alert(lang === 'th' 
+                                      ? `คำสั่งซื้อนี้เลยระยะเวลาเคลม (${claimWindow} วัน) กรุณาติดต่อฝ่ายขาย`
+                                      : `This order has passed the claim period (${claimWindow} days). Please contact Sales.`)
+                                  }
+                                }}
+                                title={isWithinClaimWindow 
+                                  ? (lang === 'th' ? `เคลม (เหลือ ${claimWindow - daysSinceInvoice} วัน)` : `Claim (${claimWindow - daysSinceInvoice} days left)`)
+                                  : (lang === 'th' ? 'หมดระยะเวลาเคลม' : 'Claim period expired')}
+                                className={!isWithinClaimWindow ? 'opacity-50' : ''}
+                              >
+                                <AlertCircle className="w-3 h-3" />
+                              </Button>
+                            )
+                          })()}
                         </div>
                       </td>
                     </tr>
@@ -17516,6 +18258,234 @@ const ClaimForm = ({ claim, customers, invoices, rejections, onSave, onCancel, l
 // ============================================
 // MEETING FORM
 // ============================================
+// ============================================
+// PRICE CHANGE FORM
+// ============================================
+const PriceChangeForm = ({ priceChange, products, customers, lang, onSave, onCancel }) => {
+  const [formData, setFormData] = useState({
+    productId: priceChange?.productId || '',
+    productName: priceChange?.productName || '',
+    customerId: priceChange?.customerId || '',
+    oldPrice: priceChange?.oldPrice || 0,
+    newPrice: priceChange?.newPrice || 0,
+    effectiveDate: priceChange?.effectiveDate || new Date().toISOString().split('T')[0],
+    reason: priceChange?.reason || 'material_cost_increase',
+    emailRef: priceChange?.emailRef || '',
+    approvedBy: priceChange?.approvedBy || '',
+    notes: priceChange?.notes || '',
+  })
+
+  const reasons = [
+    { value: 'material_cost_increase', label: lang === 'th' ? 'ต้นทุนวัตถุดิบเพิ่ม' : 'Material Cost Increase' },
+    { value: 'volume_discount', label: lang === 'th' ? 'ส่วนลดตามปริมาณ' : 'Volume Discount' },
+    { value: 'customer_negotiation', label: lang === 'th' ? 'เจรจากับลูกค้า' : 'Customer Negotiation' },
+    { value: 'market_adjustment', label: lang === 'th' ? 'ปรับตามตลาด' : 'Market Adjustment' },
+    { value: 'promotion', label: lang === 'th' ? 'โปรโมชั่น' : 'Promotion' },
+    { value: 'contract_renewal', label: lang === 'th' ? 'ต่อสัญญา' : 'Contract Renewal' },
+    { value: 'other', label: lang === 'th' ? 'อื่นๆ' : 'Other' },
+  ]
+
+  const handleProductSelect = (productId) => {
+    const product = products?.find(p => p.id === productId)
+    setFormData({
+      ...formData,
+      productId,
+      productName: product?.name || '',
+      oldPrice: product?.price || 0,
+    })
+  }
+
+  const priceChange_percentage = formData.oldPrice > 0 
+    ? (((formData.newPrice - formData.oldPrice) / formData.oldPrice) * 100).toFixed(1)
+    : 0
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!formData.productId || !formData.newPrice) {
+      alert(lang === 'th' ? 'กรุณาเลือกสินค้าและระบุราคาใหม่' : 'Please select product and enter new price')
+      return
+    }
+    onSave({
+      ...formData,
+      changedBy: 'Sales Manager',
+      priceChange: formData.newPrice - formData.oldPrice,
+      percentageChange: parseFloat(priceChange_percentage),
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Product Selection */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {lang === 'th' ? 'สินค้า *' : 'Product *'}
+        </label>
+        <select
+          required
+          value={formData.productId}
+          onChange={(e) => handleProductSelect(e.target.value)}
+          className="w-full px-3 py-2 border rounded-lg"
+        >
+          <option value="">{lang === 'th' ? 'เลือกสินค้า' : 'Select Product'}</option>
+          {products?.map(p => (
+            <option key={p.id} value={p.id}>{p.name} - ฿{p.price?.toLocaleString()}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Customer (Optional - for customer-specific pricing) */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {lang === 'th' ? 'ลูกค้า (ถ้าเป็นราคาเฉพาะ)' : 'Customer (if customer-specific)'}
+        </label>
+        <select
+          value={formData.customerId}
+          onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
+          className="w-full px-3 py-2 border rounded-lg"
+        >
+          <option value="">{lang === 'th' ? 'ทุกลูกค้า (ราคากลาง)' : 'All Customers (Standard Price)'}</option>
+          {customers?.map(c => (
+            <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Price Comparison */}
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'ราคาเดิม' : 'Old Price'}
+          </label>
+          <input
+            type="number"
+            value={formData.oldPrice}
+            onChange={(e) => setFormData({ ...formData, oldPrice: parseFloat(e.target.value) || 0 })}
+            className="w-full px-3 py-2 border rounded-lg bg-gray-100"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'ราคาใหม่ *' : 'New Price *'}
+          </label>
+          <input
+            type="number"
+            required
+            value={formData.newPrice}
+            onChange={(e) => setFormData({ ...formData, newPrice: parseFloat(e.target.value) || 0 })}
+            className="w-full px-3 py-2 border rounded-lg font-bold text-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'เปลี่ยนแปลง' : 'Change'}
+          </label>
+          <div className={`px-3 py-2 border rounded-lg text-center font-bold ${
+            parseFloat(priceChange_percentage) > 0 ? 'bg-red-50 text-red-600 border-red-200' :
+            parseFloat(priceChange_percentage) < 0 ? 'bg-green-50 text-green-600 border-green-200' :
+            'bg-gray-50 text-gray-600'
+          }`}>
+            {parseFloat(priceChange_percentage) > 0 ? '+' : ''}{priceChange_percentage}%
+          </div>
+        </div>
+      </div>
+
+      {/* Effective Date & Reason */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'วันที่มีผล *' : 'Effective Date *'}
+          </label>
+          <input
+            type="date"
+            required
+            value={formData.effectiveDate}
+            onChange={(e) => setFormData({ ...formData, effectiveDate: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'เหตุผล *' : 'Reason *'}
+          </label>
+          <select
+            required
+            value={formData.reason}
+            onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            {reasons.map(r => (
+              <option key={r.value} value={r.value}>{r.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Email Reference & Approval */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'อ้างอิงอีเมล' : 'Email Reference'}
+          </label>
+          <input
+            type="text"
+            value={formData.emailRef}
+            onChange={(e) => setFormData({ ...formData, emailRef: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+            placeholder={lang === 'th' ? 'เช่น Email dated 2026-01-10' : 'e.g., Email dated 2026-01-10'}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {lang === 'th' ? 'อนุมัติโดย' : 'Approved By'}
+          </label>
+          <select
+            value={formData.approvedBy}
+            onChange={(e) => setFormData({ ...formData, approvedBy: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            <option value="">{lang === 'th' ? 'รออนุมัติ' : 'Pending Approval'}</option>
+            <option value="CEO">CEO</option>
+            <option value="Sales Director">Sales Director</option>
+            <option value="GM">General Manager</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {lang === 'th' ? 'หมายเหตุ' : 'Notes'}
+        </label>
+        <textarea
+          value={formData.notes}
+          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          className="w-full px-3 py-2 border rounded-lg"
+          rows={2}
+        />
+      </div>
+
+      {/* Warning for price decrease */}
+      {parseFloat(priceChange_percentage) < 0 && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
+          ⚠️ {lang === 'th' 
+            ? 'การลดราคาต้องได้รับอนุมัติจาก CEO ก่อนมีผลบังคับใช้' 
+            : 'Price decrease requires CEO approval before taking effect'}
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button type="button" variant="ghost" onClick={onCancel}>
+          {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+        </Button>
+        <Button type="submit" icon={Save}>
+          {lang === 'th' ? 'บันทึก' : 'Save'}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
 const MeetingForm = ({ meeting, customers, onSave, onCancel, lang }) => {
   const [formData, setFormData] = useState({
     date: meeting?.date || new Date().toISOString().split('T')[0],
@@ -21743,6 +22713,7 @@ const AppFull = () => {
                   salesMeetings={salesMeetings}
                   setSalesMeetings={setSalesMeetings}
                   customers={customers}
+                  setCustomers={setCustomers}
                   workOrders={workOrders}
                   products={products}
                   trucks={trucks}
