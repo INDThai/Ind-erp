@@ -7447,6 +7447,7 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
   const [filterDept, setFilterDept] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
   const [expandedPOs, setExpandedPOs] = useState({})
+  const [expandedWOs, setExpandedWOs] = useState({})
   const [expandedItems, setExpandedItems] = useState({})
 
   const tabs = [
@@ -8137,77 +8138,288 @@ const ProductionModule = ({ workOrders, setWorkOrders, departments, customers, i
 
       {/* Work Orders List */}
       {activeTab === 'orders' && (
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'เลขที่' : 'WO #'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'สินค้า' : 'Product'}</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">{lang === 'th' ? 'ลูกค้า' : 'Customer'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'จำนวน' : 'Qty'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'แผนก' : 'Dept'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'วัสดุ' : 'Material'}</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">{lang === 'th' ? 'ต้นทุน' : 'Cost'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {filteredWOs.map(wo => {
-                  const customer = customers.find(c => c.id === wo.customerId)
-                  return (
-                    <tr key={wo.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <div className="font-mono text-[#1A5276] font-medium">{wo.id}</div>
-                        <div className="text-xs text-gray-400">{wo.soId}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{wo.productName}</div>
-                        <div className="text-xs text-gray-400">{wo.materialType}</div>
-                      </td>
-                      <td className="px-4 py-3">{customer?.name || wo.customerId}</td>
-                      <td className="px-4 py-3 text-right">
-                        <div>{wo.completedQty || 0} / {wo.quantity}</div>
-                        <div className="text-xs text-gray-400">
-                          {wo.quantity > 0 ? ((wo.completedQty || 0) / wo.quantity * 100).toFixed(0) : 0}%
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <Badge variant="info">{wo.department}</Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right">{formatCurrency(wo.costs?.material || 0)}</td>
-                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(wo.costs?.total || 0)}</td>
-                      <td className="px-4 py-3 text-center">
-                        <Badge variant={
-                          wo.status === 'completed' ? 'success' :
-                          wo.status === 'in_progress' ? 'info' :
-                          'warning'
-                        }>
-                          {wo.status}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button 
-                            className="p-1 hover:bg-gray-100 rounded" 
-                            title="Issue Materials"
-                            onClick={() => handleIssue(wo)}
-                          >
-                            <Package className="w-4 h-4 text-blue-500" />
-                          </button>
-                          <button className="p-1 hover:bg-gray-100 rounded" title="View">
-                            <Eye className="w-4 h-4 text-gray-500" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+        <div className="space-y-4">
+          {/* WO Filters and Actions */}
+          <div className="flex justify-between items-center">
+            <div className="flex gap-3">
+              <select className="px-3 py-2 border rounded-lg text-sm">
+                <option value="all">{lang === 'th' ? 'ทุกสถานะ' : 'All Status'}</option>
+                <option value="pending">{lang === 'th' ? 'รอดำเนินการ' : 'Pending'}</option>
+                <option value="in_progress">{lang === 'th' ? 'กำลังผลิต' : 'In Progress'}</option>
+                <option value="completed">{lang === 'th' ? 'เสร็จสิ้น' : 'Completed'}</option>
+              </select>
+              <select className="px-3 py-2 border rounded-lg text-sm">
+                <option value="all">{lang === 'th' ? 'ทุกแผนก' : 'All Departments'}</option>
+                {departments.filter(d => d.isActive).map(d => (
+                  <option key={d.id} value={d.id}>{d.nameEn}</option>
+                ))}
+              </select>
+            </div>
+            <Button onClick={() => setShowWOModal(true)}>
+              <Plus className="w-4 h-4 mr-1" /> {lang === 'th' ? 'สร้าง WO' : 'Create WO'}
+            </Button>
           </div>
-        </Card>
+
+          {/* WO Running Table with Production Mapping Columns */}
+          <Card className="overflow-hidden">
+            <div className="px-4 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white">
+              <h3 className="font-bold flex items-center gap-2">
+                <ClipboardList className="w-5 h-5" />
+                {lang === 'th' ? 'ใบสั่งผลิต (Work Orders)' : 'Work Orders - Production Mapping View'}
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-100 sticky top-0">
+                  <tr>
+                    <th className="w-8 px-2 py-3"></th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-700">WO #</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-700">Customer PO</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-700">Product</th>
+                    <th className="px-2 py-3 text-center font-semibold text-gray-700">Qty</th>
+                    <th className="px-2 py-3 text-center font-semibold text-gray-700">Done</th>
+                    <th className="px-2 py-3 text-center font-semibold text-gray-700">PLN</th>
+                    {/* Production Path columns */}
+                    <th className="px-1 py-3 text-center font-semibold bg-yellow-50 text-xs">Singh</th>
+                    <th className="px-1 py-3 text-center font-semibold bg-yellow-50 text-xs">P1</th>
+                    <th className="px-1 py-3 text-center font-semibold bg-gray-50 text-xs">QA</th>
+                    <th className="px-1 py-3 text-center font-semibold bg-green-50 text-xs">P2</th>
+                    <th className="px-1 py-3 text-center font-semibold bg-cyan-50 text-xs">A1</th>
+                    <th className="px-1 py-3 text-center font-semibold bg-teal-50 text-xs">A2</th>
+                    <th className="px-1 py-3 text-center font-semibold bg-orange-50 text-xs">Oven</th>
+                    <th className="px-1 py-3 text-center font-semibold bg-blue-50 text-xs">QC</th>
+                    <th className="px-1 py-3 text-center font-semibold bg-purple-50 text-xs">FG</th>
+                    <th className="px-3 py-3 text-center font-semibold text-gray-700">Status</th>
+                    <th className="px-3 py-3 text-center font-semibold text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {filteredWOs.map(wo => {
+                    const customer = customers.find(c => c.id === wo.customerId)
+                    const linkedSO = salesOrders?.find(so => so.id === wo.soId)
+                    const plnScenario = wo.productionScenario || linkedSO?.productionScenario || 'PLN 1.1.1'
+                    const isExpanded = expandedWOs[wo.id]
+                    
+                    // Get path progress based on WO current department
+                    const getWOPathProgress = (dept) => {
+                      const deptOrder = ['C1', 'P1', 'P2', 'A1', 'A2', 'OVEN', 'QC', 'FG']
+                      const currentIdx = deptOrder.indexOf(dept)
+                      return {
+                        Singh: currentIdx >= 0,
+                        P1: currentIdx >= 1 || dept === 'P1',
+                        QA1: currentIdx >= 1,
+                        P2: dept === 'P2' || (currentIdx >= 2 && plnScenario.includes('PLN 2')),
+                        A1: currentIdx >= 3 || dept === 'A1',
+                        A2: currentIdx >= 4 || dept === 'A2',
+                        Oven: currentIdx >= 5 || dept === 'OVEN',
+                        QC: currentIdx >= 6 || dept === 'QC',
+                        FG: currentIdx >= 7 || dept === 'FG',
+                      }
+                    }
+                    const pathProgress = getWOPathProgress(wo.department)
+                    const progress = wo.quantity > 0 ? Math.round((wo.completedQty || 0) / wo.quantity * 100) : 0
+
+                    return (
+                      <React.Fragment key={wo.id}>
+                        <tr 
+                          className={`hover:bg-gray-50 cursor-pointer ${isExpanded ? 'bg-orange-50' : ''}`}
+                          onClick={() => setExpandedWOs(prev => ({ ...prev, [wo.id]: !prev[wo.id] }))}
+                        >
+                          <td className="px-2 py-3 text-center">
+                            <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="font-mono text-orange-600 font-bold">{wo.id}</div>
+                            <div className="text-xs text-gray-400">{formatDate(wo.createdAt)}</div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="font-mono text-blue-600 text-xs">{linkedSO?.customerPO || wo.soId}</div>
+                            <div className="text-xs text-gray-400">{customer?.name}</div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="font-medium text-sm">{wo.productName}</div>
+                            <div className="text-xs text-gray-400">{wo.materialType}</div>
+                          </td>
+                          <td className="px-2 py-3 text-center font-bold">{wo.quantity}</td>
+                          <td className="px-2 py-3 text-center">
+                            <span className={progress >= 100 ? 'text-green-600 font-bold' : progress > 0 ? 'text-yellow-600' : 'text-gray-400'}>
+                              {wo.completedQty || 0}
+                            </span>
+                          </td>
+                          <td className="px-2 py-3 text-center">
+                            <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-mono">{plnScenario}</span>
+                          </td>
+                          {/* Production Path X marks */}
+                          <td className={`px-1 py-3 text-center ${pathProgress.Singh ? 'bg-yellow-100' : ''}`}>
+                            {pathProgress.Singh && <span className={`text-xs font-bold ${wo.department === 'C1' ? 'text-green-600' : 'text-yellow-600'}`}>X</span>}
+                          </td>
+                          <td className={`px-1 py-3 text-center ${pathProgress.P1 ? 'bg-yellow-100' : ''}`}>
+                            {pathProgress.P1 && <span className={`text-xs font-bold ${wo.department === 'P1' ? 'text-green-600' : 'text-yellow-600'}`}>X</span>}
+                          </td>
+                          <td className={`px-1 py-3 text-center ${pathProgress.QA1 ? 'bg-gray-100' : ''}`}>
+                            {pathProgress.QA1 && <span className="text-xs font-bold text-gray-500">X</span>}
+                          </td>
+                          <td className={`px-1 py-3 text-center ${pathProgress.P2 ? 'bg-green-100' : ''}`}>
+                            {pathProgress.P2 && <span className={`text-xs font-bold ${wo.department === 'P2' ? 'text-green-600' : 'text-green-500'}`}>X</span>}
+                          </td>
+                          <td className={`px-1 py-3 text-center ${pathProgress.A1 ? 'bg-cyan-100' : ''}`}>
+                            {pathProgress.A1 && <span className={`text-xs font-bold ${wo.department === 'A1' ? 'text-green-600' : 'text-cyan-600'}`}>X</span>}
+                          </td>
+                          <td className={`px-1 py-3 text-center ${pathProgress.A2 ? 'bg-teal-100' : ''}`}>
+                            {pathProgress.A2 && <span className={`text-xs font-bold ${wo.department === 'A2' ? 'text-green-600' : 'text-teal-600'}`}>X</span>}
+                          </td>
+                          <td className={`px-1 py-3 text-center ${pathProgress.Oven ? 'bg-orange-100' : ''}`}>
+                            {pathProgress.Oven && <span className={`text-xs font-bold ${wo.department === 'OVEN' ? 'text-green-600' : 'text-orange-600'}`}>X</span>}
+                          </td>
+                          <td className={`px-1 py-3 text-center ${pathProgress.QC ? 'bg-blue-100' : ''}`}>
+                            {pathProgress.QC && <span className={`text-xs font-bold ${wo.department === 'QC' ? 'text-green-600' : 'text-blue-600'}`}>X</span>}
+                          </td>
+                          <td className={`px-1 py-3 text-center ${pathProgress.FG ? 'bg-purple-100' : ''}`}>
+                            {pathProgress.FG && <span className={`text-xs font-bold ${wo.department === 'FG' ? 'text-green-600' : 'text-purple-600'}`}>X</span>}
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <Badge variant={
+                              wo.status === 'completed' ? 'success' :
+                              wo.status === 'in_progress' ? 'info' :
+                              'warning'
+                            }>
+                              {wo.status === 'pending' ? '⚪ Pending' :
+                               wo.status === 'in_progress' ? '🟡 Progress' :
+                               wo.status === 'completed' ? '🟢 Done' : wo.status}
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button className="p-1 hover:bg-gray-100 rounded" title="Issue Materials" onClick={() => handleIssue(wo)}>
+                                <Package className="w-4 h-4 text-blue-500" />
+                              </button>
+                              <button className="p-1 hover:bg-gray-100 rounded" title="View BOM">
+                                <FileText className="w-4 h-4 text-green-500" />
+                              </button>
+                              <button className="p-1 hover:bg-gray-100 rounded" title="Print">
+                                <Printer className="w-4 h-4 text-gray-500" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Expanded WO Details - BOM and Production Log */}
+                        {isExpanded && (
+                          <tr>
+                            <td colSpan="18" className="p-0">
+                              <div className="bg-orange-50 border-t border-l-4 border-l-orange-500 p-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                  {/* Left: BOM */}
+                                  <div>
+                                    <h4 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                      <FileText className="w-4 h-4" /> BOM (Bill of Materials)
+                                    </h4>
+                                    <table className="w-full text-sm bg-white rounded-lg overflow-hidden">
+                                      <thead className="bg-gray-100">
+                                        <tr>
+                                          <th className="px-2 py-2 text-left text-xs">Material</th>
+                                          <th className="px-2 py-2 text-center text-xs">Store</th>
+                                          <th className="px-2 py-2 text-right text-xs">Req</th>
+                                          <th className="px-2 py-2 text-right text-xs">Issued</th>
+                                          <th className="px-2 py-2 text-center text-xs">Status</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y">
+                                        <tr>
+                                          <td className="px-2 py-2 text-xs">{wo.materialType || 'MLH'} Timber</td>
+                                          <td className="px-2 py-2 text-center"><span className="bg-amber-100 text-amber-700 px-1 py-0.5 rounded text-xs">RM</span></td>
+                                          <td className="px-2 py-2 text-right text-xs">{(wo.quantity * 4).toLocaleString()}</td>
+                                          <td className="px-2 py-2 text-right text-xs">{wo.status !== 'pending' ? (wo.quantity * 4).toLocaleString() : 0}</td>
+                                          <td className="px-2 py-2 text-center">{wo.status !== 'pending' ? <span className="text-green-600 text-xs">✓</span> : <span className="text-gray-400 text-xs">-</span>}</td>
+                                        </tr>
+                                        <tr>
+                                          <td className="px-2 py-2 text-xs">Nails 3"</td>
+                                          <td className="px-2 py-2 text-center"><span className="bg-orange-100 text-orange-700 px-1 py-0.5 rounded text-xs">CON</span></td>
+                                          <td className="px-2 py-2 text-right text-xs">{(wo.quantity * 20).toLocaleString()}</td>
+                                          <td className="px-2 py-2 text-right text-xs">{wo.status !== 'pending' ? (wo.quantity * 20).toLocaleString() : 0}</td>
+                                          <td className="px-2 py-2 text-center">{wo.status !== 'pending' ? <span className="text-green-600 text-xs">✓</span> : <span className="text-gray-400 text-xs">-</span>}</td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  </div>
+
+                                  {/* Right: Production Log */}
+                                  <div>
+                                    <h4 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                      <Clock className="w-4 h-4" /> Production Log
+                                    </h4>
+                                    <div className="bg-white rounded-lg p-3 space-y-2 text-sm">
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-500">Created:</span>
+                                        <span>{formatDate(wo.createdAt)} by {wo.createdBy || 'System'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-500">Current Dept:</span>
+                                        <Badge variant="info">{wo.department}</Badge>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-500">Progress:</span>
+                                        <span className="font-bold">{progress}%</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-500">Material Cost:</span>
+                                        <span>{formatCurrency(wo.costs?.material || 0)}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-500">Labor Cost:</span>
+                                        <span>{formatCurrency(wo.costs?.labor || 0)}</span>
+                                      </div>
+                                      <div className="flex justify-between font-bold border-t pt-2">
+                                        <span>Total Cost:</span>
+                                        <span className="text-orange-600">{formatCurrency(wo.costs?.total || 0)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Production Path Visualization */}
+                                <div className="mt-4 bg-white p-3 rounded-lg">
+                                  <h4 className="font-bold text-gray-700 mb-2">Production Path: {plnScenario}</h4>
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    {PRODUCTION_SCENARIOS.find(s => s.code === plnScenario)?.path.map((dept, idx, arr) => (
+                                      <React.Fragment key={idx}>
+                                        <div className={`px-3 py-1.5 rounded text-xs font-medium ${
+                                          wo.department === dept ? 'bg-orange-500 text-white animate-pulse' :
+                                          pathProgress[dept] ? 'bg-green-100 text-green-700' :
+                                          'bg-gray-200 text-gray-500'
+                                        }`}>
+                                          {wo.department === dept ? '🟡' : pathProgress[dept] ? '✅' : '⚪'} {dept}
+                                        </div>
+                                        {idx < arr.length - 1 && <ArrowRight className="w-4 h-4 text-gray-400" />}
+                                      </React.Fragment>
+                                    )) || <span className="text-gray-500">No scenario selected</span>}
+                                  </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="mt-3 flex gap-2">
+                                  <Button size="sm" variant="outline">
+                                    <Package className="w-4 h-4 mr-1" /> Issue Materials
+                                  </Button>
+                                  <Button size="sm" variant="outline">
+                                    <ArrowRight className="w-4 h-4 mr-1" /> Move to Next Dept
+                                  </Button>
+                                  <Button size="sm" variant="outline">
+                                    <CheckCircle className="w-4 h-4 mr-1" /> Complete WO
+                                  </Button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* Floor View */}
